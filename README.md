@@ -4,7 +4,7 @@
   
   [![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org/)
   [![NestJS](https://img.shields.io/badge/NestJS-10-E0234E?logo=nestjs)](https://nestjs.com/)
-  [![FastAPI](https://img.shields.io/badge/FastAPI-0.104-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
   [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Prisma-336791?logo=postgresql)](https://www.postgresql.org/)
   [![XGBoost](https://img.shields.io/badge/ML-XGBoost-orange)](https://xgboost.readthedocs.io/)
 </div>
@@ -13,148 +13,209 @@
 
 ## 📖 Project Overview
 
-**PairPath** is an advanced collaborative learning environment designed specifically to teach programming to novices through **structured pair programming**. 
+**PairPath** is a collaborative learning environment designed to teach programming to novices through **structured pair programming**. It is the individual research component of the **Code Guru** capstone platform (SLIIT group **R26-SE-036**).
 
-Traditional pair programming often fails when two novices are paired together because they lack the expertise to guide each other out of a struggle (the "blind leading the blind" problem). PairPath solves this by introducing a **Machine Learning-driven Adaptive Intervention System**. 
+Traditional pair programming often fails when two novices are paired together because neither has the expertise to guide the other out of a struggle (the "blind leading the blind" problem). PairPath addresses this with a **Machine Learning-driven Adaptive Intervention System**.
 
-The platform monitors student behavior in real-time (typing cadence, error rates, communication metrics) and uses an **XGBoost model** to classify their collaborative state (e.g., `PRODUCTIVE`, `LOGIC_STRUGGLE`, `PASSIVE_NAVIGATOR`). If a negative state is detected, the platform triggers a **Retrieval-Augmented Generation (RAG) engine** to step in as a "Virtual Tutor," delivering highly contextual hints, nudges, and concept reminders without giving away the final answer.
+The platform logs student behaviour in real time (edits by role, run success/failure streaks, discussion activity, idle time, role rotation) and uses an **XGBoost classifier** to label the pair's collaborative state. Non-productive states trigger a targeted UI nudge; a `LOGIC_STRUGGLE` additionally triggers a **retrieval-based hint engine** acting as a "Virtual Tutor," delivering scaffolded concept reminders **without ever revealing the solution**.
 
 ### 🎯 Target Audience & Goals
-- **Target Audience:** University students or coding boot-camp attendees learning Java (or other introductory languages).
-- **Goal:** To enforce healthy collaborative habits (Driver/Navigator roles) and reduce the frustration of getting stuck, leading to higher completion rates and better conceptual understanding.
+- **Target Audience:** First-year university students learning Java.
+- **Goal:** Reinforce healthy collaborative habits (Driver/Navigator rotation, active navigation) and reduce time lost to being stuck.
+
+---
+
+## ⚠️ Current Project Status — Read This First
+
+This repository is **mid-remediation** following a technical audit. Being explicit about what is and isn't validated is a deliberate part of the research contribution.
+
+| Area | Status |
+|---|---|
+| Platform (editor, sessions, roles, chat, execution, review) | ✅ Working end-to-end |
+| Security: socket auth, sandboxed execution | ✅ Implemented |
+| ML pipeline: extraction → split → train → serve | ✅ Working, leakage-free |
+| **Trained model in `models/`** | ⚠️ **Synthetic demo model only** |
+| Human-annotated dataset | ❌ Not yet collected |
+| Reported accuracy figures | ❌ **None valid yet** |
+
+**The deployed model is a pipeline demonstration, not a validated classifier.** It is trained on generated sessions from `dev_tools/generate_demo_sessions.py`, and is stamped `demo_synthetic_*` in its model card and in every API response. Its scores (test macro-F1 ≈ 0.84) measure how learnable the generator's patterns are — **they are not model performance and must not be reported as such.**
+
+The previous model and its training data were retired to `/archive` because they failed audit: labels were the model's own prior predictions (circular training), rows were duplicated across the train/test split, and the model expected 33 features while production only ever supplied 8. See [`archive/README.md`](archive/README.md) for the full evidence trail.
+
+**A valid model requires real sessions, hand-labelled by a human.** The tooling for that is built and tested — see [Building a Real Dataset](#-building-a-real-dataset).
 
 ---
 
 ## ✨ Key Features
 
-- **💻 Real-Time Collaborative Workspace:** A synchronized Monaco code editor, live terminal output, and integrated WebSockets for seamless remote pairing.
-- **🧠 ML Behavior Analysis:** Continuously evaluates 8 distinct behavioral features over 3-minute sliding windows to predict the pair's state with high accuracy.
-- **🤖 RAG-Powered Virtual Tutor:** Dynamically fetches relevant programming concepts based on the pair's current code and compiler errors to provide actionable hints.
-  - **RAG-lite Pipeline:**
-    1. Load local Java and collaboration knowledge files.
-    2. Retrieve top relevant chunks using keyword scoring (concept tags, error context, code keywords).
-    3. Generate structured, scaffolded help without giving away final solutions.
-    4. Return a highly contextual `conceptReminder`, `exampleIdea`, and `reflectiveQuestion`.
-- **📊 Analytics & Dashboards:** Extensive data logging allows instructors to review session timelines, interventions triggered, and student performance metrics.
-- **🔄 Role Enforcement:** Built-in UI mechanics that encourage students to switch between the "Driver" and "Navigator" roles to maintain engagement.
+- **💻 Real-Time Collaborative Workspace:** Synchronized Monaco editor, live terminal output, and Socket.IO for remote pairing. The navigator's editor is read-only, structurally enforcing the Driver/Navigator split.
+- **🧠 ML Behaviour Analysis:** 14 behavioural features computed over a configurable sliding window (default 180 s) to classify the pair's state.
+- **🎯 Confidence-Gated Interventions:** Predictions below the confidence threshold stay silent — a mistimed interrupt has real pedagogical cost. Delivered nudges carry only *where* to draw attention and *what* effect to use, never solution content.
+- **✨ Positive Reinforcement:** A `PRODUCTIVE` pair receives a brief self-dismissing encouragement toast rather than silence.
+- **⏳ Intervention Cooldown:** Redis-backed per-session, per-type cooldown prevents nagging and intervention fatigue.
+- **🤖 RAG-lite Virtual Tutor:** Keyword/tag scoring over a curated Java + collaboration corpus, returning a structured `conceptReminder`, `exampleIdea`, and `reflectiveQuestion`.
+- **📊 Analytics & Dashboards:** Session timelines, intervention history, and performance metrics for instructor review.
+
+### The five collaboration states
+
+| State | Intervention | UI delivery |
+|---|---|---|
+| `PRODUCTIVE` | `POSITIVE_REINFORCEMENT` | encouragement toast (auto-dismiss) |
+| `DRIVER_DOMINANCE` | `ROLE_SWITCH_SUPPORT` | role-switch button glows |
+| `PASSIVE_NAVIGATOR` | `NAVIGATOR_PARTICIPATION_SUPPORT` | chat input pulses |
+| `LOGIC_STRUGGLE` | `LOGIC_SUPPORT` + RAG hint | hint panel highlights |
+| `DISENGAGED` | `RE_ENGAGEMENT_SUPPORT` | discussion panel glows |
+
+Defined in `ml-service/app/label_mapping.py`, the **single source of truth** for states and interventions. A sixth class, `LOW_QUALITY_REVIEW`, is deferred as documented future work; unknown states resolve to silence, never to praise.
 
 ---
 
 ## 🏗️ High-Level Architecture
 
-The platform operates on a modern microservices architecture to ensure scalability and separation of concerns:
+1. **Frontend (`/frontend`)** — **Next.js 14 (React)** with TailwindCSS, Socket.IO client, and Axios.
+2. **API Backend (`/api`)** — **NestJS** handling business logic, JWT auth, sandboxed code execution, the Socket.IO gateway, and PostgreSQL via **Prisma**. Also writes an analytics trail to MongoDB and uses Redis for cooldowns.
+3. **ML Service (`/ml-service`)** — **FastAPI (Python)** hosting the XGBoost classifier, the canonical feature extractor, and the RAG-lite retriever.
 
-1. **Frontend (`/frontend`)**: A **Next.js (React)** application utilizing TailwindCSS for the user interface, Liveblocks/Socket.io for state sync, and Axios for API communication.
-2. **API Backend (`/api`)**: A **NestJS (Node.js)** server handling core business logic, user authentication (JWT), code execution routing, and PostgreSQL database management via **Prisma ORM**.
-3. **ML Service (`/ml-service`)**: A **FastAPI (Python)** service that hosts the pre-trained XGBoost classification model and the LangChain/LlamaIndex RAG retrieval engine.
+### Request lifecycle
+
+```
+Frontend (Socket.IO)          NestJS Gateway                      ml-service (FastAPI :8000)
+────────────────────          ──────────────                      ──────────────────────────
+code_change / run_code   ──>  logEvent() ─> Postgres SessionEvent
+discussion_note / role_switch        │
+                              triggers: every 30 events │ 60s sweep │ failed run
+                                     │
+                                     ├── POST /predict-pair-state ──> extract 14 features
+                                     │        (raw events + roles)     XGBoost (5-class)
+                                     │<── {state, confidence, features} ──
+                              log to MongoDB (analytics only, never labels)
+                                     │
+                                     ├── POST /recommend-intervention ─> confidence gate
+                                     │<── {action, delivery} ──
+                              Redis cooldown check ─> Prisma Intervention
+   <── emit 'intervention' ───       │
+                                     │  if LOGIC_STRUGGLE:
+                                     ├── POST /retrieve-hint ────────> RAG-lite retrieval
+   <── emit 'rag_hint' ──────        │<── {conceptReminder, ...} ──
+   ── 'intervention_response' ─>  Prisma: Intervention.accepted
+```
+
+> **Feature extraction happens in exactly one place** (`ml-service/app/features/extractor.py`). The gateway sends *raw events*; the same extractor builds training data offline. This eliminates the train/serve mismatch the audit found, where two hand-written extractors (Python and TypeScript) had drifted apart.
 
 ---
 
-## 📂 Complete Folder Structure
+## 📂 Folder Structure
 
 ```text
 PairPath/
-├── .gitignore                   # Global ignore file for OS/IDE artifacts
-├── README.md                    # This complete project documentation file
+├── README.md                    # This file
 │
-├── api/                         # 🟢 NestJS Backend Server (Port 3001)
-│   ├── .env                     # Database connection string and secrets
-│   ├── .gitignore               # Ignores dist/ and node_modules/
-│   ├── package.json             # Node.js dependencies
-│   ├── prisma.config.ts         # Prisma ORM setup
-│   │
-│   ├── prisma/                  # Database Schema and Seeding
-│   │   ├── schema.prisma        # PostgreSQL Database Schema definition
-│   │   ├── seed-50-sessions.js  # Script to populate DB with 50 mock sessions for analytics
-│   │   └── seeds.ts             # Base database seeder for topics, users, etc.
-│   │
-│   └── src/                     # NestJS Source Code
-│       ├── app.module.ts        # Root module importing all service modules
-│       ├── main.ts              # Entry point for the backend server
-│       ├── common/              # Shared utilities and Prisma Service
-│       └── modules/             # Business Logic Modules
-│           ├── auth/            # JWT Authentication
-│           ├── code-runner/     # Code execution integration
-│           ├── interventions/   # Intervention tracking and logic
-│           ├── ml/              # Bridge to Python ML Service
-│           ├── questions/       # Programming question management
-│           ├── sessions/        # Pair programming session management (includes Analytics)
-│           ├── topics/          # Subject/Topic management
-│           └── websocket/       # Socket.io gateway for real-time collaboration
+├── archive/                     # 🗄️ Retired invalid data & model (audit evidence)
+│   ├── README.md                # Why each artefact was excluded
+│   ├── invalid_data/            # Fabricated labels, mock sessions, circular-labelled export
+│   ├── invalid_model/           # Model trained on the circular labels
+│   └── dev_tools/               # Scripts belonging to the retired pipeline
 │
-├── frontend/                    # 🔵 Next.js React Client (Port 3000)
-│   ├── .gitignore               # Ignores .next/ and node_modules/
-│   ├── package.json             # React/Next.js dependencies
-│   ├── tailwind.config.js       # Tailwind CSS styling tokens
-│   │
-│   └── src/                     # React Source Code
-│       ├── components/          # Reusable UI components
-│       ├── hooks/               # Custom React hooks (e.g., useAuth)
-│       ├── lib/                 # Utility functions and Axios API client
-│       └── app/                 # Next.js App Router Pages
-│           ├── globals.css      # Global Tailwind styles
-│           ├── layout.tsx       # Root layout component
-│           ├── dashboard/       # Main user dashboard
-│           ├── ml-analytics/    # Dashboard to visualize historical session timelines
-│           ├── ml-sandbox/      # Developer tool to test ML model sliders in real-time
-│           ├── pair/[id]/       # Live collaborative pair programming environment
-│           └── review/[id]/     # Peer review submission page
+├── api/                         # 🟢 NestJS Backend (Port 3001)
+│   ├── .env                     # DATABASE_URL, JWT_SECRET, MONGODB_URI
+│   ├── prisma/
+│   │   ├── schema.prisma        # User, PairSession, SessionEvent, Intervention, RAGChunk, …
+│   │   └── seeds.ts             # Topics, questions, users
+│   └── src/
+│       ├── main.ts              # Entry point (CORS, global validation)
+│       ├── common/              # Prisma, MongoDB, Redis services
+│       └── modules/
+│           ├── auth/            # JWT authentication
+│           ├── code-runner/     # Sandboxed Java execution
+│           ├── interventions/   # Intervention tracking
+│           ├── ml/              # HTTP bridge to the ML service
+│           ├── questions/  topics/  users/
+│           ├── reviews/         # Post-session peer review + results
+│           ├── sessions/        # Session lifecycle and analytics
+│           └── websocket/       # Socket.IO gateway (auth, events, ML trigger)
 │
-└── ml-service/                  # 🟣 Python FastAPI & ML Engine (Port 8000)
-    ├── .gitignore               # Ignores pycache and venv
-    ├── requirements.txt         # Python pip dependencies
+├── frontend/                    # 🔵 Next.js Client (Port 3000)
+│   └── src/
+│       ├── components/  hooks/  lib/  types/
+│       └── app/
+│           ├── login/  register/  dashboard/
+│           ├── pair/[id]/            # Live collaborative workspace
+│           ├── review/[id]/          # Peer review questions
+│           ├── results/[id]/         # Scores (live-updates when partner submits)
+│           ├── session-history/[id]/ # Past session timeline
+│           ├── ml-analytics/         # Historical prediction timelines
+│           └── ml-sandbox/           # Feature-slider dev console (⚠️ needs updating)
+│
+└── ml-service/                  # 🟣 FastAPI & ML Engine (Port 8000)
+    ├── Dockerfile               # Containerised deployment
+    ├── requirements.txt         # Pinned dependencies
+    ├── README.md                # ML-specific documentation
     │
-    ├── app/                     # FastAPI Server Code
-    │   ├── main.py              # FastAPI entry point and routes
-    │   └── models/              # Inference Logic
-    │       ├── intervention_engine.py # Maps states to specific UI actions
-    │       ├── predictor.py           # XGBoost feature parsing and prediction
-    │       └── rag_retriever.py       # RAG logic for retrieving hints
+    ├── app/
+    │   ├── main.py              # FastAPI routes
+    │   ├── label_mapping.py     # ⭐ Single source of truth: states + interventions
+    │   ├── features/
+    │   │   └── extractor.py     # ⭐ Canonical feature extraction (train + serve)
+    │   ├── models/
+    │   │   ├── predictor.py     # XGBoost inference + rule-based fallback
+    │   │   └── intervention_engine.py
+    │   ├── rag/                 # RAG-lite: loader, retriever, hint generator
+    │   ├── schemas/             # Pydantic request/response contracts
+    │   └── data/rag_knowledge/  # Curated Java + collaboration corpus (9 files)
     │
-    ├── data/                    # Datasets and Features
-    │   ├── raw_sessions/        # Raw mock session JSON data
-    │   └── splits/              # Train, Validation, and Test CSV splits
+    ├── data/
+    │   ├── demo/                # Synthetic demo dataset (clearly flagged)
+    │   ├── raw_sessions/        # ← real exported events go here
+    │   ├── extracted/           # ← generated feature windows
+    │   └── labels/              # ← human annotations
     │
-    ├── dev_tools/               # Model Training and Dataset Scripts
-    │   ├── build_dataset.py     # Feature extraction from raw sessions
-    │   ├── generate_mock_sessions.py # Synthesizes mock behavioral data
-    │   └── train_xgboost.py     # Specific XGBoost training pipeline
+    ├── dev_tools/
+    │   ├── generate_demo_sessions.py  # Synthetic sessions (demo only)
+    │   ├── build_windows.py           # Raw events → feature windows
+    │   ├── label_windows.py           # Annotation CLI + Cohen's kappa
+    │   ├── train_xgboost.py           # Training with audit guards
+    │   ├── export_mongo_to_csv.py     # Unlabelled production feature export
+    │   └── test_model.py  test_rag.py
     │
-    └── models/                  # Serialized Trained Models (Joblib)
-        ├── pair_state_feature_columns.joblib
-        └── pair_state_xgboost.joblib
+    └── models/                  # Serialized model + model_card.json
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-To run PairPath locally, you must run all three microservices concurrently.
+Run all three services concurrently.
 
 ### Prerequisites
-- Node.js (v18+)
-- Python (3.10+)
-- PostgreSQL Database (Local or Cloud)
+| Requirement | Notes |
+|---|---|
+| Node.js 18+ | API and frontend |
+| Python 3.10+ | ML service |
+| PostgreSQL | Primary datastore (`DATABASE_URL`) |
+| **Docker** | **Required** for sandboxed code execution |
+| MongoDB *(optional)* | Analytics trail; degrades gracefully if absent |
+| Redis *(optional)* | Cooldowns; falls back to in-memory |
 
-### 1. Start the API Backend (NestJS)
+### 1. API Backend (NestJS)
 ```bash
 cd api
 npm install
-# Set up your .env file with DATABASE_URL
+# Configure .env: DATABASE_URL, JWT_SECRET, MONGODB_URI
 npx prisma generate
 npm run start:dev
 ```
 *Runs on `http://localhost:3001`*
 
-### 2. Start the ML Service (FastAPI)
+### 2. ML Service (FastAPI)
 ```bash
 cd ml-service
 pip install -r requirements.txt
-python -m app.main
+uvicorn app.main:app --port 8000
+# or: docker build -t pairpath-ml . && docker run -p 8000:8000 pairpath-ml
 ```
 *Runs on `http://localhost:8000`*
 
-### 3. Start the Frontend (Next.js)
+### 3. Frontend (Next.js)
 ```bash
 cd frontend
 npm install
@@ -162,12 +223,100 @@ npm run dev
 ```
 *Runs on `http://localhost:3000`*
 
+### Environment variables
+| Variable | Default | Purpose |
+|---|---|---|
+| `ML_SERVICE_URL` | `http://localhost:8000` | API → ML service |
+| `ML_WINDOW_SECONDS` | `180` | Feature window length |
+| `ML_CONFIDENCE_THRESHOLD` | `0.6` | Intervention gate (provisional) |
+| `CODE_RUNNER_IMAGE` | `eclipse-temurin:17-jdk-alpine` | Execution sandbox image |
+| `CODE_RUNNER_ALLOW_UNSANDBOXED` | *unset* | ⚠️ Dev-only escape hatch — **never** with real participants |
+| `JAVA_HOME` | *unset* | Pins compiler + runtime to one JDK when unsandboxed |
+
+---
+
+## 🔒 Security & Ethics
+
+Two fixes were required before any human-participant data collection:
+
+- **Socket authentication** — the Socket.IO handshake verifies the JWT and rejects unauthenticated sockets. User identity is taken from the verified token, never from the message body, and every handler validates room membership against the database. Analytics endpoints are guarded.
+- **Sandboxed execution** — submitted Java compiles and runs inside a container with **no network**, capped memory/CPU/process count, `no-new-privileges`, and a read-only workspace at run time. Without Docker, execution is **disabled** unless `CODE_RUNNER_ALLOW_UNSANDBOXED=true` is set explicitly for local development.
+
+Additional commitments for the classroom study: no grading use of collaboration state, pseudonymised analysis, opt-in data reuse, and ethical clearance before recruitment.
+
+---
+
+## 📊 Building a Real Dataset
+
+The pipeline is built and tested; it needs real sessions.
+
+```bash
+# 1. Export real SessionEvent rows from Postgres, e.g. via psql:
+#    \copy (SELECT json_agg(t) FROM (
+#        SELECT "sessionId","userId","eventType","metadata","timestamp"
+#        FROM "SessionEvent" ORDER BY "timestamp") t) TO 'events.json'
+#    → save to ml-service/data/raw_sessions/
+
+cd ml-service
+
+# 2. Slice into feature windows using the canonical extractor
+python dev_tools/build_windows.py \
+    --events data/raw_sessions/events.json \
+    --out data/extracted/windows.csv
+
+# 3. Annotate by hand (shows each window's event timeline; resume-safe)
+python dev_tools/label_windows.py \
+    --windows data/extracted/windows.csv \
+    --events data/raw_sessions/events.json --rater YOUR_NAME
+
+# 3b. Second rater on an overlapping subset, then measure agreement
+python dev_tools/label_windows.py --kappa rater_a.csv rater_b.csv
+
+# 4. Merge features + labels on (session_id, window_start)
+
+# 5. Train
+python dev_tools/train_xgboost.py --data data/training/labeled_windows.csv
+```
+
+### Guards the trainer enforces
+
+The trainer **refuses to run** rather than silently repeat the audit's mistakes:
+
+| Guard | Behaviour |
+|---|---|
+| **Human labels only** | Aborts unless every row has `label_source == "human"`. Model predictions and generator targets are not ground truth. |
+| **Session-level split** | `GroupShuffleSplit` + grouped k-fold; no window from a held-out session reaches training. |
+| **Deduplication** | Within-session duplicates dropped; cross-session identical vectors kept as independent observations. |
+| **Class imbalance** | Balanced sample weights — never row replication. |
+| **Taxonomy** | Only the five study states are accepted. |
+| **Provenance** | Every run writes `model_card.json` (version, dataset hash, split, held-out sessions, metrics). `modelVersion` in API responses reads from it — never a hardcoded string. |
+
+Synthetic data can only be trained on via an explicit `--demo-synthetic` flag, which stamps the model `demo_synthetic_*` everywhere. Mixing human and synthetic rows is rejected outright.
+
+> **Note on Cohen's kappa:** inter-rater agreement is the honest ceiling on any accuracy you can later claim. If two trained humans agree only 75 % of the time, no model can meaningfully exceed that. Measure it before chasing a target number.
+
 ---
 
 ## 🧪 Demonstration Dashboards
-For evaluators and developers, two built-in demonstration tools are available via the main homepage (`http://localhost:3000`):
-- **ML Sandbox (`/ml-sandbox`)**: A developer console to manually adjust the 8 behavioral sliders (like Edit Balance and Error Recovery Time) and ping the Python ML service to see real-time state predictions and intervention UI popups.
-- **ML Analytics (`/ml-analytics`)**: A historical view that renders chronological timelines of past sessions, demonstrating how 1-minute `PairStatePrediction` blocks are interleaved with raw collaborative events (code edits, chat, and test runs).
+
+Available from the homepage (`http://localhost:3000`):
+
+- **ML Analytics (`/ml-analytics`)** — chronological timelines of past sessions, showing predictions interleaved with raw collaborative events.
+- **Session History (`/session-history/[id]`)** — per-session event and intervention replay.
+- **ML Sandbox (`/ml-sandbox`)** — ⚠️ **currently out of date.** Its sliders still send the retired 8-feature `_3m` schema, which the 14-feature model ignores, so every slider position returns the same prediction. Needs updating to the current feature names before use.
+
+---
+
+## 🗺️ Roadmap
+
+Remaining work, in dependency order:
+
+1. **Collect real sessions** — recruit participants; run through the live platform.
+2. **Annotate** — apply the labelling rubric; second rater + Cohen's kappa.
+3. **Window ablation** — settle the observation window empirically instead of assuming 180 s.
+4. **Honest evaluation** — held-out real sessions, compared against the rule-based baseline; report the confusion matrix and per-class metrics, plus confidence calibration.
+5. **Classroom study** — experimental vs. control (identical system with the inference path disabled).
+6. **RAG upgrade** *(optional)* — evaluate embedding-based retrieval as a **scored comparison** against the RAG-lite baseline, not a silent swap.
 
 ---
 
