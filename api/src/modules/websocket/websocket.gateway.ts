@@ -128,6 +128,36 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     this.server.to(sessionId).emit('room_state', { members: memberIds });
   }
 
+  /**
+   * Join a session room to receive post-session updates (e.g. the partner
+   * submitting their review) without being an active participant. Deliberately
+   * logs no SessionEvent — the session is over and these joins must not
+   * pollute the behavioural record used for feature extraction.
+   */
+  @SubscribeMessage('watch_session')
+  async handleWatchSession(
+    @MessageBody() data: { sessionId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { sessionId } = data;
+    const userId = client.data.userId;
+
+    const membership = await this.prisma.pairSessionMember.findFirst({
+      where: { sessionId, userId },
+    });
+    if (!membership) {
+      client.emit('auth_error', { message: 'Not a member of this session' });
+      return;
+    }
+
+    client.join(sessionId);
+  }
+
+  /** Notify a session room that someone submitted their review. */
+  notifyReviewSubmitted(sessionId: string, payload: { userId: string }) {
+    this.server?.to(sessionId).emit('review_submitted', payload);
+  }
+
   @SubscribeMessage('code_change')
   async handleCodeChange(
     @MessageBody() data: { sessionId: string; code: string; userId: string },

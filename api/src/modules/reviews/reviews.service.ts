@@ -1,10 +1,14 @@
 import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { SubmitReviewDto } from './dto/submit-review.dto';
+import { WebsocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class ReviewsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly websocketGateway: WebsocketGateway,
+  ) {}
 
   async getReview(sessionId: string) {
     const session = await this.prisma.pairSession.findUnique({
@@ -69,6 +73,10 @@ export class ReviewsService {
         user: true,
       },
     });
+
+    // Tell the partner's results page to refresh — whoever finished first is
+    // already sitting on a page that only knows about their own submission.
+    this.websocketGateway.notifyReviewSubmitted(sessionId, { userId });
 
     return review;
   }
