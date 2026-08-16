@@ -8,7 +8,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.schemas.predictions import PredictPairStateRequest, PredictPairStateResponse
 from app.schemas.interventions import RecommendInterventionRequest, RecommendInterventionResponse
-from app.schemas.hints import RetrieveHintRequest, RetrieveHintResponse
 from app.models.predictor import PairStatePredictor
 from app.models.intervention_engine import InterventionEngine
 from app.rag import RAGService

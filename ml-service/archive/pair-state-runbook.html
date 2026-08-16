@@ -1,0 +1,843 @@
+<title>Pair State Runbook</title>
+<style>
+  @font-face {
+    /* system stacks only — no CDN fonts under CSP; declared for clarity, not used as a src */
+  }
+
+  :root {
+    --bg: #F2F3EF;
+    --surface: #FBFBF9;
+    --surface-2: #EAEBE5;
+    --border: #D7D9D0;
+    --text: #1B1F1B;
+    --text-muted: #5C6158;
+    --text-faint: #888D83;
+    --accent: #9C6B28;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #EADFC9;
+    --status-done: #3F7A55;
+    --status-done-soft: #DEEBE1;
+    --status-progress: #9C6B28;
+    --status-progress-soft: #EADFC9;
+    --status-pending: #83887E;
+    --status-pending-soft: #E7E8E2;
+    --shadow: 0 1px 2px rgba(27,31,27,0.06), 0 1px 1px rgba(27,31,27,0.04);
+    --font-mono: ui-monospace, "JetBrains Mono", "IBM Plex Mono", "Berkeley Mono", Menlo, Consolas, "Roboto Mono", monospace;
+    --font-serif: "Iowan Old Style", Charter, "Georgia Pro", Georgia, "Noto Serif", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12140F;
+      --surface: #191C15;
+      --surface-2: #21251B;
+      --border: #34382C;
+      --text: #E9EAE2;
+      --text-muted: #A4A99B;
+      --text-faint: #767B6E;
+      --accent: #D6A25E;
+      --accent-ink: #1B1408;
+      --accent-soft: #382C16;
+      --status-done: #7FBB93;
+      --status-done-soft: #1E2E22;
+      --status-progress: #D6A25E;
+      --status-progress-soft: #382C16;
+      --status-pending: #8B9084;
+      --status-pending-soft: #23261C;
+      --shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #12140F;
+    --surface: #191C15;
+    --surface-2: #21251B;
+    --border: #34382C;
+    --text: #E9EAE2;
+    --text-muted: #A4A99B;
+    --text-faint: #767B6E;
+    --accent: #D6A25E;
+    --accent-ink: #1B1408;
+    --accent-soft: #382C16;
+    --status-done: #7FBB93;
+    --status-done-soft: #1E2E22;
+    --status-progress: #D6A25E;
+    --status-progress-soft: #382C16;
+    --status-pending: #8B9084;
+    --status-pending-soft: #23261C;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-serif);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 6rem;
+  }
+
+  a { color: var(--accent); }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 0 0 0.6rem;
+  }
+
+  h1 {
+    font-family: var(--font-mono);
+    font-size: clamp(1.7rem, 4vw, 2.15rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.85rem;
+    text-wrap: balance;
+  }
+
+  .lede {
+    color: var(--text-muted);
+    font-size: 1.02rem;
+    max-width: 62ch;
+    margin: 0 0 2rem;
+  }
+
+  .lede strong { color: var(--text); font-weight: 600; }
+
+  /* ---- progress summary ---- */
+  .progress-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.1rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 2.75rem;
+  }
+
+  .progress-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .progress-label {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .progress-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.92rem;
+    color: var(--text-muted);
+  }
+
+  .progress-count b { color: var(--text); font-weight: 600; }
+
+  .bar-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 999px;
+    width: 0%;
+    transition: width 0.35s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bar-fill { transition: none; }
+  }
+
+  /* ---- phase sections ---- */
+  .phase {
+    border-top: 1px solid var(--border);
+    padding: 2.1rem 0;
+  }
+  .phase:last-of-type { border-bottom: 1px solid var(--border); }
+
+  .phase-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .phase-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+  }
+
+  .phase-num {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .phase-title {
+    font-family: var(--font-mono);
+    font-size: 1.12rem;
+    font-weight: 600;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .status-pill {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.22rem 0.55rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .status-pill[data-status="done"] { background: var(--status-done-soft); color: var(--status-done); }
+  .status-pill[data-status="progress"] { background: var(--status-progress-soft); color: var(--status-progress); }
+  .status-pill[data-status="pending"] { background: var(--status-pending-soft); color: var(--status-pending); }
+
+  .phase-why {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    max-width: 60ch;
+    margin: 0.3rem 0 1.1rem;
+  }
+
+  .checklist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 6px;
+  }
+  .item:hover { background: var(--surface-2); }
+
+  .item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.05rem;
+    height: 1.05rem;
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    cursor: pointer;
+    position: relative;
+  }
+  .item input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .item input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: -1px;
+    width: 5px;
+    height: 9px;
+    border: solid var(--accent-ink);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .item input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .item label {
+    font-size: 0.98rem;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .item input[type="checkbox"]:checked ~ label {
+    color: var(--text-faint);
+    text-decoration: line-through;
+    text-decoration-color: var(--border);
+  }
+
+  .item .sub {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+    text-decoration: none;
+  }
+
+  code, .code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--surface-2);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+
+  /* ---- reference table ---- */
+  .reference {
+    padding-top: 2.5rem;
+  }
+
+  .reference h2 {
+    font-family: var(--font-mono);
+    font-size: 1.12rem;
+    font-weight: 600;
+    margin: 0 0 0.3rem;
+  }
+
+  .reference .phase-why { margin-bottom: 1.4rem; }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    min-width: 560px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.85rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  thead th {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    font-weight: 600;
+    background: var(--surface-2);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td.feat { font-family: var(--font-mono); font-size: 0.82rem; white-space: nowrap; }
+  td.state {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  td.state[data-s="upgrade"] { color: var(--status-progress); }
+  td.state[data-s="new"] { color: var(--text-muted); }
+
+  .deferred {
+    margin-top: 1.1rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+  }
+  .deferred b { color: var(--text); }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-faint);
+  }
+</style>
+
+<div class="page">
+  <p class="eyebrow">PairPath — ml-service</p>
+  <h1>Pair State Runbook</h1>
+  <p class="lede">
+    The complete path from where the collaboration-state classifier stands today to a
+    model you can honestly call validated. <strong>Phase 1 reflects work already done</strong> —
+    the rest is the plan. Check items off as you go; your progress is saved in this browser.
+  </p>
+
+  <div class="progress-card">
+    <div class="progress-row">
+      <span class="progress-label">Overall progress</span>
+      <span class="progress-count" id="overall-count"><b>0</b> / 0 steps</span>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="overall-bar"></div></div>
+  </div>
+
+  <main id="phases">
+
+    <section class="phase" data-phase="p0">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">00</span>
+          <h2 class="phase-title">Fix the definitions</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Ambiguous state definitions cap your accuracy ceiling no matter how good the data or tuning is. Do this before labeling anything.</p>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="p0-1"><label for="p0-1">Write a labeling rubric for all 6 states
+            <span class="sub">Concrete, observable criteria per state — e.g. "DRIVER_DOMINANCE = one user made &gt;85% of edits AND the other sent 0 chat messages in the window."</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p0-2"><label for="p0-2">Decide the fate of <code>LOW_QUALITY_REVIEW</code>
+            <span class="sub">It exists in the archived model's label encoder but has no rubric, no entry in <code>label_mapping.py</code>, and no frontend handling. Either define it properly or drop it.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p0-3"><label for="p0-3">Finalize the feature set
+            <span class="sub">Lock in the ~19-feature "middle ground" (see Reference below) rather than the full 33 or the current thin 8.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="p1">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">01</span>
+          <h2 class="phase-title">Codebase cleanup</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Three of these are already done — dead code and fabricated data no longer sit in the live pipeline.</p>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="p1-1" checked><label for="p1-1">Remove dead code
+            <span class="sub"><code>model_loader.py</code>, <code>rag_retriever.py</code>, <code>schemas/hints.py</code> deleted; broken import in <code>main.py</code> fixed.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p1-2" checked><label for="p1-2">Move invalid data and model to <code>/archive</code>
+            <span class="sub">Fabricated labels, mock sessions, the circular-labeled Mongo export, and the model trained on it — moved to repo-root <code>archive/</code> with a README explaining why.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p1-3" checked><label for="p1-3">Stop the circular-labeling export
+            <span class="sub"><code>export_mongo_to_csv.py</code> no longer writes <code>label = prediction.predictedState</code>; exports unlabeled feature vectors only.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p1-4"><label for="p1-4">Wire up <code>LOW_QUALITY_REVIEW</code> handling
+            <span class="sub">Add it to <code>app/label_mapping.py</code>'s intervention table and the frontend's state-handling — once Phase 0 defines it.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p1-5"><label for="p1-5">Fix the hardcoded <code>modelVersion</code> string
+            <span class="sub"><code>main.py</code> always returns <code>"pair_state_xgboost_v1"</code> regardless of what's actually loaded — make it reflect real model metadata.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="p2">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">02</span>
+          <h2 class="phase-title">Unify feature computation</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Training features and live features currently come from two separate hand-written implementations (Python vs. TypeScript). Any drift between them silently breaks the model regardless of training quality.</p>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="p2-1"><label for="p2-1">Compute features in exactly one place
+            <span class="sub">Best fix: gateway sends raw recent events to ml-service; ml-service computes features once, reused for training and serving.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p2-2"><label for="p2-2">Implement the real ~19-feature set
+            <span class="sub">Per-user edit counts, run/failure tracking, timestamp-based idle detection, role-switch timing, driver/navigator edit split — see Reference table.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p2-3"><label for="p2-3">Retire the two hardcoded constants
+            <span class="sub"><code>error_recovery_time_avg_3m</code> (always 30) and <code>collaboration_score_3m</code> (always 0.5) carry zero signal — replace with real computation.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p2-4"><label for="p2-4">Drop or fix <code>navigator_chat_count_3m</code>
+            <span class="sub">Currently just duplicates the discussion-note count. Give it real meaning or remove it.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="p3">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">03</span>
+          <h2 class="phase-title">Collect real sessions</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">This is the actual bottleneck — no amount of code fixes substitutes for genuine behavioral data.</p>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="p3-1"><label for="p3-1">Recruit real participants
+            <span class="sub">Classmates, friends, anyone willing to run short real pair-programming sessions through the app.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p3-2"><label for="p3-2">Run sessions through the real app
+            <span class="sub">So genuine <code>SessionEvent</code> rows and <code>ml_events</code> log — no manual DB insertion.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p3-3"><label for="p3-3">Design tasks that provoke the rare states
+            <span class="sub">Natural sessions skew productive. Deliberately structure a few tasks/prompts to surface driver-dominance, disengagement, and low-quality-review behavior.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p3-4"><label for="p3-4">Track a running tally per target state
+            <span class="sub">Know which classes are still thin so you can steer the next recruiting round.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="p4">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">04</span>
+          <h2 class="phase-title">Label it, with a second rater</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Agreement between two independent human raters is the honest ceiling on any accuracy number you can later claim.</p>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="p4-1"><label for="p4-1">Build or reuse a labeling script
+            <span class="sub">Step through 1-minute windows of each real session and assign a state using the Phase 0 rubric.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p4-2"><label for="p4-2">Label the full set yourself</label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p4-3"><label for="p4-3">Get a second rater on an overlap subset
+            <span class="sub">Even a partial overlap is enough to compute agreement.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p4-4"><label for="p4-4">Compute Cohen's kappa; revise the rubric if it's low
+            <span class="sub">Kappa below ~0.6 means the state definitions are still too ambiguous — fix that before training, not after.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="p5">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">05</span>
+          <h2 class="phase-title">Assemble the dataset</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Split correctly here or every downstream metric is optimistic and wrong.</p>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="p5-1"><label for="p5-1">Extract features via the one shared pipeline
+            <span class="sub">Same code path as production — from Phase 2, not a separate offline extractor.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p5-2"><label for="p5-2">Assemble a clean, real-only labeled CSV
+            <span class="sub">If any synthetic data is included at all, flag it in its own column/file — never blended silently.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p5-3"><label for="p5-3">Split by <code>session_id</code>, not by row
+            <span class="sub">Stratified train/val/test. Row-level splitting leaks correlated windows across the split.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="p6">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">06</span>
+          <h2 class="phase-title">Train</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why"><code>dev_tools/train_xgboost.py</code> is still valid — only point it at real labeled data now.</p>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="p6-1"><label for="p6-1">Run a baseline with default hyperparameters
+            <span class="sub">Get a first honest number before tuning anything.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p6-2"><label for="p6-2">Tune via grouped k-fold cross-validation
+            <span class="sub">Group by <code>session_id</code>. Optimize for macro-F1, not raw accuracy — a 6-class imbalanced problem can fake high accuracy by defaulting to the majority class.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p6-3"><label for="p6-3">Apply class weighting for imbalance
+            <span class="sub">Use <code>sample_weight</code>, computed from real label counts. No synthetic oversampling.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p6-4"><label for="p6-4">Sanity-check feature importance
+            <span class="sub">Built-in importance or SHAP. If the top features don't match intuition (e.g. idle ratio should matter for DISENGAGED), suspect leakage or noise.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="p7">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">07</span>
+          <h2 class="phase-title">Evaluate honestly</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">This is where you find out whether 90% was ever realistic for this problem — and what the real ceiling is.</p>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="p7-1"><label for="p7-1">Evaluate only on held-out real labeled sessions
+            <span class="sub">Never touched during training or tuning.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p7-2"><label for="p7-2">Report confusion matrix + per-class precision/recall/F1
+            <span class="sub">Not a single accuracy number.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p7-3"><label for="p7-3">Compare against the Phase 4 kappa ceiling
+            <span class="sub">If humans agree 80% of the time, a model near 78% is close to optimal — don't keep pushing past the human ceiling.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p7-4"><label for="p7-4">Check confidence calibration
+            <span class="sub">Calibration curve or Brier score — the intervention system gates on <code>confidence &lt; 0.6</code>, so an over-confident-but-wrong model triggers bad interventions even at decent accuracy.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="p8">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">08</span>
+          <h2 class="phase-title">Deploy</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="p8-1"><label for="p8-1">Drop the validated model into <code>ml-service/models/</code>
+            <span class="sub">Currently empty — service is running on the rule-based fallback.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p8-2"><label for="p8-2">Sanity-test load and predictions
+            <span class="sub">Via <code>dev_tools/test_model.py</code>.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p8-3"><label for="p8-3">Rewrite <code>ml-service/README.md</code> to match reality
+            <span class="sub">Real state count, real feature list, keyword-retrieval RAG (not embeddings) — it currently describes a different system than what runs.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p8-4"><label for="p8-4">Confirm intervention handling covers every class
+            <span class="sub"><code>intervention_engine.py</code> and the frontend, including whatever Phase 0 decided about <code>LOW_QUALITY_REVIEW</code>.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="p9">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">09</span>
+          <h2 class="phase-title">Monitor and keep improving</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="p9-1"><label for="p9-1">Keep logging real production <code>ml_events</code>
+            <span class="sub">The unlabeled export path is already fixed — this data is safe to keep accumulating.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p9-2"><label for="p9-2">Track prediction distribution over time
+            <span class="sub">A sudden skew toward one class in production is a drift signal.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p9-3"><label for="p9-3">Use accept/dismiss as weak supplementary signal
+            <span class="sub"><code>Intervention.accepted</code> is a real, independent (if noisy) human reaction — never a substitute for labeling, but a useful extra signal.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p9-4"><label for="p9-4">Set an active-learning retrain cadence
+            <span class="sub">Periodically pull low-confidence production predictions, hand-label them, fold into training.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="p10">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">10</span>
+          <h2 class="phase-title">Document it for the paper</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="p10-1"><label for="p10-1">Write up the rubric, kappa score, and collection methodology</label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p10-2"><label for="p10-2">State limitations honestly
+            <span class="sub">Sample size, state ambiguity, collection timeframe — a small honest dataset is a normal, defensible capstone result.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="p10-3"><label for="p10-3">Document <code>archive/</code> and why those artifacts were excluded
+            <span class="sub">The audit trail itself is worth a paragraph in the methodology section.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+  </main>
+
+  <section class="reference">
+    <h2>Reference — the finalized ~19-feature set</h2>
+    <p class="phase-why">The middle ground between the current thin 8 (two of which are hardcoded constants) and the full 33 (six of which need instrumentation you don't have yet).</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Feature</th><th>Computed from</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="feat">user1_edit_count_1m / user2_edit_count_1m</td><td>CODE_EDIT events by userId, 1-min window</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">edit_balance_ratio_1m</td><td>Derived from the above</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">avg_edit_balance_3m</td><td>CODE_EDIT by userId, 3-min window</td><td class="state" data-s="upgrade">Upgrade</td></tr>
+          <tr><td class="feat">run_attempts_1m / total_run_attempts_3m</td><td>CODE_RUN events</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">run_success_rate_1m</td><td>CODE_RUN_RESULT.success, 1-min</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">consecutive_failure_count_1m/3m</td><td>CODE_RUN_RESULT.success sequence</td><td class="state" data-s="upgrade">Upgrade</td></tr>
+          <tr><td class="feat">idle_ratio_1m / avg_idle_ratio_3m</td><td>Real timestamp-gap analysis</td><td class="state" data-s="upgrade">Upgrade</td></tr>
+          <tr><td class="feat">discussion_note_count_1m</td><td>DISCUSSION_NOTE events, 1-min</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">time_since_role_switch</td><td>Latest ROLE_SWITCH timestamp</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">role_switch_count_3m</td><td>ROLE_SWITCH events, 3-min</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">driver_edit_count_3m / navigator_edit_count_3m</td><td>CODE_EDIT + PairSessionMember.role</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">active_user_dominance_1m/3m</td><td>Edit + role data, formula to be defined</td><td class="state" data-s="new">New</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="deferred">
+      <b>Deferred — needs new instrumentation, not just more code:</b>
+      <code>backtracking_ratio_1m/3m</code> and <code>progress_trend_1m/3m</code> need real code-diffing
+      (only <code>codeLength</code> is logged today, not the code itself); <code>prompt_count_1m/3m</code>
+      needs a new "hint requested" event type that doesn't exist yet. Build these only if you commit to the underlying product work.
+    </div>
+  </section>
+
+  <footer>Generated from the PairPath ml-service audit · archive/pair-state-runbook.html</footer>
+</div>
+
+<script>
+  (function () {
+    var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.item input[type="checkbox"]'));
+    var STORAGE_PREFIX = 'pairstate-runbook:';
+
+    function loadState() {
+      checkboxes.forEach(function (cb) {
+        var saved = localStorage.getItem(STORAGE_PREFIX + cb.id);
+        if (saved !== null) cb.checked = saved === '1';
+      });
+    }
+
+    function saveState(cb) {
+      localStorage.setItem(STORAGE_PREFIX + cb.id, cb.checked ? '1' : '0');
+    }
+
+    function updatePhaseStatus(section) {
+      var boxes = Array.prototype.slice.call(section.querySelectorAll('.item input[type="checkbox"]'));
+      var checked = boxes.filter(function (b) { return b.checked; }).length;
+      var pill = section.querySelector('.status-pill');
+      if (checked === 0) {
+        pill.dataset.status = 'pending';
+        pill.textContent = 'Not started';
+      } else if (checked === boxes.length) {
+        pill.dataset.status = 'done';
+        pill.textContent = 'Done';
+      } else {
+        pill.dataset.status = 'progress';
+        pill.textContent = checked + ' / ' + boxes.length;
+      }
+    }
+
+    function updateOverall() {
+      var total = checkboxes.length;
+      var checked = checkboxes.filter(function (b) { return b.checked; }).length;
+      document.getElementById('overall-count').innerHTML = '<b>' + checked + '</b> / ' + total + ' steps';
+      var pct = total ? Math.round((checked / total) * 100) : 0;
+      document.getElementById('overall-bar').style.width = pct + '%';
+    }
+
+    function refreshAll() {
+      document.querySelectorAll('.phase').forEach(updatePhaseStatus);
+      updateOverall();
+    }
+
+    loadState();
+    checkboxes.forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        saveState(cb);
+        refreshAll();
+      });
+    });
+    refreshAll();
+  })();
+</script>
