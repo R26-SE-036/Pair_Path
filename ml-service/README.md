@@ -1,191 +1,83 @@
-# PP1: Trained ML Model Component
+# PairPath ML Service
 
-## Overview
+FastAPI microservice that classifies the **collaboration state** of a live
+pair-programming session (not code correctness) and recommends non-invasive
+UI interventions. Part of the PairPath component of Code Guru (R26-SE-036).
 
-This component implements a supervised machine learning model for predicting collaboration states in pair programming sessions. The model focuses on collaboration behavior rather than syntax error detection, using real-time behavioral features to classify pairs into five states.
+## Honest status
 
-## Architecture
+- **There is currently no trained model deployed.** The previous model was
+  retired because its training data failed audit (circular labels, duplicate
+  leakage, train/serve feature mismatch — see `/archive/README.md` at the
+  repo root). Until a model trained on human-annotated real sessions exists,
+  the service answers with a transparent **rule-based fallback**
+  (`modelVersion: "rule_fallback_v1"`), which also serves as the RQ1
+  baseline.
+- **Retrieval is RAG-lite, not embeddings** (L14): keyword/tag scoring over
+  a curated corpus in `app/data/rag_knowledge/`. This is a deliberate
+  architectural guarantee — no corpus document contains the solution to any
+  exercise — not a placeholder for "real" RAG. An embedding-based retriever
+  is Phase 3 future work, to be evaluated as a scored comparison against
+  this baseline (same output contract either way).
+
+## The five states (L7)
+
+`PRODUCTIVE`, `DRIVER_DOMINANCE`, `PASSIVE_NAVIGATOR`, `LOGIC_STRUGGLE`,
+`DISENGAGED` — defined in `app/label_mapping.py`, which is the **single
+source of truth** (L12) for states, descriptions, and intervention
+mappings. `LOW_QUALITY_REVIEW` is deferred as documented future work.
+
+## Endpoints
+
+| Route | Purpose |
+|---|---|
+| `POST /predict-pair-state` | Preferred: send raw `events` + `roles`; features are computed here by the canonical extractor. Legacy: send pre-computed `features`. Returns state, confidence, `modelVersion`, and the exact feature vector used. |
+| `POST /recommend-intervention` | State → intervention action + UI delivery (target/effect/message only — never solution content). Confidence-gated (`ML_CONFIDENCE_THRESHOLD`, default 0.6, provisional pending Phase 2 calibration). |
+| `POST /retrieve-hint` (alias `/rag/hint`) | RAG-lite scaffolded hint: conceptReminder / exampleIdea / reflectiveQuestion. |
+| `GET /health` | Health check. |
+
+## Feature extraction (L5)
+
+`app/features/extractor.py` is the **only** feature implementation — the
+NestJS gateway sends raw session events at inference time, and the offline
+dataset builder imports the same class. 14 window-agnostic features
+(edits by role, run success/failure streaks, error recovery time, idle
+ratio, discussion counts, role-switch timing, activity dominance) over a
+configurable window (`ML_WINDOW_SECONDS`, default 180 — to be settled by
+the window-length ablation, RQ2).
+
+## Training pipeline (dev_tools/)
 
 ```
-pp1-ml-service/
-├── app/
-│   ├── main.py                    # FastAPI application
-│   ├── predictor.py                # XGBoost prediction service
-│   ├── feature_extractor.py         # Feature extraction from events
-│   ├── intervention_engine.py        # Intervention mapping logic
-│   ├── label_mapping.py            # State definitions and mappings
-│   ├── model_loader.py             # Model loading management
-│   └── schemas/                   # Pydantic models
-│       ├── predictions.py
-│       ├── interventions.py
-│       └── hints.py
-├── models/                        # Trained model storage
-│   ├── pair_state_xgboost.joblib
-│   ├── pair_state_label_encoder.joblib
-│   ├── pair_state_feature_columns.joblib
-│   └── pair_state_metrics.csv
-├── dev_tools/                    # Training and evaluation tools
-│   ├── generate_mock_sessions.py    # Mock session generation
-│   ├── train_xgboost.py           # Model training pipeline
-│   ├── evaluate_model.py          # Model evaluation
-│   └── build_dataset.py            # Dataset building
-├── data/                         # Data storage
-│   ├── raw_sessions/              # Session event logs
-│   ├── labels/                     # Manual labels
-│   ├── extracted/                  # Processed features
-│   └── splits/                     # Train/val/test splits
-└── requirements.txt                # Python dependencies
+1. Export real SessionEvent rows from Postgres  →  events.json
+2. python build_windows.py --events events.json --out windows.csv
+3. python label_windows.py --windows windows.csv --events events.json --rater YOU
+     (second rater on an overlap subset, then: label_windows.py --kappa A.csv B.csv)
+4. Merge features + labels on (session_id, window_start)
+5. python train_xgboost.py --data labeled.csv
 ```
 
-## Pair States
+The trainer enforces the audit corrections and refuses to run otherwise:
 
-The model predicts one of five collaboration states:
+- **L1** — labels must carry `label_source == "human"`; model predictions
+  and generator targets are rejected as ground truth.
+- **L2** — session-level `GroupShuffleSplit` + grouped k-fold CV; no window
+  from a held-out session ever reaches training.
+- **L3** — within-session duplicates dropped; imbalance handled with
+  balanced sample weights, never row replication.
+- **L4** — metrics (macro-F1, per-class report, confusion matrix) and a
+  `model_card.json` (version, dataset hash, split, test sessions) are
+  persisted with every trained model. `modelVersion` in API responses comes
+  from the model card, never a hardcoded string.
+- **L7** — five-state taxonomy enforced.
 
-| State | Description |
-|--------|-------------|
-| **PRODUCTIVE** | Both students are actively collaborating well with balanced participation |
-| **DRIVER_DOMINANCE** | One student is doing most of the coding for an extended time |
-| **PASSIVE_NAVIGATOR** | Navigator is not actively contributing or discussing |
-| **LOGIC_STRUGGLE** | Pair is active but stuck due to repeated failures or logic confusion |
-| **DISENGAGED** | Both students show low activity or no meaningful progress |
+## Running
 
-## Feature Extraction
-
-### Core Features (1-minute windows)
-- `user1_edit_count_1m`, `user2_edit_count_1m` - Code edits per user
-- `edit_balance_ratio_1m` - Balance between users (0.0 = balanced, 1.0 = one user dominates)
-- `run_attempts_1m`, `run_success_rate_1m` - Code execution metrics
-- `consecutive_failure_count_1m` - Failed runs in sequence
-- `idle_ratio_1m` - Percentage of inactive time
-- `discussion_note_count_1m` - Communication frequency
-- `prompt_count_1m` - System interventions shown
-- `active_user_dominance_1m` - Which user is most active
-- `backtracking_ratio_1m` - Code deletion frequency
-- `progress_trend_1m` - Forward movement indicator
-
-### Rolling Features (3-minute aggregation)
-- `user1_edit_count_3m`, `user2_edit_count_3m` - Cumulative edits
-- `avg_edit_balance_3m` - Average balance over 3 minutes
-- `total_run_attempts_3m`, `avg_run_success_rate_3m` - Execution metrics
-- `total_consecutive_failure_count_3m` - Cumulative failures
-- `avg_idle_ratio_3m` - Average inactivity
-- `total_discussion_note_count_3m` - Total communication
-- `avg_active_user_dominance_3m` - Activity distribution
-
-## Model Training
-
-### XGBoost Configuration
-- **Algorithm**: XGBoost multi-class classifier
-- **Objective**: `multi:softprob` for probability outputs
-- **Parameters**:
-  - `max_depth=6` - Tree complexity control
-  - `learning_rate=0.1` - Learning step size
-  - `n_estimators=100` - Number of boosting rounds
-  - `subsample=0.8` - Sample fraction for robustness
-  - `colsample_bytree=0.8` - Feature sampling control
-
-### Training Pipeline
-1. **Data Collection**: Real-time session events → 1-minute windows
-2. **Feature Extraction**: Behavioral metrics calculation from event patterns
-3. **Data Splitting**: Session-level split (70:15:15 train/val/test)
-4. **Model Training**: XGBoost on extracted features
-5. **Evaluation**: Accuracy, precision, recall, F1-score, confusion matrix
-6. **Model Persistence**: Serialized `.joblib` files for production use
-
-## Intervention System
-
-The intervention engine maps predicted states to appropriate adaptive support:
-
-| Predicted State | Intervention Action | UI Target | UI Effect | Message |
-|----------------|-------------------|-----------|-----------|---------|
-| PRODUCTIVE | NO_ACTION | none | none | Continue good work |
-| DRIVER_DOMINANCE | ROLE_SWITCH_SUPPORT | role_switch_button | glow | Consider switching roles |
-| PASSIVE_NAVIGATOR | NAVIGATOR_PARTICIPATION | chat_input | pulse | Navigator, explain your thinking |
-| LOGIC_STRUGGLE | LOGIC_SUPPORT | hint_panel | highlight | Break problem into smaller steps |
-| DISENGAGED | RE_ENGAGEMENT_SUPPORT | discussion_panel | glow | Let's summarize and plan next steps |
-
-## RAG Integration
-
-### Knowledge Base
-- **Content**: Java concepts, common mistakes, debugging guidance
-- **Structure**: Chunked documents with concept tags
-- **Retrieval**: Top-3 most relevant chunks based on current context
-- **Output**: Short help cards with concept reminder, example idea, reflective question
-
-### RAG Triggering
-- **Automatic**: Activated when intervention engine selects logic/concept support
-- **Context-Aware**: Uses current question, concept tags, error context
-- **Educational**: Grounded in curriculum-aligned content, not generic AI responses
-
-## Usage
-
-### Real-time Prediction Flow
-1. **Events Collection**: Frontend logs collaboration events
-2. **Feature Window Creation**: 1-minute windows with 3-minute rolling aggregation
-3. **ML Prediction**: XGBoost predicts current collaboration state
-4. **Intervention Selection**: Rule-based mapping to appropriate support
-5. **RAG Activation**: Knowledge-based hints for logic/concept struggles
-6. **UI Delivery**: Adaptive cues (glow, pulse, highlight, hint cards)
-
-### API Endpoints
-
-```python
-# Predict pair state
-POST /predict-pair-state
-{
-  "sessionId": "S001",
-  "features": {...}
-}
-
-# Recommend intervention
-POST /recommend-intervention  
-{
-  "sessionId": "S001", 
-  "predictedState": "DRIVER_DOMINANCE",
-  "confidence": 0.87
-}
-
-# Retrieve contextual hint
-POST /retrieve-hint
-{
-  "sessionId": "S001",
-  "conceptTags": ["arrays", "indexing"],
-  "errorContext": "ArrayIndexOutOfBounds"
-}
+```bash
+pip install -r requirements.txt   # pinned (L15)
+uvicorn app.main:app --port 8000
+# or containerized:
+docker build -t pairpath-ml . && docker run -p 8000:8000 pairpath-ml
 ```
 
-## Dataset Construction
-
-### Training Data Sources
-1. **Pilot Sessions**: 8-15 real pair programming sessions (20-40 minutes each)
-2. **Manual Labels**: Expert-coded one-minute windows with observed collaboration states
-3. **Mock Sessions**: Simulated data for underrepresented states (DISENGAGED, PASSIVE_NAVIGATOR)
-
-### Feature Dataset Structure
-```csv
-session_id,window_start,user1_edit_count_1m,user2_edit_count_1m,edit_balance_ratio_1m,time_since_role_switch,run_attempts_1m,run_success_rate_1m,consecutive_failure_count_1m,idle_ratio_1m,discussion_note_count_1m,prompt_count_1m,active_user_dominance_1m,backtracking_ratio_1m,progress_trend_1m,user1_edit_count_3m,user2_edit_count_3m,avg_edit_balance_3m,total_run_attempts_3m,avg_run_success_rate_3m,total_consecutive_failure_count_3m,avg_idle_ratio_3m,total_discussion_note_count_3m,total_prompt_count_3m,avg_active_user_dominance_3m,avg_backtracking_ratio_3m,avg_progress_trend_3m,label
-```
-
-## Model Performance
-
-### Expected Metrics (Prototype)
-- **Target Accuracy**: 80-85% (feasible for behavioral prediction)
-- **Key Features**: Edit balance ratio, idle ratio, run success rate, discussion count
-- **Validation**: Session-level splitting to prevent data leakage
-
-## Implementation Notes
-
-### Design Principles
-- **Collaboration-Focused**: Features capture how students work together, not just code quality
-- **Real-Time**: 1-minute windows with rolling aggregation for responsiveness
-- **Non-Intrusive**: Interventions provide support without disrupting flow
-- **Educational**: RAG hints scaffold learning rather than giving answers
-- **Scalable**: Modular design with clear separation of concerns
-
-### Deployment Requirements
-- **Python Environment**: Python 3.8+, required packages in `requirements.txt`
-- **Model Files**: Serialized `.joblib` files in `models/` directory
-- **FastAPI**: Production-ready REST API endpoints
-- **Monitoring**: Built-in evaluation and performance tracking
-
-This component provides the foundation for adaptive, collaboration-aware support in the pair programming system, enabling real-time intervention based on observed behavioral patterns rather than just syntax correction.
+Env: `ML_WINDOW_SECONDS` (180), `ML_CONFIDENCE_THRESHOLD` (0.6).

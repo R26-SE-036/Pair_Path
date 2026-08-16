@@ -23,6 +23,7 @@ export default function PairRoomPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [intervention, setIntervention] = useState<InterventionAction | null>(null)
+  const [praise, setPraise] = useState<InterventionAction | null>(null)
   const [ragHint, setRagHint] = useState<RAGHint | null>(null)
   const [output, setOutput] = useState('')
   const [isRunning, setIsRunning] = useState(false)
@@ -33,6 +34,7 @@ export default function PairRoomPage() {
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const praiseTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Load user and session
   useEffect(() => {
@@ -86,6 +88,17 @@ export default function PairRoomPage() {
     })
 
     newSocket.on('intervention', (data: InterventionAction) => {
+      // Encouragement is a self-dismissing toast, not a card the pair has to
+      // act on — it should never interrupt their flow or await a response.
+      if (data.action === 'POSITIVE_REINFORCEMENT') {
+        setPraise(data)
+        if (praiseTimerRef.current) clearTimeout(praiseTimerRef.current)
+        praiseTimerRef.current = setTimeout(
+          () => setPraise(null),
+          data.delivery?.autoDismissMs ?? 4000,
+        )
+        return
+      }
       setIntervention(data)
     })
 
@@ -102,7 +115,10 @@ export default function PairRoomPage() {
     newSocket.on('disconnect', () => setIsConnected(false))
 
     setSocket(newSocket)
-    return () => { newSocket.disconnect() }
+    return () => {
+      newSocket.disconnect()
+      if (praiseTimerRef.current) clearTimeout(praiseTimerRef.current)
+    }
   }, [user, sessionId, router])
 
   // Auto-scroll chat
@@ -191,6 +207,22 @@ export default function PairRoomPage() {
 
   return (
     <div className="h-screen flex flex-col bg-surface-950">
+      {/* Encouragement toast — self-dismissing, no action required */}
+      {praise && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up pointer-events-none"
+        >
+          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-950/90 shadow-lg shadow-emerald-900/30 backdrop-blur-sm">
+            <span className="text-base leading-none" aria-hidden="true">✨</span>
+            <span className="text-sm font-medium text-emerald-200 whitespace-nowrap">
+              {praise.delivery?.message}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Top Navbar */}
       <nav className="bg-surface-900 border-b border-surface-700 flex-shrink-0">
         <div className="px-4 flex justify-between h-12 items-center">

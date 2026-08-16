@@ -11,17 +11,23 @@ export class MlService {
   }
 
   /**
-   * Predict the pair collaboration state from extracted features.
+   * Predict the pair collaboration state from raw session events (L5).
+   * Feature extraction happens in ml-service, using the same canonical
+   * extractor that builds training data — no second implementation here.
    */
   async predictPairState(
     sessionId: string,
-    features: Record<string, number>,
+    events: Array<Record<string, any>>,
+    roles: Record<string, string>,
+    lastRoleSwitchAt?: number,
   ) {
     try {
       const response = await this.httpService
         .post(`${this.mlServiceUrl}/predict-pair-state`, {
           sessionId,
-          features,
+          events,
+          roles,
+          lastRoleSwitchAt: lastRoleSwitchAt ?? null,
         })
         .toPromise();
 

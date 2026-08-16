@@ -10,6 +10,7 @@ from app.schemas.predictions import PredictPairStateRequest, PredictPairStateRes
 from app.schemas.interventions import RecommendInterventionRequest, RecommendInterventionResponse
 from app.models.predictor import PairStatePredictor
 from app.models.intervention_engine import InterventionEngine
+from app.features import WindowFeatureExtractor
 from app.rag import RAGService
 from app.rag.schemas import RAGHintRequest, RAGHintResponse
 
@@ -31,20 +32,36 @@ app.add_middleware(
 # Initialize components
 predictor = PairStatePredictor()
 intervention_engine = InterventionEngine()
+feature_extractor = WindowFeatureExtractor()
 rag_service = RAGService()
 
 @app.post("/predict-pair-state", response_model=PredictPairStateResponse)
 async def predict_pair_state(request: PredictPairStateRequest):
-    """Predict the current collaboration state of a pair programming session."""
+    """Predict the current collaboration state of a pair programming session.
+
+    Preferred: send raw `events` (+ `roles`) — features are computed here by
+    the same canonical extractor used to build training data (L5).
+    Legacy: send pre-computed `features` directly.
+    """
     try:
-        prediction = await predictor.predict(request.features)
+        if request.events is not None:
+            features = feature_extractor.extract(
+                request.events,
+                roles=request.roles,
+                last_role_switch_at=request.lastRoleSwitchAt,
+            )
+        else:
+            features = request.features or {}
+
+        prediction = await predictor.predict(features)
         return PredictPairStateResponse(
             sessionId=request.sessionId,
             predictedState=prediction["state"],
             confidence=prediction["confidence"],
-            modelVersion="pair_state_xgboost_v1",
+            modelVersion=predictor.model_version,
+            features={k: float(v) for k, v in features.items()},
         )
-    except Exception as e:
+    except Exception:
         # Fallback prediction
         return PredictPairStateResponse(
             sessionId=request.sessionId,

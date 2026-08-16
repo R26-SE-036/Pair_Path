@@ -388,9 +388,11 @@
   <p class="eyebrow">PairPath — ml-service</p>
   <h1>Pair State Runbook</h1>
   <p class="lede">
-    The complete path from where the collaboration-state classifier stands today to a
-    model you can honestly call validated. <strong>Phase 1 reflects work already done</strong> —
-    the rest is the plan. Check items off as you go; your progress is saved in this browser.
+    Reordered to match your research proposal's own priority: <strong>ethical blockers first</strong>
+    (L9/L10 gate all participant data collection), then pipeline fixes, then re-annotation,
+    then the classroom study. Phase labels use your proposal's own L-numbers (Table 8) where
+    they apply. <strong>PREP reflects work already done.</strong> Check items off as you go;
+    progress is saved in this browser.
   </p>
 
   <div class="progress-card">
@@ -403,357 +405,302 @@
 
   <main id="phases">
 
-    <section class="phase" data-phase="p0">
+    <section class="phase" data-phase="prep">
       <div class="phase-head">
         <div class="phase-heading">
-          <span class="phase-num">00</span>
-          <h2 class="phase-title">Fix the definitions</h2>
+          <span class="phase-num">PREP</span>
+          <h2 class="phase-title">Cleanup completed</h2>
         </div>
         <span class="status-pill" data-status="pending">Not started</span>
       </div>
-      <p class="phase-why">Ambiguous state definitions cap your accuracy ceiling no matter how good the data or tuning is. Do this before labeling anything.</p>
+      <p class="phase-why">Supports L1 (label circularity) and L3 (duplicate rows) — the fabricated and circular-labeled data no longer sits in the live pipeline.</p>
       <ul class="checklist">
         <li class="item">
-          <input type="checkbox" id="p0-1"><label for="p0-1">Write a labeling rubric for all 6 states
-            <span class="sub">Concrete, observable criteria per state — e.g. "DRIVER_DOMINANCE = one user made &gt;85% of edits AND the other sent 0 chat messages in the window."</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p0-2"><label for="p0-2">Decide the fate of <code>LOW_QUALITY_REVIEW</code>
-            <span class="sub">It exists in the archived model's label encoder but has no rubric, no entry in <code>label_mapping.py</code>, and no frontend handling. Either define it properly or drop it.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p0-3"><label for="p0-3">Finalize the feature set
-            <span class="sub">Lock in the ~19-feature "middle ground" (see Reference below) rather than the full 33 or the current thin 8.</span>
-          </label>
-        </li>
-      </ul>
-    </section>
-
-    <section class="phase" data-phase="p1">
-      <div class="phase-head">
-        <div class="phase-heading">
-          <span class="phase-num">01</span>
-          <h2 class="phase-title">Codebase cleanup</h2>
-        </div>
-        <span class="status-pill" data-status="pending">Not started</span>
-      </div>
-      <p class="phase-why">Three of these are already done — dead code and fabricated data no longer sit in the live pipeline.</p>
-      <ul class="checklist">
-        <li class="item">
-          <input type="checkbox" id="p1-1" checked><label for="p1-1">Remove dead code
+          <input type="checkbox" id="prep-1" checked><label for="prep-1">Removed dead code
             <span class="sub"><code>model_loader.py</code>, <code>rag_retriever.py</code>, <code>schemas/hints.py</code> deleted; broken import in <code>main.py</code> fixed.</span>
           </label>
         </li>
         <li class="item">
-          <input type="checkbox" id="p1-2" checked><label for="p1-2">Move invalid data and model to <code>/archive</code>
+          <input type="checkbox" id="prep-2" checked><label for="prep-2">Archived invalid data and model
             <span class="sub">Fabricated labels, mock sessions, the circular-labeled Mongo export, and the model trained on it — moved to repo-root <code>archive/</code> with a README explaining why.</span>
           </label>
         </li>
         <li class="item">
-          <input type="checkbox" id="p1-3" checked><label for="p1-3">Stop the circular-labeling export
+          <input type="checkbox" id="prep-3" checked><label for="prep-3">Stopped the circular-labeling export
             <span class="sub"><code>export_mongo_to_csv.py</code> no longer writes <code>label = prediction.predictedState</code>; exports unlabeled feature vectors only.</span>
           </label>
         </li>
-        <li class="item">
-          <input type="checkbox" id="p1-4"><label for="p1-4">Wire up <code>LOW_QUALITY_REVIEW</code> handling
-            <span class="sub">Add it to <code>app/label_mapping.py</code>'s intervention table and the frontend's state-handling — once Phase 0 defines it.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p1-5"><label for="p1-5">Fix the hardcoded <code>modelVersion</code> string
-            <span class="sub"><code>main.py</code> always returns <code>"pair_state_xgboost_v1"</code> regardless of what's actually loaded — make it reflect real model metadata.</span>
-          </label>
-        </li>
       </ul>
     </section>
 
-    <section class="phase" data-phase="p2">
+    <section class="phase" data-phase="l9">
       <div class="phase-head">
         <div class="phase-heading">
-          <span class="phase-num">02</span>
-          <h2 class="phase-title">Unify feature computation</h2>
+          <span class="phase-num">L9</span>
+          <h2 class="phase-title">Gateway authentication</h2>
         </div>
         <span class="status-pill" data-status="pending">Not started</span>
       </div>
-      <p class="phase-why">Training features and live features currently come from two separate hand-written implementations (Python vs. TypeScript). Any drift between them silently breaks the model regardless of training quality.</p>
+      <p class="phase-why">Ethical blocker. Your proposal states no student data collection until this is fixed — it gates everything downstream, including Phase L6.</p>
       <ul class="checklist">
-        <li class="item">
-          <input type="checkbox" id="p2-1"><label for="p2-1">Compute features in exactly one place
-            <span class="sub">Best fix: gateway sends raw recent events to ml-service; ml-service computes features once, reused for training and serving.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p2-2"><label for="p2-2">Implement the real ~19-feature set
-            <span class="sub">Per-user edit counts, run/failure tracking, timestamp-based idle detection, role-switch timing, driver/navigator edit split — see Reference table.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p2-3"><label for="p2-3">Retire the two hardcoded constants
-            <span class="sub"><code>error_recovery_time_avg_3m</code> (always 30) and <code>collaboration_score_3m</code> (always 0.5) carry zero signal — replace with real computation.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p2-4"><label for="p2-4">Drop or fix <code>navigator_chat_count_3m</code>
-            <span class="sub">Currently just duplicates the discussion-note count. Give it real meaning or remove it.</span>
-          </label>
-        </li>
+        <li class="item"><input type="checkbox" id="l9-1" checked><label for="l9-1">JWT verification in the Socket.IO handshake</label></li>
+        <li class="item"><input type="checkbox" id="l9-2" checked><label for="l9-2">Session-membership validation on every socket event handler</label></li>
+        <li class="item"><input type="checkbox" id="l9-3" checked><label for="l9-3">Auth guards on the two currently-unauthenticated analytics endpoints</label></li>
       </ul>
     </section>
 
-    <section class="phase" data-phase="p3">
+    <section class="phase" data-phase="l10">
       <div class="phase-head">
         <div class="phase-heading">
-          <span class="phase-num">03</span>
-          <h2 class="phase-title">Collect real sessions</h2>
+          <span class="phase-num">L10</span>
+          <h2 class="phase-title">Sandboxed code execution</h2>
         </div>
         <span class="status-pill" data-status="pending">Not started</span>
       </div>
-      <p class="phase-why">This is the actual bottleneck — no amount of code fixes substitutes for genuine behavioral data.</p>
+      <p class="phase-why">Second ethical blocker. Code currently runs via a regex blocklist directly on the API host, not real isolation.</p>
       <ul class="checklist">
-        <li class="item">
-          <input type="checkbox" id="p3-1"><label for="p3-1">Recruit real participants
-            <span class="sub">Classmates, friends, anyone willing to run short real pair-programming sessions through the app.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p3-2"><label for="p3-2">Run sessions through the real app
-            <span class="sub">So genuine <code>SessionEvent</code> rows and <code>ml_events</code> log — no manual DB insertion.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p3-3"><label for="p3-3">Design tasks that provoke the rare states
-            <span class="sub">Natural sessions skew productive. Deliberately structure a few tasks/prompts to surface driver-dominance, disengagement, and low-quality-review behavior.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p3-4"><label for="p3-4">Track a running tally per target state
-            <span class="sub">Know which classes are still thin so you can steer the next recruiting round.</span>
-          </label>
-        </li>
+        <li class="item"><input type="checkbox" id="l10-1" checked><label for="l10-1">Replace the regex blocklist with real containerized execution</label></li>
+        <li class="item"><input type="checkbox" id="l10-2" checked><label for="l10-2">Enforce resource, filesystem, and network limits on the container</label></li>
       </ul>
     </section>
 
-    <section class="phase" data-phase="p4">
+    <section class="phase" data-phase="l5">
       <div class="phase-head">
         <div class="phase-heading">
-          <span class="phase-num">04</span>
-          <h2 class="phase-title">Label it, with a second rater</h2>
+          <span class="phase-num">L5</span>
+          <h2 class="phase-title">Real sliding-window extraction</h2>
         </div>
         <span class="status-pill" data-status="pending">Not started</span>
       </div>
-      <p class="phase-why">Agreement between two independent human raters is the honest ceiling on any accuracy number you can later claim.</p>
+      <p class="phase-why">The extractor currently aggregates once per whole session — no windowing at all, despite the <code>_1m</code>/<code>_3m</code> column names. That's a real train/serve mismatch, and it's what RQ2 (minimum reliable observation window) depends on.</p>
       <ul class="checklist">
-        <li class="item">
-          <input type="checkbox" id="p4-1"><label for="p4-1">Build or reuse a labeling script
-            <span class="sub">Step through 1-minute windows of each real session and assign a state using the Phase 0 rubric.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p4-2"><label for="p4-2">Label the full set yourself</label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p4-3"><label for="p4-3">Get a second rater on an overlap subset
-            <span class="sub">Even a partial overlap is enough to compute agreement.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p4-4"><label for="p4-4">Compute Cohen's kappa; revise the rubric if it's low
-            <span class="sub">Kappa below ~0.6 means the state definitions are still too ambiguous — fix that before training, not after.</span>
-          </label>
-        </li>
+        <li class="item"><input type="checkbox" id="l5-1" checked><label for="l5-1">Build a true overlapping sliding-window extractor, not a whole-session aggregate</label></li>
+        <li class="item"><input type="checkbox" id="l5-2"><label for="l5-2">Run a window-length ablation (e.g. 60s / 90s / 120s / 180s) and report it honestly
+          <span class="sub">Don't assume 120s from the earlier stale v3 attempt — that result predates the current codebase and was never reproduced in it.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="l5-3" checked><label for="l5-3">Keep the gateway's live extractor and the training extractor as one shared implementation
+          <span class="sub">Implement the real ~19-feature middle ground (see Reference below) rather than the full 33 or the current thin, partly-hardcoded 8.</span>
+        </label></li>
       </ul>
     </section>
 
-    <section class="phase" data-phase="p5">
+    <section class="phase" data-phase="l2l3">
       <div class="phase-head">
         <div class="phase-heading">
-          <span class="phase-num">05</span>
-          <h2 class="phase-title">Assemble the dataset</h2>
-        </div>
-        <span class="status-pill" data-status="pending">Not started</span>
-      </div>
-      <p class="phase-why">Split correctly here or every downstream metric is optimistic and wrong.</p>
-      <ul class="checklist">
-        <li class="item">
-          <input type="checkbox" id="p5-1"><label for="p5-1">Extract features via the one shared pipeline
-            <span class="sub">Same code path as production — from Phase 2, not a separate offline extractor.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p5-2"><label for="p5-2">Assemble a clean, real-only labeled CSV
-            <span class="sub">If any synthetic data is included at all, flag it in its own column/file — never blended silently.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p5-3"><label for="p5-3">Split by <code>session_id</code>, not by row
-            <span class="sub">Stratified train/val/test. Row-level splitting leaks correlated windows across the split.</span>
-          </label>
-        </li>
-      </ul>
-    </section>
-
-    <section class="phase" data-phase="p6">
-      <div class="phase-head">
-        <div class="phase-heading">
-          <span class="phase-num">06</span>
-          <h2 class="phase-title">Train</h2>
-        </div>
-        <span class="status-pill" data-status="pending">Not started</span>
-      </div>
-      <p class="phase-why"><code>dev_tools/train_xgboost.py</code> is still valid — only point it at real labeled data now.</p>
-      <ul class="checklist">
-        <li class="item">
-          <input type="checkbox" id="p6-1"><label for="p6-1">Run a baseline with default hyperparameters
-            <span class="sub">Get a first honest number before tuning anything.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p6-2"><label for="p6-2">Tune via grouped k-fold cross-validation
-            <span class="sub">Group by <code>session_id</code>. Optimize for macro-F1, not raw accuracy — a 6-class imbalanced problem can fake high accuracy by defaulting to the majority class.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p6-3"><label for="p6-3">Apply class weighting for imbalance
-            <span class="sub">Use <code>sample_weight</code>, computed from real label counts. No synthetic oversampling.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p6-4"><label for="p6-4">Sanity-check feature importance
-            <span class="sub">Built-in importance or SHAP. If the top features don't match intuition (e.g. idle ratio should matter for DISENGAGED), suspect leakage or noise.</span>
-          </label>
-        </li>
-      </ul>
-    </section>
-
-    <section class="phase" data-phase="p7">
-      <div class="phase-head">
-        <div class="phase-heading">
-          <span class="phase-num">07</span>
-          <h2 class="phase-title">Evaluate honestly</h2>
-        </div>
-        <span class="status-pill" data-status="pending">Not started</span>
-      </div>
-      <p class="phase-why">This is where you find out whether 90% was ever realistic for this problem — and what the real ceiling is.</p>
-      <ul class="checklist">
-        <li class="item">
-          <input type="checkbox" id="p7-1"><label for="p7-1">Evaluate only on held-out real labeled sessions
-            <span class="sub">Never touched during training or tuning.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p7-2"><label for="p7-2">Report confusion matrix + per-class precision/recall/F1
-            <span class="sub">Not a single accuracy number.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p7-3"><label for="p7-3">Compare against the Phase 4 kappa ceiling
-            <span class="sub">If humans agree 80% of the time, a model near 78% is close to optimal — don't keep pushing past the human ceiling.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p7-4"><label for="p7-4">Check confidence calibration
-            <span class="sub">Calibration curve or Brier score — the intervention system gates on <code>confidence &lt; 0.6</code>, so an over-confident-but-wrong model triggers bad interventions even at decent accuracy.</span>
-          </label>
-        </li>
-      </ul>
-    </section>
-
-    <section class="phase" data-phase="p8">
-      <div class="phase-head">
-        <div class="phase-heading">
-          <span class="phase-num">08</span>
-          <h2 class="phase-title">Deploy</h2>
+          <span class="phase-num">L2 / L3</span>
+          <h2 class="phase-title">Session-level split, no duplication</h2>
         </div>
         <span class="status-pill" data-status="pending">Not started</span>
       </div>
       <ul class="checklist">
-        <li class="item">
-          <input type="checkbox" id="p8-1"><label for="p8-1">Drop the validated model into <code>ml-service/models/</code>
-            <span class="sub">Currently empty — service is running on the rule-based fallback.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p8-2"><label for="p8-2">Sanity-test load and predictions
-            <span class="sub">Via <code>dev_tools/test_model.py</code>.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p8-3"><label for="p8-3">Rewrite <code>ml-service/README.md</code> to match reality
-            <span class="sub">Real state count, real feature list, keyword-retrieval RAG (not embeddings) — it currently describes a different system than what runs.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p8-4"><label for="p8-4">Confirm intervention handling covers every class
-            <span class="sub"><code>intervention_engine.py</code> and the frontend, including whatever Phase 0 decided about <code>LOW_QUALITY_REVIEW</code>.</span>
-          </label>
-        </li>
+        <li class="item"><input type="checkbox" id="l2-1" checked><label for="l2-1">Grouped split by <code>session_id</code>, stratified by label</label></li>
+        <li class="item"><input type="checkbox" id="l2-2" checked><label for="l2-2">Group k-fold cross-validation for tuning, not one fixed split</label></li>
+        <li class="item"><input type="checkbox" id="l3-1" checked><label for="l3-1">Dedupe within-session exact repeats
+          <span class="sub">Keep cross-session identical vectors — those are independent observations, not leakage.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="l3-2" checked><label for="l3-2">Handle class imbalance with <code>sample_weight</code>, never row replication
+          <span class="sub">Retire the 9x-copy replication script the audit found.</span>
+        </label></li>
       </ul>
     </section>
 
-    <section class="phase" data-phase="p9">
+    <section class="phase" data-phase="l7l12">
       <div class="phase-head">
         <div class="phase-heading">
-          <span class="phase-num">09</span>
-          <h2 class="phase-title">Monitor and keep improving</h2>
+          <span class="phase-num">L7 / L12</span>
+          <h2 class="phase-title">Reconcile taxonomy and mappings</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">L7 is already decided in your proposal — this is implementation, not an open question.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l7-1" checked><label for="l7-1">Reconcile to 5 states; defer <code>LOW_QUALITY_REVIEW</code> as documented future work
+          <span class="sub">Not a live class for this study — don't re-litigate this.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="l12-1" checked><label for="l12-1">Consolidate the two drifted copies of the intervention-mapping table into one source of truth</label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l13">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L13</span>
+          <h2 class="phase-title">Resolve the manual_window_labels.csv conflict</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Your proposal treats these 48 windows as a positive finding — a ready seed/calibration set for Phase 2 annotation. When this runbook's PREP phase examined the actual file, all 8 sessions had the identical 6-label sequence at exactly 1-minute intervals — that reads as a template, not real annotation. This needs resolving before the paper cites it either way.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l13-1"><label for="l13-1">Re-verify against your own records of how this file was produced</label></li>
+        <li class="item"><input type="checkbox" id="l13-2"><label for="l13-2">If it's a template: drop it as a claimed seed set from Table 8 / Appendix D. If it's real: document how it was produced</label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l6">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L6</span>
+          <h2 class="phase-title">Classroom study — the real data source</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">40-80 students / 20-40 pairs, first-year Java module. Gated on L9/L10 and ethical clearance (WP 4.4) — this cannot start earlier.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l6-1"><label for="l6-1">Ethical clearance (WP 4.4) before any recruitment</label></li>
+        <li class="item"><input type="checkbox" id="l6-2"><label for="l6-2">Random assignment stratified by pre-test score; students blinded to condition</label></li>
+        <li class="item"><input type="checkbox" id="l6-3"><label for="l6-3">Control = identical system with the inference path disabled
+          <span class="sub">Not a different tool — clean confound elimination via the existing graceful-degradation design. Control-arm behavioral data still counts as an unintervened comparison + extra annotation corpus.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="l6-4"><label for="l6-4">Collect across all DVs
+          <span class="sub">Performance, comprehension, participation balance, communication, role dynamics, engagement, debugging behavior, intervention efficacy/fatigue — all from the same SessionEvent census table.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l1">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L1</span>
+          <h2 class="phase-title">Human annotation only</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Cannot start until L5/L2/L3 are done — annotation windows must come from the corrected extractor, not the old one.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l1-1"><label for="l1-1">Write the labeling rubric/codebook
+          <span class="sub">Concrete, observable criteria per state. This becomes Appendix D.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="l1-2"><label for="l1-2">Label the sessions yourself</label></li>
+        <li class="item"><input type="checkbox" id="l1-3"><label for="l1-3">Second rater on an overlap subset; compute Cohen's kappa</label></li>
+        <li class="item"><input type="checkbox" id="l1-4"><label for="l1-4">Revise the rubric if kappa is low, before training on it</label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l4">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L4</span>
+          <h2 class="phase-title">Honest re-evaluation</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">RQ1 specifically asks for accuracy vs. the existing rule-based baseline under session-level partitioning — not a standalone number.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l4-1"><label for="l4-1">Evaluate on held-out real labeled sessions only</label></li>
+        <li class="item"><input type="checkbox" id="l4-2"><label for="l4-2">Report against the existing rule-based fallback as the RQ1 baseline</label></li>
+        <li class="item"><input type="checkbox" id="l4-3"><label for="l4-3">Confusion matrix + per-class precision/recall/F1; compare against the L1 kappa ceiling</label></li>
+        <li class="item"><input type="checkbox" id="l4-4"><label for="l4-4">Persist metrics + a model card
+          <span class="sub">What data, what split, what date — so this can't happen again silently.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l8l11">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L8 / L11</span>
+          <h2 class="phase-title">Wire the intervention cooldown</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Designed in Redis already — never actually injected into the intervention path.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l8-1" checked><label for="l8-1">Inject the existing Redis cooldown into the intervention path</label></li>
+        <li class="item"><input type="checkbox" id="l8-2" checked><label for="l8-2">Per-session cooldown window so interventions don't fire back-to-back</label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l14">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L14</span>
+          <h2 class="phase-title">RAG-lite — document, then compare</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Current retrieval is keyword/tag scoring, not the embeddings the dependency list implies. Your proposal frames this as an architectural guarantee — no corpus document contains a solution — not a lesser version of real RAG.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l14-1" checked><label for="l14-1">Document the current system explicitly as RAG-lite in <code>ml-service/README.md</code></label></li>
+        <li class="item"><input type="checkbox" id="l14-2"><label for="l14-2">Phase 3: populate the reserved <code>RAGChunk.embedding</code> column and evaluate embeddings as a scored comparison against this baseline
+          <span class="sub">Not a silent swap — the output contract (conceptReminder/exampleIdea/reflectiveQuestion) stays fixed either way.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l15">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L15</span>
+          <h2 class="phase-title">Pin and containerize ml-service</h2>
         </div>
         <span class="status-pill" data-status="pending">Not started</span>
       </div>
       <ul class="checklist">
-        <li class="item">
-          <input type="checkbox" id="p9-1"><label for="p9-1">Keep logging real production <code>ml_events</code>
-            <span class="sub">The unlabeled export path is already fixed — this data is safe to keep accumulating.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p9-2"><label for="p9-2">Track prediction distribution over time
-            <span class="sub">A sudden skew toward one class in production is a drift signal.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p9-3"><label for="p9-3">Use accept/dismiss as weak supplementary signal
-            <span class="sub"><code>Intervention.accepted</code> is a real, independent (if noisy) human reaction — never a substitute for labeling, but a useful extra signal.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p9-4"><label for="p9-4">Set an active-learning retrain cadence
-            <span class="sub">Periodically pull low-confidence production predictions, hand-label them, fold into training.</span>
-          </label>
-        </li>
+        <li class="item"><input type="checkbox" id="l15-1" checked><label for="l15-1">Pin all dependency versions in <code>requirements.txt</code></label></li>
+        <li class="item"><input type="checkbox" id="l15-2" checked><label for="l15-2">Containerize the ml-service deployment</label></li>
       </ul>
     </section>
 
-    <section class="phase" data-phase="p10">
+    <section class="phase" data-phase="deploy">
       <div class="phase-head">
         <div class="phase-heading">
-          <span class="phase-num">10</span>
-          <h2 class="phase-title">Document it for the paper</h2>
+          <span class="phase-num">DEPLOY</span>
+          <h2 class="phase-title">Ship the validated model</h2>
         </div>
         <span class="status-pill" data-status="pending">Not started</span>
       </div>
       <ul class="checklist">
-        <li class="item">
-          <input type="checkbox" id="p10-1"><label for="p10-1">Write up the rubric, kappa score, and collection methodology</label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p10-2"><label for="p10-2">State limitations honestly
-            <span class="sub">Sample size, state ambiguity, collection timeframe — a small honest dataset is a normal, defensible capstone result.</span>
-          </label>
-        </li>
-        <li class="item">
-          <input type="checkbox" id="p10-3"><label for="p10-3">Document <code>archive/</code> and why those artifacts were excluded
-            <span class="sub">The audit trail itself is worth a paragraph in the methodology section.</span>
-          </label>
-        </li>
+        <li class="item"><input type="checkbox" id="deploy-1"><label for="deploy-1">Drop the validated model into <code>ml-service/models/</code>
+          <span class="sub">Currently empty — service is running on the rule-based fallback.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="deploy-2"><label for="deploy-2">Sanity-test load and predictions via <code>dev_tools/test_model.py</code></label></li>
+        <li class="item"><input type="checkbox" id="deploy-3" checked><label for="deploy-3">Fix the hardcoded <code>modelVersion</code> string in <code>main.py</code>
+          <span class="sub">Always returns <code>"pair_state_xgboost_v1"</code> regardless of what's actually loaded.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="monitor">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">MONITOR</span>
+          <h2 class="phase-title">Keep it honest in production</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="monitor-1"><label for="monitor-1">Track prediction distribution over time for drift</label></li>
+        <li class="item"><input type="checkbox" id="monitor-2"><label for="monitor-2">Use <code>Intervention.accepted</code> as weak supplementary signal only — never a label substitute</label></li>
+        <li class="item"><input type="checkbox" id="monitor-3"><label for="monitor-3">Set an active-learning retrain cadence
+          <span class="sub">Low-confidence production predictions → hand-labeled → folded into training.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="paper">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">PAPER</span>
+          <h2 class="phase-title">Write it up</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="paper-1"><label for="paper-1">Appendix G is already drafted
+          <span class="sub">The system-anatomy audit produced earlier is a ready first draft, not a from-scratch job.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="paper-2"><label for="paper-2">Appendix D (annotation codebook) comes directly from the L1 rubric</label></li>
+        <li class="item"><input type="checkbox" id="paper-3"><label for="paper-3">State limitations honestly
+          <span class="sub">Sample size, state ambiguity, collection timeframe — a small honest dataset is a normal, defensible capstone result.</span>
+        </label></li>
       </ul>
     </section>
 
   </main>
 
   <section class="reference">
-    <h2>Reference — the finalized ~19-feature set</h2>
-    <p class="phase-why">The middle ground between the current thin 8 (two of which are hardcoded constants) and the full 33 (six of which need instrumentation you don't have yet).</p>
+    <h2>Reference — the ~19-feature set for L5</h2>
+    <p class="phase-why">The middle ground between the current thin 8 (two of which are hardcoded constants) and the full 33 (six of which need instrumentation you don't have yet). Window length itself (1m/3m here) is an assumption to test in L5's ablation, not a given.</p>
     <div class="table-wrap">
       <table>
         <thead>

@@ -22,6 +22,7 @@ export class SessionsController {
   }
 
   @Get('analytics/all')
+  @UseGuards(JwtAuthGuard)
   getAllAnalytics() {
     return this.sessionsService.getAllAnalytics();
   }
@@ -33,6 +34,7 @@ export class SessionsController {
   }
 
   @Get('analytics/:id')
+  @UseGuards(JwtAuthGuard)
   getOneAnalytics(@Param('id') id: string) {
     return this.sessionsService.getOneAnalytics(id);
   }

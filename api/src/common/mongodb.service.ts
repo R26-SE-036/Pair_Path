@@ -6,6 +6,7 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
   private client: MongoClient;
   private db: Db;
   private dbName = 'pairprogramming_ml';
+  private warned = false;
 
   async onModuleInit() {
     try {
@@ -19,6 +20,25 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Mongo holds the research/analytics trail only. When it is unavailable the
+   * session must keep running — a logging outage must never take down the
+   * live prediction/intervention path with it.
+   */
+  private collection(name: string) {
+    if (!this.db) {
+      if (!this.warned) {
+        console.warn(
+          `MongoDB unavailable — analytics logging disabled for this run. ` +
+            `Sessions and interventions continue normally.`,
+        );
+        this.warned = true;
+      }
+      return null;
+    }
+    return this.db.collection(name);
+  }
+
   async onModuleDestroy() {
     if (this.client) {
       await this.client.close();
@@ -28,7 +48,8 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
 
   // ML event logging
   async logMLEvent(sessionId: string, event: any): Promise<void> {
-    const collection = this.db.collection('ml_events');
+    const collection = this.collection('ml_events');
+    if (!collection) return;
     const logEntry = {
       timestamp: new Date(),
       sessionId,
@@ -38,7 +59,8 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getSessionMLEvents(sessionId: string, limit: number = 100): Promise<any[]> {
-    const collection = this.db.collection('ml_events');
+    const collection = this.collection('ml_events');
+    if (!collection) return [];
     return await collection.find({ sessionId })
       .sort({ timestamp: -1 })
       .limit(limit)
@@ -47,7 +69,8 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
 
   // Feature data storage for training
   async storeSessionFeatures(sessionId: string, features: any): Promise<void> {
-    const collection = this.db.collection('session_features');
+    const collection = this.collection('session_features');
+    if (!collection) return;
     const featureEntry = {
       sessionId,
       features,
@@ -62,14 +85,16 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getSessionFeatures(sessionId: string): Promise<any> {
-    const collection = this.db.collection('session_features');
+    const collection = this.collection('session_features');
+    if (!collection) return null;
     const result = await collection.findOne({ sessionId });
     return result ? result.features : null;
   }
 
   // Model performance tracking
   async logModelPerformance(modelVersion: string, metrics: any): Promise<void> {
-    const collection = this.db.collection('model_performance');
+    const collection = this.collection('model_performance');
+    if (!collection) return;
     const performanceEntry = {
       modelVersion,
       metrics,
@@ -79,7 +104,8 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getModelPerformanceHistory(limit: number = 50): Promise<any[]> {
-    const collection = this.db.collection('model_performance');
+    const collection = this.collection('model_performance');
+    if (!collection) return [];
     return await collection.find({})
       .sort({ timestamp: -1 })
       .limit(limit)
@@ -88,7 +114,8 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
 
   // Intervention tracking
   async logIntervention(sessionId: string, intervention: any): Promise<void> {
-    const collection = this.db.collection('interventions');
+    const collection = this.collection('interventions');
+    if (!collection) return;
     const interventionEntry = {
       sessionId,
       intervention,
@@ -98,7 +125,8 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getSessionInterventions(sessionId: string): Promise<any[]> {
-    const collection = this.db.collection('interventions');
+    const collection = this.collection('interventions');
+    if (!collection) return [];
     return await collection.find({ sessionId })
       .sort({ timestamp: -1 })
       .toArray();
@@ -106,7 +134,8 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
 
   // Training data management
   async storeTrainingData(trainingData: any[]): Promise<void> {
-    const collection = this.db.collection('training_data');
+    const collection = this.collection('training_data');
+    if (!collection) return;
     const dataEntry = {
       data: trainingData,
       timestamp: new Date(),
@@ -116,7 +145,8 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getTrainingData(version?: string): Promise<any> {
-    const collection = this.db.collection('training_data');
+    const collection = this.collection('training_data');
+    if (!collection) return null;
     const query = version ? { version } : {};
     const result = await collection.findOne(query, { sort: { timestamp: -1 } });
     return result ? result.data : null;
@@ -124,7 +154,8 @@ export class MongoDbService implements OnModuleInit, OnModuleDestroy {
 
   // Analytics and reporting
   async getCollaborationStats(timeRange: { start: Date, end: Date }): Promise<any> {
-    const collection = this.db.collection('ml_events');
+    const collection = this.collection('ml_events');
+    if (!collection) return { totalSessions: 0, avgConfidence: 0, totalInterventions: 0 };
     const pipeline = [
       {
         $match: {

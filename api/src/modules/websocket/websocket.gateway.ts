@@ -9,10 +9,12 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { CodeRunnerService } from '../code-runner/code-runner.service';
 import { PrismaService } from '../../common/prisma.service';
 import { MlService } from '../ml/ml.service';
 import { MongoDbService } from '../../common/mongodb.service';
+import { RedisService } from '../../common/redis.service';
 
 @WebSocketGateway({
   cors: {
@@ -34,6 +36,8 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     private readonly prisma: PrismaService,
     private readonly mlService: MlService,
     private readonly mongodb: MongoDbService,
+    private readonly jwtService: JwtService,
+    private readonly redis: RedisService,
   ) {}
 
   onModuleInit() {
@@ -54,7 +58,24 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   handleConnection(client: Socket) {
-    console.log(`Client connected: ${client.id}`);
+    // L9: verify JWT during the handshake; reject unauthenticated sockets.
+    const token =
+      client.handshake.auth?.token ||
+      client.handshake.headers?.authorization?.replace(/^Bearer /, '');
+    try {
+      const payload = this.jwtService.verify(token);
+      client.data.userId = payload.sub;
+      console.log(`Client connected: ${client.id} (user ${payload.sub})`);
+    } catch {
+      console.log(`Client rejected (invalid/missing token): ${client.id}`);
+      client.emit('auth_error', { message: 'Authentication required' });
+      client.disconnect(true);
+    }
+  }
+
+  /** L9: a socket may only act on a session it has joined (which requires DB membership). */
+  private isInRoom(client: Socket, sessionId: string): boolean {
+    return this.rooms.get(sessionId)?.has(client.id) ?? false;
   }
 
   handleDisconnect(client: Socket) {
@@ -74,7 +95,18 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     @MessageBody() data: { sessionId: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { sessionId, userId } = data;
+    const { sessionId } = data;
+    // L9: identity comes from the verified handshake, never the message body.
+    const userId = client.data.userId;
+
+    // L9: only actual session members may join the room.
+    const membership = await this.prisma.pairSessionMember.findFirst({
+      where: { sessionId, userId },
+    });
+    if (!membership) {
+      client.emit('auth_error', { message: 'Not a member of this session' });
+      return;
+    }
 
     // Join the Socket.IO room
     client.join(sessionId);
@@ -101,7 +133,9 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     @MessageBody() data: { sessionId: string; code: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { sessionId, code, userId } = data;
+    const { sessionId, code } = data;
+    const userId = client.data.userId;
+    if (!this.isInRoom(client, sessionId)) return;
 
     // Broadcast to others in room (not sender)
     client.to(sessionId).emit('code_update', { code, userId });
@@ -117,7 +151,9 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     @MessageBody() data: { sessionId: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { sessionId, userId } = data;
+    const { sessionId } = data;
+    const userId = client.data.userId;
+    if (!this.isInRoom(client, sessionId)) return;
 
     // Get session members and swap roles in DB
     const members = await this.prisma.pairSessionMember.findMany({
@@ -146,7 +182,9 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     @MessageBody() data: { sessionId: string; note: string; userId: string; userName?: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { sessionId, note, userId, userName } = data;
+    const { sessionId, note, userName } = data;
+    const userId = client.data.userId;
+    if (!this.isInRoom(client, sessionId)) return;
 
     // Broadcast to others in room (sender adds locally)
     client.to(sessionId).emit('discussion_note', {
@@ -165,7 +203,9 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     @MessageBody() data: { sessionId: string; code: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { sessionId, code, userId } = data;
+    const { sessionId, code } = data;
+    const userId = client.data.userId;
+    if (!this.isInRoom(client, sessionId)) return;
 
     // Log the run attempt
     await this.logEvent(sessionId, userId, 'CODE_RUN', { codeLength: code.length });
@@ -203,6 +243,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     @ConnectedSocket() client: Socket,
   ) {
     const { sessionId, interventionId, accepted } = data;
+    if (!this.isInRoom(client, sessionId)) return;
 
     // Update intervention in DB if it exists
     if (interventionId) {
@@ -217,7 +258,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     }
 
     // Log event
-    await this.logEvent(sessionId, '', 'INTERVENTION_RESPONSE', {
+    await this.logEvent(sessionId, client.data.userId, 'INTERVENTION_RESPONSE', {
       interventionId,
       accepted,
     });
@@ -229,6 +270,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     @ConnectedSocket() client: Socket,
   ) {
     const { sessionId } = data;
+    if (!this.isInRoom(client, sessionId)) return;
 
     // Broadcast to all members to redirect to review
     this.server.to(sessionId).emit('session_ended', { sessionId });
@@ -279,21 +321,45 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         return;
       }
 
-      // Build simple features from recent events
-      const features = this.extractSimpleFeatures(recentEvents);
+      // L5: send raw events + current roles; ml-service computes features
+      // with the same canonical extractor used for training data.
+      const members = await this.prisma.pairSessionMember.findMany({
+        where: { sessionId },
+      });
+      const roles: Record<string, string> = {};
+      for (const m of members) roles[m.userId] = m.role;
 
-      // Call ML service
-      const prediction = await this.mlService.predictPairState(sessionId, features);
+      const lastSwitch = await this.prisma.sessionEvent.findFirst({
+        where: { sessionId, eventType: 'ROLE_SWITCH' },
+        orderBy: { timestamp: 'desc' },
+      });
 
-      // Log prediction and features to MongoDB for research analytics
+      const prediction = await this.mlService.predictPairState(
+        sessionId,
+        recentEvents.map((e) => ({
+          timestamp: e.timestamp,
+          userId: e.userId,
+          eventType: e.eventType,
+          metadata: e.metadata,
+        })),
+        roles,
+        lastSwitch ? lastSwitch.timestamp.getTime() / 1000 : undefined,
+      );
+
+      // Log prediction and the exact features it was made on (echoed back
+      // by ml-service) to MongoDB for later human labeling — never as
+      // training labels directly.
       await this.mongodb.logMLEvent(sessionId, {
-        features,
+        features: prediction?.features ?? null,
         prediction,
         timestamp: new Date(),
         source: 'real_time_prediction_engine',
       });
 
-      if (prediction && prediction.predictedState !== 'PRODUCTIVE') {
+      // PRODUCTIVE is included: it earns a brief encouragement toast rather
+      // than silence. The engine returns NO_ACTION for anything it should
+      // stay quiet about, and the cooldown below rate-limits the rest.
+      if (prediction) {
         // Get intervention recommendation
         const intervention = await this.mlService.recommendIntervention(
           sessionId,
@@ -302,6 +368,15 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         );
 
         if (intervention && intervention.action !== 'NO_ACTION') {
+          // L8/L11: per-session cooldown — don't fire the same intervention
+          // type back-to-back; students disengage from nagging nudges.
+          const canShow = await this.redis.canShowIntervention(
+            sessionId,
+            intervention.action,
+          );
+          if (!canShow) return;
+          await this.redis.setInterventionCooldown(sessionId, intervention.action);
+
           // Save intervention to DB
           const saved = await this.prisma.intervention.create({
             data: {
@@ -353,33 +428,4 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     }
   }
 
-  private extractSimpleFeatures(events: any[]): Record<string, number> {
-    const now = Date.now();
-    const threeMinAgo = now - 3 * 60 * 1000;
-
-    const recentEvents = events.filter(
-      (e) => new Date(e.timestamp).getTime() > threeMinAgo,
-    );
-
-    const codeEdits = recentEvents.filter((e) => e.eventType === 'CODE_EDIT');
-    const codeRuns = recentEvents.filter((e) => e.eventType === 'CODE_RUN_RESULT');
-    const discussions = recentEvents.filter((e) => e.eventType === 'DISCUSSION_NOTE');
-    const roleSwitches = recentEvents.filter((e) => e.eventType === 'ROLE_SWITCH');
-
-    const uniqueEditors = new Set(codeEdits.map((e) => e.userId));
-    const successfulRuns = codeRuns.filter((e) => {
-      try { return JSON.parse(e.metadata)?.success; } catch { return false; }
-    });
-
-    return {
-      edit_balance_ratio_3m: uniqueEditors.size >= 2 ? 0.5 : (codeEdits.length > 0 ? 0.9 : 0.5),
-      avg_run_success_rate_3m: codeRuns.length > 0 ? successfulRuns.length / codeRuns.length : 0.5,
-      total_discussion_note_count_3m: discussions.length,
-      navigator_chat_count_3m: discussions.length, // simplified
-      avg_idle_ratio_3m: recentEvents.length < 3 ? 0.8 : 0.2,
-      role_switch_frequency_3m: roleSwitches.length,
-      error_recovery_time_avg_3m: 30,
-      collaboration_score_3m: 0.5,
-    };
-  }
 }

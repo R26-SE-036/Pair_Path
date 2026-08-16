@@ -12,7 +12,12 @@ export class MlController {
 
   @Post('predict-pair-state')
   async predictPairState(@Body() dto: PredictPairStateDto) {
-    return this.mlService.predictPairState(dto.sessionId, dto.features);
+    return this.mlService.predictPairState(
+      dto.sessionId,
+      dto.events,
+      dto.roles,
+      dto.lastRoleSwitchAt,
+    );
   }
 
   @Post('recommend-intervention')
