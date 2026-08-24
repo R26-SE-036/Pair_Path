@@ -1,0 +1,733 @@
+<title>What's Left On My Model</title>
+<style>
+  :root {
+    --bg: #F4F6F7;
+    --surface: #FFFFFF;
+    --surface-2: #EAEFF1;
+    --border: #DCE3E5;
+    --border-strong: #C3CFD3;
+    --text: #16232B;
+    --text-muted: #55666F;
+    --text-faint: #8496A0;
+    --accent: #0E7C86;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #DCEDEF;
+    --flag: #A65D14;
+    --flag-soft: #F7E9D8;
+    --done: #2F7D53;
+    --done-soft: #DEEEE4;
+    --shadow: 0 1px 2px rgba(22,35,43,0.05), 0 2px 8px rgba(22,35,43,0.04);
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --serif: "Iowan Old Style", Charter, "Georgia Pro", Georgia, "Noto Serif", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E1518;
+      --surface: #172126;
+      --surface-2: #1E2A30;
+      --border: #2B3A40;
+      --border-strong: #3B4C54;
+      --text: #E4EBED;
+      --text-muted: #9BACB4;
+      --text-faint: #74868F;
+      --accent: #4FC3CE;
+      --accent-ink: #062226;
+      --accent-soft: #12333A;
+      --flag: #E0A050;
+      --flag-soft: #33270F;
+      --done: #6FBF8E;
+      --done-soft: #14301F;
+      --shadow: 0 1px 3px rgba(0,0,0,0.45);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0E1518;
+    --surface: #172126;
+    --surface-2: #1E2A30;
+    --border: #2B3A40;
+    --border-strong: #3B4C54;
+    --text: #E4EBED;
+    --text-muted: #9BACB4;
+    --text-faint: #74868F;
+    --accent: #4FC3CE;
+    --accent-ink: #062226;
+    --accent-soft: #12333A;
+    --flag: #E0A050;
+    --flag-soft: #33270F;
+    --done: #6FBF8E;
+    --done-soft: #14301F;
+    --shadow: 0 1px 3px rgba(0,0,0,0.45);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 730px;
+    margin: 0 auto;
+    padding: 3rem 1.25rem 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  /* ---------- header ---------- */
+  header { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .kicker {
+    font-size: 0.7rem;
+    font-weight: 650;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 5vw, 2.3rem);
+    font-weight: 700;
+    letter-spacing: -0.021em;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 1.06rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+    max-width: 60ch;
+  }
+  .standfirst strong { color: var(--text); font-weight: 600; }
+
+  /* ---------- progress ---------- */
+  .progress {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    box-shadow: var(--shadow);
+  }
+
+  .progress-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .progress-label {
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .progress-count {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-count b { color: var(--text); font-weight: 700; }
+
+  .track {
+    height: 7px;
+    background: var(--surface-2);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    border-radius: 99px;
+    transition: width 0.35s ease;
+  }
+  @media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+
+  /* ---------- groups ---------- */
+  .group { display: flex; flex-direction: column; gap: 0.85rem; }
+
+  .group-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.15rem;
+    border-bottom: 2px solid var(--border-strong);
+  }
+
+  .group-title {
+    margin: 0;
+    font-size: 1.02rem;
+    font-weight: 700;
+    letter-spacing: -0.008em;
+  }
+
+  .group-meta {
+    font-size: 0.78rem;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .group-note {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 0.94rem;
+    color: var(--text-muted);
+    max-width: 62ch;
+  }
+
+  /* ---------- task cards ---------- */
+  .task {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 0.95rem 1.05rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 0.8rem;
+    box-shadow: var(--shadow);
+  }
+
+  .task.flagged {
+    border-color: var(--flag);
+    background: var(--flag-soft);
+  }
+
+  .task input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.2rem;
+    height: 1.2rem;
+    margin: 0.15rem 0 0;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 5px;
+    background: var(--surface);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .task input[type="checkbox"]:checked {
+    background: var(--done);
+    border-color: var(--done);
+  }
+  .task input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 1px;
+    width: 5px;
+    height: 10px;
+    border: solid #fff;
+    border-width: 0 2.5px 2.5px 0;
+    transform: rotate(45deg);
+  }
+  .task input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .task-title {
+    grid-column: 2;
+    font-size: 1rem;
+    font-weight: 650;
+    line-height: 1.35;
+    cursor: pointer;
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .task input:checked ~ .task-title { color: var(--text-faint); text-decoration: line-through; }
+  .task input:checked ~ .body { opacity: 0.55; }
+
+  .tag {
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.16rem 0.44rem;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .tag.me { background: var(--accent-soft); color: var(--accent); }
+  .tag.you { background: var(--surface-2); color: var(--text-muted); }
+  .tag.first { background: var(--flag); color: #fff; }
+
+  .body {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-family: var(--serif);
+    font-size: 0.94rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+  .body p { margin: 0; }
+  .body b { color: var(--text); font-weight: 600; }
+
+  .lead {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    display: block;
+    margin-bottom: 0.1rem;
+  }
+
+  .callout {
+    background: var(--surface-2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 7px 7px 0;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.89rem;
+  }
+  .callout .num { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
+
+  .example {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 0.55rem 0.7rem;
+    color: var(--text);
+    overflow-x: auto;
+    white-space: pre-wrap;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 1.25rem;
+    font-size: 0.84rem;
+    color: var(--text-faint);
+    font-family: var(--serif);
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="kicker">PairPath · plain-English plan</p>
+    <h1>What's Left On My Model</h1>
+    <p class="standfirst">
+      Your app works. Your model runs. But the model learned from <strong>made-up practice
+      sessions</strong>, not real students — like studying from a fake textbook. To make it
+      real you need real students, and you deciding what was happening. Everything else is
+      already built and waiting. Tick things off as you go; this page remembers.
+    </p>
+  </header>
+
+  <div class="progress">
+    <div class="progress-top">
+      <span class="progress-label">Your progress</span>
+      <span class="progress-count" id="count"><b>0</b> of 0 done</span>
+    </div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+  </div>
+
+  <!-- ============ GROUP: start here ============ -->
+  <section class="group" data-group>
+    <div class="group-head">
+      <h2 class="group-title">Start here</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+    <p class="group-note">One job, and you can do it today without collecting anything.</p>
+
+    <div class="task flagged">
+      <input type="checkbox" id="t1">
+      <label class="task-title" for="t1">
+        Write down what each of the 5 situations means
+        <span class="tag first">Do this first</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">Why it matters</span>
+          Later you'll watch your sessions and say "here the pair was struggling, here they
+          were fine." But <b>what counts as struggling?</b> If you don't decide the rules
+          first, you'll judge inconsistently, and the model learns your confusion.
+        </p>
+        <p>
+          <span class="lead">What to do</span>
+          Write one clear sentence per situation, using things you can actually
+          <b>see and count</b> — not feelings.
+        </p>
+        <div class="example">DISENGAGED  = fewer than 3 actions in the window
+              AND no chat messages
+
+DRIVER_DOMINANCE = one person made almost all the edits
+              AND they never swapped roles</div>
+        <p>
+          Do all five: Productive, Driver dominance, Passive navigator, Logic struggle,
+          Disengaged. This becomes an appendix in your paper.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GROUP: code fixes ============ -->
+  <section class="group" data-group>
+    <div class="group-head">
+      <h2 class="group-title">Code fixes — no data needed</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+    <p class="group-note">I can do all three of these for you whenever you want. They don't depend on anything else.</p>
+
+    <div class="task">
+      <input type="checkbox" id="t2">
+      <label class="task-title" for="t2">
+        Fix the broken slider page
+        <span class="tag me">I can do this</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">The problem</span>
+          You have a demo page with sliders — you drag them and it shows what the model
+          predicts. It's <b>broken right now</b>. I renamed the model's inputs, but the
+          sliders still send the old names, so the model hears nothing and always gives the
+          same answer no matter what you drag.
+        </p>
+        <p>
+          <span class="lead">What to do</span>
+          Update the sliders to the model's current 14 inputs. Quick fix, and it's your best
+          tool for showing people how the system works.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="t3">
+      <label class="task-title" for="t3">
+        Stop the app nagging students
+        <span class="tag me">I can do this</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">The problem</span>
+          Right now, the moment the model thinks something is wrong, a message pops up. If
+          the model guessed wrong even once, the student gets an annoying, unhelpful message.
+        </p>
+        <p>
+          <span class="lead">What to do</span>
+          Wait until the model says the <b>same thing twice in a row</b> before showing
+          anything. Fewer wrong popups, less annoyance. Your research plan already asks
+          for this.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="t4">
+      <label class="task-title" for="t4">
+        Help the model tell two look-alike situations apart
+        <span class="tag me">I can do this</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">The problem</span>
+          Two situations look identical to the model:
+        </p>
+        <p>
+          <b>Driver dominance</b> — one student hogs the keyboard.<br>
+          <b>Passive navigator</b> — the other student is quiet and not helping.
+        </p>
+        <p>
+          In both, one person types while the other is silent. The real difference is that
+          in driver dominance <b>they never swap roles</b> — but the model only looks at the
+          last 3 minutes, so it can't see "these two haven't swapped in 20 minutes."
+        </p>
+        <p>
+          <span class="lead">What to do</span>
+          Give the model a longer memory of role swapping, so it can spot the difference.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GROUP: needs real students ============ -->
+  <section class="group" data-group>
+    <div class="group-head">
+      <h2 class="group-title">Needs real students</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+    <p class="group-note">This is the real bottleneck. Nothing here can be faked, and nothing after it can be finished without it.</p>
+
+    <div class="task">
+      <input type="checkbox" id="t5">
+      <label class="task-title" for="t5">
+        Run real pair programming sessions
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">What to do</span>
+          You and a partner, using your own app, actually coding together. About
+          <b>10–15 minutes per session</b>, and aim for <b>10–15 sessions</b>. Swap partners
+          if you can.
+        </p>
+        <p>
+          Vary them on purpose so the model sees every situation: some where you work well
+          together, some where one person takes over, some where one stays silent, some where
+          you're genuinely stuck on a hard bug, some where you drift off. Mixed sessions
+          (start well, get stuck, recover) are the most valuable of all.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="t6">
+      <label class="task-title" for="t6">
+        Go through your sessions and label them
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">What to do</span>
+          Using the rules you wrote in step one, go through each session minute by minute and
+          mark what was happening. The tool is <b>already built</b> — it shows you what
+          happened in each chunk and you just press a number key.
+        </p>
+        <p>Do this the same evening, while you still remember the session.</p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="t7">
+      <label class="task-title" for="t7">
+        Get a second person to label some of the same ones
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">Why it matters</span>
+          This is the honesty check. If you and a friend look at the same session and
+          <b>agree</b>, your rules are clear. If you disagree a lot, your rules were vague —
+          fix them and re-label, <b>before</b> training.
+        </p>
+        <p>
+          There's a score for how much two people agreed. It's already built into the tool —
+          one command gives you the number, and it goes in your paper. It's also the honest
+          ceiling on your model: if two humans only agree 75% of the time, no model can
+          really beat that.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="t8">
+      <label class="task-title" for="t8">
+        Test different time windows
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">The problem</span>
+          The model currently looks at the last <b>3 minutes</b> of activity to decide what's
+          happening. Why 3 minutes? No reason — it was just picked. Maybe 2 works better.
+          Maybe 5.
+        </p>
+        <p>
+          <span class="lead">What to do</span>
+          Train it a few times with different window lengths and see which is most accurate.
+          One of your research questions literally asks this, so it's a real result.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="t9">
+      <label class="task-title" for="t9">
+        Test the model properly
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">What to do</span>
+          Once it's trained on real labelled data, check how good it actually is:
+        </p>
+        <p>
+          Show it sessions it has <b>never seen before</b>. Compare it against simple
+          if-then rules — is the clever model actually better than basic rules? And look at
+          <b>where</b> it gets confused, not just an overall score.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="t10">
+      <label class="task-title" for="t10">
+        Fix the "how sure is it?" cut-off
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">The problem</span>
+          The app only shows a message if the model is at least <b>60% sure</b>. That 60% was
+          made up. It needs to come from real data.
+        </p>
+        <div class="callout">
+          Here's why this matters. On the fake test data:<br>
+          when the model was <span class="num">90%+</span> sure, it was right
+          <span class="num">94%</span> of the time — good.<br>
+          When it was <span class="num">50–70%</span> sure, it was right only
+          <span class="num">39%</span> of the time — a coin flip.<br>
+          <b>Your cut-off sits at 60% — right inside the unreliable zone.</b>
+        </div>
+        <p>
+          <span class="lead">What to do</span>
+          With real data, find the point where the model's confidence can actually be
+          trusted, and set the cut-off there.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="t11">
+      <label class="task-title" for="t11">
+        Find out which behaviours matter most
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">What to do</span>
+          Ask the model which signals it actually relies on. Does idle time predict
+          disengagement better than chat count? Fake data can't answer this honestly —
+          real data can, and it's part of your research questions.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GROUP: later ============ -->
+  <section class="group" data-group>
+    <div class="group-head">
+      <h2 class="group-title">Later</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+    <p class="group-note">Not now — these come after you have a model you trust.</p>
+
+    <div class="task">
+      <input type="checkbox" id="t12">
+      <label class="task-title" for="t12">
+        Run the big classroom study
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          40–80 students. Half get the helpful messages, half get the same app with the
+          messages switched off, so you can compare. Needs <b>ethics approval first</b>, and
+          a model you actually trust.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="t13">
+      <label class="task-title" for="t13">
+        Watch the model while it's being used
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          Keep an eye on whether its predictions start drifting oddly over time. Also: when
+          students <b>dismiss</b> a message, that's a real clue it was unhelpful — worth
+          tracking.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="t14">
+      <label class="task-title" for="t14">
+        Optional: upgrade the hint system
+        <span class="tag you">Optional</span>
+      </label>
+      <div class="body">
+        <p>
+          Your hint system currently finds help by matching keywords. There's a smarter
+          method available. If you try it, <b>measure it against the current one</b> and
+          report both — don't just quietly swap it.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="t15">
+      <label class="task-title" for="t15">
+        Check that old label file
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          There's an old file in your <b>archive</b> folder that your research proposal
+          describes as real hand-labelled data. When I opened it, every session had the exact
+          same labels in the exact same order — which looks like a template someone filled in,
+          not real work.
+        </p>
+        <p>
+          Find out which it was. If it was never real, remove that claim from your proposal
+          before anyone checks.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Nothing here needs doing all at once. The first item costs you an afternoon of thinking
+    and unlocks everything else — start there.
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var KEY = 'pairpath-next-steps:';
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('.task input[type="checkbox"]'));
+
+    boxes.forEach(function (b) {
+      var saved = localStorage.getItem(KEY + b.id);
+      if (saved !== null) b.checked = saved === '1';
+      b.addEventListener('change', function () {
+        localStorage.setItem(KEY + b.id, b.checked ? '1' : '0');
+        refresh();
+      });
+    });
+
+    function refresh() {
+      var total = boxes.length;
+      var done = boxes.filter(function (b) { return b.checked; }).length;
+      document.getElementById('count').innerHTML = '<b>' + done + '</b> of ' + total + ' done';
+      document.getElementById('fill').style.width = (total ? (done / total) * 100 : 0) + '%';
+
+      document.querySelectorAll('[data-group]').forEach(function (g) {
+        var gb = Array.prototype.slice.call(g.querySelectorAll('input[type="checkbox"]'));
+        var gd = gb.filter(function (b) { return b.checked; }).length;
+        g.querySelector('[data-meta]').textContent = gd + ' / ' + gb.length;
+      });
+    }
+
+    refresh();
+  })();
+</script>
