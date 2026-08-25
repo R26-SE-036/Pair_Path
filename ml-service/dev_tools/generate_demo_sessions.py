@@ -66,12 +66,16 @@ def gen_session(session_id, state, base_t, rng):
         switch_times = sorted(rng.uniform(180, SESSION_SECONDS - 120) for _ in range(rng.choice([1, 2])))
         nav_note_p = rng.uniform(0.45, 0.7)
     elif state == "DRIVER_DOMINANCE":
+        # The navigator here is ENGAGED — contributing verbally, wanting in —
+        # but never gets the keyboard. That verbal engagement is what separates
+        # this from PASSIVE_NAVIGATOR (silent), and it is why the correct
+        # intervention is "switch roles": the navigator is ready to drive.
         edit_gap = rng.uniform(6, 11)
-        note_every = rng.uniform(200, 400)
+        note_every = rng.uniform(60, 110)
         run_every = rng.uniform(100, 160)
         success_p = rng.uniform(0.5, 0.8)
         switch_times = []  # defining trait: roles never rotate
-        nav_note_p = rng.uniform(0.0, 0.15)
+        nav_note_p = rng.uniform(0.45, 0.7)
     elif state == "PASSIVE_NAVIGATOR":
         edit_gap = rng.uniform(8, 13)
         note_every = rng.uniform(150, 300)

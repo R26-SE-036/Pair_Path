@@ -41,6 +41,7 @@ FEATURE_COLUMNS = [
     "navigator_note_count",
     "role_switch_count",
     "seconds_since_role_switch",
+    "session_elapsed_seconds",
     "active_user_dominance",
 ]
 
@@ -83,6 +84,7 @@ class WindowFeatureExtractor:
         roles: Optional[Dict[str, str]] = None,
         window_end: Optional[float] = None,
         last_role_switch_at: Optional[float] = None,
+        session_start_at: Optional[float] = None,
     ) -> Dict[str, float]:
         """Compute the canonical feature vector for one window.
 
@@ -153,14 +155,23 @@ class WindowFeatureExtractor:
         navigator_notes = sum(1 for _, e in notes if roles.get(e.get("userId")) == "NAVIGATOR")
 
         # ── Roles ──
+        # How long the session has been running at this window's end. Lets the
+        # model tell "no rotation yet, 2 minutes in" (normal) from "no rotation,
+        # 20 minutes in" (dominance) — indistinguishable without it.
+        if session_start_at is None:
+            session_start_at = stamped[0][0] if stamped else window_end
+        session_elapsed = max(0.0, window_end - session_start_at)
+
         if switches:
             seconds_since_switch = window_end - switches[-1][0]
         elif last_role_switch_at is not None:
             seconds_since_switch = window_end - last_role_switch_at
         else:
-            # No switch ever observed: cap at the window length so the value
-            # stays on a comparable scale instead of being unbounded.
-            seconds_since_switch = float(self.window_seconds)
+            # Never rotated: measure from session start, NOT capped at the
+            # window length. Capping made a pair that never switched look
+            # identical to one that switched a window ago, which is precisely
+            # what blurred DRIVER_DOMINANCE against PRODUCTIVE.
+            seconds_since_switch = session_elapsed
 
         # ── Dominance across all event types ──
         events_by_user: Dict[str, int] = {}
@@ -185,6 +196,7 @@ class WindowFeatureExtractor:
             "navigator_note_count": float(navigator_notes),
             "role_switch_count": float(len(switches)),
             "seconds_since_role_switch": round(seconds_since_switch, 2),
+            "session_elapsed_seconds": round(session_elapsed, 2),
             "active_user_dominance": round(dominance, 4),
         }
 

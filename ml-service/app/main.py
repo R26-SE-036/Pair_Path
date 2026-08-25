@@ -49,6 +49,7 @@ async def predict_pair_state(request: PredictPairStateRequest):
                 request.events,
                 roles=request.roles,
                 last_role_switch_at=request.lastRoleSwitchAt,
+                session_start_at=request.sessionStartAt,
             )
         else:
             features = request.features or {}

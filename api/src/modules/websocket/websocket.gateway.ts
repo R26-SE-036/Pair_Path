@@ -364,6 +364,14 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         orderBy: { timestamp: 'desc' },
       });
 
+      // Session age lets the model distinguish "no role switch yet, 2 minutes
+      // in" from "no role switch, 20 minutes in" — without it those look
+      // identical and productive pairs get misread as driver-dominant.
+      const session = await this.prisma.pairSession.findUnique({
+        where: { id: sessionId },
+        select: { startedAt: true },
+      });
+
       const prediction = await this.mlService.predictPairState(
         sessionId,
         recentEvents.map((e) => ({
@@ -374,6 +382,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         })),
         roles,
         lastSwitch ? lastSwitch.timestamp.getTime() / 1000 : undefined,
+        session ? session.startedAt.getTime() / 1000 : undefined,
       );
 
       // Log prediction and the exact features it was made on (echoed back

@@ -17,6 +17,7 @@ export class MlController {
       dto.events,
       dto.roles,
       dto.lastRoleSwitchAt,
+      dto.sessionStartAt,
     );
   }
 

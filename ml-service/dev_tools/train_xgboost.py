@@ -16,6 +16,7 @@ Usage:
 
 import argparse
 import hashlib
+import itertools
 import json
 import os
 import sys
@@ -101,6 +102,13 @@ def main():
     parser.add_argument("--cv-folds", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
+        "--tune",
+        action="store_true",
+        help="Select hyperparameters by grouped CV grid search on train/val "
+             "instead of using the hardcoded defaults. The held-out test "
+             "sessions are never used in the search.",
+    )
+    parser.add_argument(
         "--demo-synthetic",
         action="store_true",
         help="Explicitly accept an all-synthetic dataset for a PIPELINE DEMO. "
@@ -142,21 +150,61 @@ def main():
     test_sessions = sorted(set(groups[test_idx]))
     assert not (set(g_tv) & set(test_sessions)), "session leakage between train and test"
 
-    def make_model():
+    # Defaults are only a starting point; --tune selects from data instead.
+    hyperparams = {
+        "max_depth": 4,
+        "learning_rate": 0.1,
+        "n_estimators": 200,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+    }
+    tuning_method = "hardcoded defaults (no search)"
+
+    def make_model(params=None):
         return xgb.XGBClassifier(
             objective="multi:softprob",
             num_class=len(encoder.classes_),
-            max_depth=4,
-            learning_rate=0.1,
-            n_estimators=200,
-            subsample=0.8,
-            colsample_bytree=0.8,
             random_state=args.seed,
             eval_metric="mlogloss",
+            **(params or hyperparams),
         )
 
-    # Grouped CV on train/val for an honest tuning signal (macro-F1).
     n_folds = min(args.cv_folds, len(set(g_tv)))
+
+    if args.tune:
+        # Select hyperparameters by grouped CV *within* train/val only — the
+        # held-out test sessions are never seen during the search.
+        grid = {
+            "max_depth": [3, 4, 6],
+            "learning_rate": [0.05, 0.1, 0.2],
+            "n_estimators": [100, 200, 400],
+            "subsample": [0.8, 1.0],
+            "colsample_bytree": [0.8, 1.0],
+        }
+        combos = [dict(zip(grid, v)) for v in itertools.product(*grid.values())]
+        if n_folds < 2:
+            sys.exit("[ABORT] --tune needs at least 2 sessions' worth of groups for CV")
+        print(f"\n[TUNE] searching {len(combos)} configurations "
+              f"({n_folds}-fold grouped CV on train/val, macro-F1)")
+        gkf_t = GroupKFold(n_splits=n_folds)
+        folds = list(gkf_t.split(X_tv, y_tv, g_tv))
+        best = (-1.0, None)
+        for params in combos:
+            scores = []
+            for tr, va in folds:
+                m = make_model(params)
+                m.fit(X_tv[tr], y_tv[tr],
+                      sample_weight=compute_sample_weight("balanced", y_tv[tr]))
+                scores.append(f1_score(y_tv[va], m.predict(X_tv[va]), average="macro"))
+            mean = float(np.mean(scores))
+            if mean > best[0]:
+                best = (mean, params)
+        hyperparams = best[1]
+        tuning_method = f"grouped {n_folds}-fold CV grid search over {len(combos)} configs, macro-F1"
+        print(f"[TUNE] best CV macro-F1: {best[0]:.4f}")
+        print(f"[TUNE] selected: {hyperparams}")
+
+    # Grouped CV on train/val for an honest tuning signal (macro-F1).
     cv_scores = []
     if n_folds >= 2:
         gkf = GroupKFold(n_splits=n_folds)
@@ -223,6 +271,8 @@ def main():
         "test": {"macro_f1": float(test_macro_f1), "per_class": report},
         "classes": list(encoder.classes_),
         "features": feature_cols,
+        "hyperparameters": hyperparams,
+        "hyperparameter_selection": tuning_method,
         "label_policy": "human annotation only (L1); 5-state taxonomy (L7)"
                         + (" — WAIVED for this demo model via --demo-synthetic" if args.demo_synthetic else ""),
         "imbalance_policy": "balanced sample weights, no replication (L3)",

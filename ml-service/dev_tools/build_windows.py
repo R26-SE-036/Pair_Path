@@ -88,6 +88,7 @@ def main():
                     roles=roles_as_of(stamped, t),
                     window_end=t,
                     last_role_switch_at=last_switch,
+                    session_start_at=stamped[0][0],
                 )
                 all_rows.append({
                     "session_id": session_id,

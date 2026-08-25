@@ -20,6 +20,7 @@ export class MlService {
     events: Array<Record<string, any>>,
     roles: Record<string, string>,
     lastRoleSwitchAt?: number,
+    sessionStartAt?: number,
   ) {
     try {
       const response = await this.httpService
@@ -28,6 +29,7 @@ export class MlService {
           events,
           roles,
           lastRoleSwitchAt: lastRoleSwitchAt ?? null,
+          sessionStartAt: sessionStartAt ?? null,
         })
         .toPromise();
 

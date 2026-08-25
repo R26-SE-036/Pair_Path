@@ -8,6 +8,7 @@ class PredictPairStateRequest(BaseModel):
     events: Optional[List[Dict[str, Any]]] = None
     roles: Optional[Dict[str, str]] = None
     lastRoleSwitchAt: Optional[float] = None  # epoch seconds, if known
+    sessionStartAt: Optional[float] = None  # epoch seconds; enables session-age features
     # Legacy path: pre-computed features (kept for backward compatibility).
     features: Optional[Dict[str, Any]] = None
 

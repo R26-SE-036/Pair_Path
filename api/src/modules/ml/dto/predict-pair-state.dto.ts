@@ -14,4 +14,8 @@ export class PredictPairStateDto {
   @IsOptional()
   @IsNumber()
   lastRoleSwitchAt?: number;
+
+  @IsOptional()
+  @IsNumber()
+  sessionStartAt?: number;
 }
