@@ -1,0 +1,3 @@
+Tags: logic, mistakes, boundary, off-by-one, infinite loop
+Content: An off-by-one error happens when a loop iterates one time too many or too few. For example, using '<=' instead of '<' when looping up to array.length. Another common mistake is modifying a collection while iterating over it.
+Keywords: off-by-one, boundary, iteration, logical error, infinite

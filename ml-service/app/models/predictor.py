@@ -1,4 +1,5 @@
 import joblib
+import json
 import numpy as np
 from typing import Dict, Any
 import os
@@ -8,28 +9,39 @@ class PairStatePredictor:
         self.model = None
         self.label_encoder = None
         self.feature_columns = None
+        self.model_version = "rule_fallback_v1"
         self.load_models()
 
     def load_models(self):
         """Load the trained XGBoost model and related components."""
         models_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'models')
-        
+
         try:
             model_path = os.path.join(models_dir, 'pair_state_xgboost.joblib')
             encoder_path = os.path.join(models_dir, 'pair_state_label_encoder.joblib')
             columns_path = os.path.join(models_dir, 'pair_state_feature_columns.joblib')
-            
+            card_path = os.path.join(models_dir, 'model_card.json')
+
             if not os.path.exists(model_path):
-                print(f"⚠️ Model file not found at {model_path}, using fallback predictions")
+                print(f"[WARNING] Model file not found at {model_path}, using fallback predictions")
                 return False
-            
+
             self.model = joblib.load(model_path)
             self.label_encoder = joblib.load(encoder_path)
             self.feature_columns = joblib.load(columns_path)
-            print(f"✅ Loaded XGBoost model from {model_path}")
+
+            # Version comes from the model card written at training time,
+            # never a hardcoded string.
+            if os.path.exists(card_path):
+                with open(card_path) as f:
+                    self.model_version = json.load(f).get("version", "unversioned")
+            else:
+                self.model_version = "unversioned"
+
+            print(f"[SUCCESS] Loaded XGBoost model {self.model_version} from {model_path}")
             return True
         except Exception as e:
-            print(f"⚠️ Failed to load models: {e}, using fallback predictions")
+            print(f"[WARNING] Failed to load models: {e}, using fallback predictions")
             return False
 
     async def predict(self, features: Dict[str, Any]) -> Dict[str, Any]:
@@ -49,7 +61,7 @@ class PairStatePredictor:
                 "confidence": confidence
             }
         except Exception as e:
-            print(f"⚠️ Prediction error: {e}")
+            print(f"[WARNING] Prediction error: {e}")
             return self._fallback_prediction(features)
 
     def _prepare_features(self, features: Dict[str, Any]) -> np.ndarray:
@@ -60,21 +72,38 @@ class PairStatePredictor:
         return np.array(feature_vector)
 
     def _fallback_prediction(self, features: Dict[str, Any]) -> Dict[str, Any]:
-        """Rule-based fallback when the trained model is not available."""
-        edit_balance = features.get("edit_balance_ratio_3m", 0.5)
-        run_success_rate = features.get("avg_run_success_rate_3m", 0.5)
-        discussion_count = features.get("total_discussion_note_count_3m", 0)
-        idle_ratio = features.get("avg_idle_ratio_3m", 0.2)
-        navigator_chat = features.get("navigator_chat_count_3m", 0)
-        
-        # Rule-based classification
+        """Rule-based fallback when the trained model is not available.
+
+        Reads the canonical window-agnostic feature names (app.features),
+        with the legacy `_3m` names as a fallback for old callers. This is
+        also the RQ1 rule-based baseline the trained model is compared to.
+        """
+        def get(canonical, legacy, default):
+            return features.get(canonical, features.get(legacy, default))
+
+        run_success_rate = get("run_success_rate", "avg_run_success_rate_3m", 0.5)
+        run_attempts = get("run_attempt_count", "total_run_attempts_3m", 0)
+        discussion_count = get("discussion_note_count", "total_discussion_note_count_3m", 0)
+        idle_ratio = get("idle_ratio", "avg_idle_ratio_3m", 0.2)
+        navigator_chat = get("navigator_note_count", "navigator_chat_count_3m", 0)
+        total_edits = get("total_edit_count", "user1_edit_count_3m", 0)
+        since_switch = get("seconds_since_role_switch", "time_since_role_switch", 0)
+
+        # Rule-based classification, in priority order. Thresholds come from
+        # the state definitions, not from fitting to data.
+        #
+        # NOTE: edit share is deliberately NOT used. The navigator's editor is
+        # read-only, so every edit comes from the driver by construction and
+        # edit balance carries no signal. Driver dominance is identified by
+        # absence of role rotation while the navigator is verbally engaged;
+        # a silent navigator is a passive navigator regardless of rotation.
         if idle_ratio > 0.7 and discussion_count < 1:
             return {"state": "DISENGAGED", "confidence": 0.65}
-        elif edit_balance > 0.85 and navigator_chat < 1:
-            return {"state": "DRIVER_DOMINANCE", "confidence": 0.7}
-        elif run_success_rate < 0.3 and discussion_count >= 1:
+        elif run_attempts >= 2 and run_success_rate < 0.3:
             return {"state": "LOGIC_STRUGGLE", "confidence": 0.65}
-        elif navigator_chat == 0 and discussion_count < 2:
+        elif navigator_chat == 0 and total_edits > 0:
             return {"state": "PASSIVE_NAVIGATOR", "confidence": 0.55}
+        elif since_switch >= 180 and navigator_chat > 0:
+            return {"state": "DRIVER_DOMINANCE", "confidence": 0.7}
         else:
             return {"state": "PRODUCTIVE", "confidence": 0.6}

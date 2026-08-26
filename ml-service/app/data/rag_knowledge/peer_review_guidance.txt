@@ -1,0 +1,3 @@
+Tags: peer review, feedback, quality, critique
+Content: A high-quality peer review provides constructive, specific, and actionable feedback. Instead of just saying "looks good" or "this is wrong", point out exactly what could be improved and suggest an alternative approach. Focus on the code, not the person. Ask questions like "What was your reasoning for this logic?" to encourage deeper reflection.
+Keywords: review, feedback, critique, constructive, quality, improve

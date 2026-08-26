@@ -1,0 +1,3 @@
+Tags: loops, iteration, for, while, boundaries
+Content: A 'for' loop is used when the number of iterations is known. It has three parts: initialization, condition, and update. A 'while' loop runs as long as its condition is true. Watch out for infinite loops if the condition never becomes false.
+Keywords: loop, iterate, condition, infinite, for, while, update

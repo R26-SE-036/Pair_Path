@@ -12,7 +12,13 @@ export class MlController {
 
   @Post('predict-pair-state')
   async predictPairState(@Body() dto: PredictPairStateDto) {
-    return this.mlService.predictPairState(dto.sessionId, dto.features);
+    return this.mlService.predictPairState(
+      dto.sessionId,
+      dto.events,
+      dto.roles,
+      dto.lastRoleSwitchAt,
+      dto.sessionStartAt,
+    );
   }
 
   @Post('recommend-intervention')
@@ -22,6 +28,6 @@ export class MlController {
 
   @Post('retrieve-hint')
   async retrieveHint(@Body() dto: RetrieveHintDto) {
-    return this.mlService.retrieveHint(dto.sessionId, dto.questionId, dto.conceptTags, dto.errorContext);
+    return this.mlService.retrieveHint(dto);
   }
 }

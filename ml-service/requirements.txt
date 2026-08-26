@@ -1,11 +1,18 @@
-fastapi
-uvicorn
-pydantic
-scikit-learn
-xgboost
-sentence-transformers
-numpy
-pandas
-joblib
-python-multipart
-httpx
+# Pinned (L15). Versions match the environment the current artifacts were
+# built/tested with — bump deliberately, never silently.
+fastapi==0.136.0
+uvicorn==0.44.0
+pydantic==2.13.2
+scikit-learn==1.8.0
+xgboost==3.2.0
+numpy==2.4.1
+pandas==3.0.2
+joblib==1.5.3
+python-multipart==0.0.27
+httpx==0.28.1
+# dev_tools (Mongo export)
+pymongo==4.17.0
+python-dotenv==1.2.2
+# NOTE (L14): sentence-transformers intentionally NOT declared — current
+# retrieval is keyword-based (RAG-lite). Add it back only when the Phase 3
+# embedding comparison is actually implemented.

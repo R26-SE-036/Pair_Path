@@ -1,0 +1,3 @@
+Tags: basics, variables, types, syntax
+Content: Java requires every variable to be declared with a data type. Common types are int, double, boolean, and String. Every statement in Java must end with a semicolon.
+Keywords: semicolon, type, declare, int, string, syntax error

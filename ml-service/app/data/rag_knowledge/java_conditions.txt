@@ -1,0 +1,3 @@
+Tags: conditions, if, else, logic
+Content: Conditional statements like 'if' and 'else' allow the code to make decisions. The condition must evaluate to a boolean (true or false). Be careful when using '==' to compare objects like Strings; use the .equals() method instead.
+Keywords: if, else, condition, boolean, compare, equals, true, false

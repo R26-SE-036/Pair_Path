@@ -137,6 +137,26 @@ export class SessionsService {
     return updatedSession;
   }
 
+  async findByUser(userId: string) {
+    return this.prisma.pairSession.findMany({
+      where: {
+        members: {
+          some: { userId },
+        },
+      },
+      include: {
+        question: true,
+        members: {
+          include: { user: true },
+        },
+        interventions: {
+          orderBy: { shownAt: 'desc' },
+        },
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+  }
+
   private generateJoinCode(): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = '';
@@ -174,6 +194,7 @@ export class SessionsService {
     return this.prisma.pairSession.findUnique({
       where: { id },
       include: {
+        question: true,
         events: {
           orderBy: { timestamp: 'asc' }
         },

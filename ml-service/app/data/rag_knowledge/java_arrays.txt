@@ -1,0 +1,3 @@
+Tags: arrays, indexing, boundaries, out of bounds
+Content: Java arrays start at index 0. This means the first element is at array[0], and the last valid index is exactly array.length - 1. Attempting to access an index equal to or greater than array.length will cause an ArrayIndexOutOfBoundsException.
+Keywords: array, index, outofbounds, length, bounds

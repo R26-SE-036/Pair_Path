@@ -1,0 +1,3 @@
+Tags: methods, functions, return, parameters
+Content: Methods break code into reusable blocks. A method must have a return type or be 'void' if it returns nothing. Make sure to pass the correct type and number of arguments when calling a method.
+Keywords: method, function, return, void, parameter, argument

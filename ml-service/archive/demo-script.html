@@ -1,0 +1,229 @@
+<title>Three Minute Demo</title>
+<style>
+  :root {
+    --bg: #F6F6F3;
+    --surface: #FFFFFF;
+    --surface-2: #ECEDE8;
+    --border: #D9DBD3;
+    --border-strong: #BFC2B8;
+    --ink: #14213D;
+    --muted: #576076;
+    --faint: #8A92A5;
+    --accent: #1D4E89;
+    --accent-soft: #DDE7F2;
+    --cue: #A85F06;
+    --cue-soft: #FAEBD6;
+    --ok: #2D6A4F;
+    --ok-soft: #DEEDE4;
+    --shadow: 0 1px 2px rgba(20,33,61,.05), 0 2px 10px rgba(20,33,61,.04);
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --serif: "Iowan Old Style", Charter, Georgia, "Noto Serif", serif;
+    --mono: ui-monospace, Menlo, Consolas, "Roboto Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0F1219; --surface: #171B24; --surface-2: #1F2430;
+      --border: #2C3341; --border-strong: #3D4657;
+      --ink: #E8EAF0; --muted: #A2AABB; --faint: #7A8397;
+      --accent: #7BA7D9; --accent-soft: #17293D;
+      --cue: #E0A458; --cue-soft: #33260F;
+      --ok: #74C69D; --ok-soft: #14301F;
+      --shadow: 0 1px 3px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1219; --surface: #171B24; --surface-2: #1F2430;
+    --border: #2C3341; --border-strong: #3D4657;
+    --ink: #E8EAF0; --muted: #A2AABB; --faint: #7A8397;
+    --accent: #7BA7D9; --accent-soft: #17293D;
+    --cue: #E0A458; --cue-soft: #33260F;
+    --ok: #74C69D; --ok-soft: #14301F;
+    --shadow: 0 1px 3px rgba(0,0,0,.45);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 3rem 1.25rem 5rem; display: flex; flex-direction: column; gap: 1.75rem; }
+
+  .eyebrow { font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin: 0; }
+  h1 { margin: .5rem 0 0; font-size: clamp(1.8rem, 5vw, 2.4rem); font-weight: 800; letter-spacing: -.022em; line-height: 1.1; }
+  .standfirst { margin: .8rem 0 0; font-family: var(--serif); font-size: 1.05rem; color: var(--muted); max-width: 62ch; }
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.15rem 1.3rem; box-shadow: var(--shadow); }
+  .panel h2 { margin: 0 0 .8rem; font-size: .78rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+  .panel p { margin: 0 0 .6rem; font-size: .95rem; }
+  .panel p:last-child { margin-bottom: 0; }
+
+  .warn { border-left: 4px solid var(--cue); background: var(--cue-soft); }
+  .warn h2 { color: var(--cue); }
+
+  .setup { display: flex; flex-direction: column; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+  .setup li { display: flex; gap: .6rem; align-items: flex-start; font-size: .95rem; }
+  .setup li::before { content: "☐"; color: var(--accent); font-size: 1rem; line-height: 1.35; }
+
+  /* beat = one timed step */
+  .beat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); display: grid; grid-template-columns: 88px 1fr; }
+  @media (max-width: 600px) { .beat { grid-template-columns: 1fr; } }
+  .beat-time { background: var(--surface-2); border-right: 1px solid var(--border); padding: 1rem .8rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .2rem; }
+  @media (max-width: 600px) { .beat-time { border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; gap: .5rem; padding: .6rem; } }
+  .beat-time .t { font-family: var(--mono); font-size: 1.05rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .beat-time .dur { font-family: var(--mono); font-size: .68rem; color: var(--faint); }
+  .beat-body { padding: 1rem 1.2rem; }
+  .beat-body h3 { margin: 0 0 .5rem; font-size: 1.02rem; font-weight: 700; letter-spacing: -.01em; }
+  .do { margin: 0 0 .6rem; font-size: .94rem; }
+  .do b { font-weight: 650; }
+  .say { font-family: var(--serif); font-size: .95rem; color: var(--muted); border-left: 3px solid var(--border-strong); padding-left: .75rem; margin: 0; }
+  .say em { color: var(--ink); font-style: italic; }
+
+  .key { border-color: var(--ok); }
+  .key .beat-time { background: var(--ok-soft); }
+  .key .beat-time .t { color: var(--ok); }
+  .badge { display: inline-block; font-size: .6rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: .14rem .42rem; border-radius: 4px; background: var(--ok); color: #fff; margin-left: .4rem; vertical-align: middle; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--border); }
+  thead th { font-size: .67rem; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.state { font-family: var(--mono); font-size: .8rem; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+
+  code { font-family: var(--mono); font-size: .88em; background: var(--surface-2); padding: .1em .35em; border-radius: 4px; }
+  footer { border-top: 1px solid var(--border); padding-top: 1.2rem; font-family: var(--serif); font-size: .9rem; color: var(--faint); }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">PairPath · panel demonstration</p>
+    <h1>Three Minute Demo</h1>
+    <p class="standfirst">
+      Built for a short slot. Everything runs from the <strong>sandbox page</strong>, because
+      live pair programming can't be made to produce a chosen state on cue — and stalling in
+      front of a panel costs more than the realism gains. Two versions below:
+      <strong>60 seconds</strong> if you're squeezed, <strong>3 minutes</strong> if you're not.
+    </p>
+  </header>
+
+  <div class="panel warn">
+    <h2>Why not a live session</h2>
+    <p>A live pair takes about 3 minutes per state to register, because the model reads the
+      last 3 minutes of behaviour. Five states is 15 minutes minimum, and even then the state
+      you want isn't guaranteed — in testing, short sessions kept coming out as
+      <code>DRIVER_DOMINANCE</code> no matter what we did.</p>
+    <p><b>The sandbox shows the same model, the same predictions and the same interventions —
+      instantly and every time.</b> That is the honest choice for a short slot, not a lesser one.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Set up before you walk in</h2>
+    <ul class="setup">
+      <li>All three services running — frontend 3000, API 3001, ML service 8000</li>
+      <li><code>/ml-sandbox</code> already open, scrolled so the preset buttons and the result panel are both visible</li>
+      <li><b>Click Productive once and press Predict</b> — proves it's alive before the panel arrives</li>
+      <li>Reload the page so you start clean</li>
+    </ul>
+  </div>
+
+  <!-- ============ 3 MINUTE VERSION ============ -->
+  <h2 style="margin:1rem 0 -0.5rem;font-size:1.15rem;font-weight:800;">The 3-minute version</h2>
+
+  <section class="beat">
+    <div class="beat-time"><span class="t">0:00</span><span class="dur">20 sec</span></div>
+    <div class="beat-body">
+      <h3>Frame it in one sentence</h3>
+      <p class="do">No slides. Sandbox already on screen.</p>
+      <p class="say"><em>"PairPath watches how two students collaborate — not whether their code is
+        right — and classifies it into one of five states. Each state gets a different nudge.
+        These sliders are the behaviour the model sees in a three-minute window."</em></p>
+    </div>
+  </section>
+
+  <section class="beat">
+    <div class="beat-time"><span class="t">0:20</span><span class="dur">70 sec</span></div>
+    <div class="beat-body">
+      <h3>Run all five states — about 14 seconds each</h3>
+      <p class="do">For each: <b>click the preset → click Predict → point at the state and the
+        intervention</b>. Don't read the numbers aloud; let them see the sliders move.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Click</th><th>Then say</th></tr></thead>
+          <tbody>
+            <tr><td class="state">productive</td><td>"Working well — so it gets encouragement, not a correction."</td></tr>
+            <tr><td class="state">logic struggle</td><td>"Runs keep failing. It highlights the hint panel — and the hint never contains the answer."</td></tr>
+            <tr><td class="state">driver dominance</td><td>"One student has held the keyboard too long. It glows the swap button."</td></tr>
+            <tr><td class="state">passive navigator</td><td>"The navigator has gone silent. This one goes to the navigator alone."</td></tr>
+            <tr><td class="state">disengaged</td><td>"Both have stopped. It nudges them to regroup."</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="beat key">
+    <div class="beat-time"><span class="t">1:30</span><span class="dur">45 sec</span></div>
+    <div class="beat-body">
+      <h3>The slider flip <span class="badge">Do not skip</span></h3>
+      <p class="do">Load <b>productive</b>. Find <b>Seconds since the last swap</b>. Drag it from
+        <b>200 to 600</b>. Change <b>nothing else</b>. Press Predict.</p>
+      <p class="do">It flips from <b>Productive</b> to <b>Driver dominance</b>.</p>
+      <p class="say"><em>"Same amount of typing, same amount of talking. The only thing that changed
+        is how long since they swapped roles — and the verdict changes. That's the model reasoning
+        about collaboration, not counting keystrokes."</em></p>
+    </div>
+  </section>
+
+  <section class="beat">
+    <div class="beat-time"><span class="t">2:15</span><span class="dur">45 sec</span></div>
+    <div class="beat-body">
+      <h3>Close with the number and the caveat</h3>
+      <p class="do">Have the results table ready — printed, or on a second screen.</p>
+      <p class="say"><em>"Tested on sessions the model had never seen: 89% accurate, and it beats
+        a hand-written rule baseline by 28 points. But it's trained on generated sessions, not real
+        students — so what we've shown is that the pipeline works end to end. Validating it with
+        real pairs is the next phase."</em></p>
+    </div>
+  </section>
+
+  <!-- ============ 60 SECOND VERSION ============ -->
+  <h2 style="margin:1.5rem 0 -0.5rem;font-size:1.15rem;font-weight:800;">The 60-second version</h2>
+
+  <div class="panel">
+    <p>If the slot shrinks, cut the five-state tour — <b>not</b> the slider flip.</p>
+    <table>
+      <thead><tr><th>Time</th><th>Do</th></tr></thead>
+      <tbody>
+        <tr><td class="state">0:00 · 10s</td><td>One sentence of framing</td></tr>
+        <tr><td class="state">0:10 · 20s</td><td><b>Three</b> presets only: productive, logic struggle, passive navigator</td></tr>
+        <tr><td class="state">0:30 · 20s</td><td>The slider flip</td></tr>
+        <tr><td class="state">0:50 · 10s</td><td>"89% on unseen sessions — but synthetic data, real students next"</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:.8rem;">Those three states carry the whole idea: one rewards, one helps, one protects a student's dignity.</p>
+  </div>
+
+  <div class="panel">
+    <h2>If they give you an extra minute</h2>
+    <p>Open the pair session in two browser windows side by side and show the
+      <b>passive navigator</b> nudge arriving on one screen and not the other.</p>
+    <p>It's the strongest thing you have — visible evidence of a design decision, not just a
+      model output. But it needs both screens visible, so only attempt it if the room allows.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Two answers to have ready</h2>
+    <p><b>"Is this real student data?"</b><br>
+      <span style="font-family:var(--serif);color:var(--muted);"><em>"No — generated sessions.
+      We've validated the pipeline, not detection accuracy on people. That's deliberate: we'd
+      rather report what we actually measured."</em></span></p>
+    <p><b>"Why is one state 100% accurate?"</b><br>
+      <span style="font-family:var(--serif);color:var(--muted);"><em>"Because our generated data
+      is cleaner than real students would be. That number is a limitation, not a result — we'd
+      expect it to drop with real sessions."</em></span></p>
+  </div>
+
+  <footer>
+    Rehearse the slider flip until it takes ten seconds. It's the one moment that shows the model
+    reasoning rather than reporting, and it's the part a panel will remember.
+  </footer>
+</div>

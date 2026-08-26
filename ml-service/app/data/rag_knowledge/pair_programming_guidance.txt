@@ -1,0 +1,3 @@
+Tags: pair programming, driver, navigator, role, collaboration
+Content: Effective pair programming requires active participation from both partners. The 'Driver' focuses on typing and syntactical details, while the 'Navigator' reviews the code, spots potential bugs, and thinks about the broader logic. Swap roles frequently (e.g., every 10-15 minutes) to prevent fatigue and ensure shared understanding. If the Navigator is silent, the Driver should pause and ask questions to re-engage them.
+Keywords: driver, navigator, swap, role, collaborate, passive, dominant, teamwork

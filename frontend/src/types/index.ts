@@ -78,8 +78,12 @@ export interface InterventionAction {
   delivery: {
     type: string
     uiTarget: string
-    uiEffect: 'glow' | 'pulse' | 'highlight' | 'none'
+    uiEffect: 'glow' | 'pulse' | 'highlight' | 'toast' | 'none'
     message: string
+    /** Present on self-dismissing deliveries (e.g. encouragement toasts). */
+    autoDismissMs?: number
+    /** Who the server sent this to: the pair, or one role only. */
+    audience?: 'pair' | 'navigator' | 'driver'
   }
 }
 

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { io } from 'socket.io-client'
 import api from '@/lib/api'
 import type { ReviewResult } from '@/types'
 
@@ -12,15 +13,29 @@ export default function ResultsPage() {
   const [results, setResults] = useState<ReviewResult | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { fetchResults() }, [sessionId])
-
-  const fetchResults = async () => {
+  const fetchResults = useCallback(async () => {
     try {
       const { data } = await api.get(`/reviews/${sessionId}/result`)
       setResults(data)
     } catch (err) { console.error('Failed to fetch results:', err) }
     finally { setLoading(false) }
-  }
+  }, [sessionId])
+
+  useEffect(() => { fetchResults() }, [fetchResults])
+
+  // Whoever submits first lands here before their partner has finished, so
+  // this page must update when the second review arrives — otherwise it shows
+  // a single score until the user manually refreshes.
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+
+    const socket = io('http://localhost:3001', { auth: { token } })
+    socket.on('connect', () => socket.emit('watch_session', { sessionId }))
+    socket.on('review_submitted', () => { fetchResults() })
+
+    return () => { socket.disconnect() }
+  }, [sessionId, fetchResults])
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'text-accent-400'

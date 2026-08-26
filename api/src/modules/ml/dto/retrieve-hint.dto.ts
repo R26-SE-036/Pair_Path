@@ -1,15 +1,30 @@
-import { IsString, IsArray } from 'class-validator';
+import { IsString, IsArray, IsOptional } from 'class-validator';
 
 export class RetrieveHintDto {
   @IsString()
   sessionId: string;
 
+  @IsOptional()
   @IsString()
-  questionId: string;
+  pairId?: string;
+
+  @IsOptional()
+  @IsString()
+  predictedState?: string;
+
+  @IsOptional()
+  @IsString()
+  interventionType?: string;
 
   @IsArray()
-  conceptTags: string[];
+  @IsString({ each: true })
+  questionConceptTags: string[];
 
+  @IsOptional()
   @IsString()
-  errorContext?: string;
+  recentErrorContext?: string;
+
+  @IsOptional()
+  @IsString()
+  recentCodeSnippet?: string;
 }

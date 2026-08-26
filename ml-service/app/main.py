@@ -1,11 +1,18 @@
+import os
+import sys
+
+# Add the parent directory to sys.path so 'python app/main.py' works directly
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.schemas.predictions import PredictPairStateRequest, PredictPairStateResponse
 from app.schemas.interventions import RecommendInterventionRequest, RecommendInterventionResponse
-from app.schemas.hints import RetrieveHintRequest, RetrieveHintResponse
 from app.models.predictor import PairStatePredictor
 from app.models.intervention_engine import InterventionEngine
-from app.models.rag_retriever import RAGRetriever
+from app.features import WindowFeatureExtractor
+from app.rag import RAGService
+from app.rag.schemas import RAGHintRequest, RAGHintResponse
 
 app = FastAPI(
     title="Pair Programming ML Service",
@@ -25,20 +32,37 @@ app.add_middleware(
 # Initialize components
 predictor = PairStatePredictor()
 intervention_engine = InterventionEngine()
-rag_retriever = RAGRetriever()
+feature_extractor = WindowFeatureExtractor()
+rag_service = RAGService()
 
 @app.post("/predict-pair-state", response_model=PredictPairStateResponse)
 async def predict_pair_state(request: PredictPairStateRequest):
-    """Predict the current collaboration state of a pair programming session."""
+    """Predict the current collaboration state of a pair programming session.
+
+    Preferred: send raw `events` (+ `roles`) — features are computed here by
+    the same canonical extractor used to build training data (L5).
+    Legacy: send pre-computed `features` directly.
+    """
     try:
-        prediction = await predictor.predict(request.features)
+        if request.events is not None:
+            features = feature_extractor.extract(
+                request.events,
+                roles=request.roles,
+                last_role_switch_at=request.lastRoleSwitchAt,
+                session_start_at=request.sessionStartAt,
+            )
+        else:
+            features = request.features or {}
+
+        prediction = await predictor.predict(features)
         return PredictPairStateResponse(
             sessionId=request.sessionId,
             predictedState=prediction["state"],
             confidence=prediction["confidence"],
-            modelVersion="pair_state_xgboost_v1",
+            modelVersion=predictor.model_version,
+            features={k: float(v) for k, v in features.items()},
         )
-    except Exception as e:
+    except Exception:
         # Fallback prediction
         return PredictPairStateResponse(
             sessionId=request.sessionId,
@@ -73,25 +97,26 @@ async def recommend_intervention(request: RecommendInterventionRequest):
             },
         )
 
-@app.post("/retrieve-hint", response_model=RetrieveHintResponse)
-async def retrieve_hint(request: RetrieveHintRequest):
-    """Retrieve a contextual hint based on the current programming context."""
+@app.post("/retrieve-hint", response_model=RAGHintResponse)
+@app.post("/rag/hint", response_model=RAGHintResponse)
+async def retrieve_hint(request: RAGHintRequest):
+    """Retrieve a contextual hint using the RAG-lite pipeline."""
     try:
-        hint = await rag_retriever.retrieve_hint(
-            request.conceptTags,
-            request.errorContext,
-        )
-        return RetrieveHintResponse(
-            conceptReminder=hint["conceptReminder"],
-            exampleIdea=hint["exampleIdea"],
-            reflectiveQuestion=hint["reflectiveQuestion"],
-        )
+        # The new RAGService is synchronous in our implementation
+        response = rag_service.process_request(request)
+        return response
     except Exception as e:
-        # Fallback hint
-        return RetrieveHintResponse(
-            conceptReminder="Review the problem requirements carefully.",
-            exampleIdea="Break down the problem into smaller steps.",
-            reflectiveQuestion="What is the first step you need to take?",
+        import traceback
+        traceback.print_exc()
+        # Fallback hint matching RAGHintResponse
+        return RAGHintResponse(
+            interventionType=request.interventionType or "LOGIC_HINT",
+            retrievedConcepts=[],
+            conceptReminder="Try tracing the logic step by step before changing the code.",
+            exampleIdea="Check the values of your variables at the start, middle, and end of the loop.",
+            reflectiveQuestion="What do you expect each variable to contain after one iteration?",
+            sourceChunks=[],
+            fallbackUsed=True
         )
 
 @app.get("/health")
