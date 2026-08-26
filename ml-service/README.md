@@ -40,7 +40,7 @@ mappings. `LOW_QUALITY_REVIEW` is deferred as documented future work.
 
 `app/features/extractor.py` is the **only** feature implementation — the
 NestJS gateway sends raw session events at inference time, and the offline
-dataset builder imports the same class. 14 window-agnostic features
+dataset builder imports the same class. 15 window-agnostic features
 (edits by role, run success/failure streaks, error recovery time, idle
 ratio, discussion counts, role-switch timing, activity dominance) over a
 configurable window (`ML_WINDOW_SECONDS`, default 180 — to be settled by

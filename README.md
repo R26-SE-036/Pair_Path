@@ -11,6 +11,10 @@
 
 <br />
 
+> 📚 **Detailed documentation lives in [`docs/`](docs/)** — architecture, setup,
+> API and event contracts, the ML pipeline, the annotation codebook, and the
+> evaluation.
+
 ## 📖 Project Overview
 
 **PairPath** is a collaborative learning environment designed to teach programming to novices through **structured pair programming**. It is the individual research component of the **Code Guru** capstone platform (SLIIT group **R26-SE-036**).
@@ -25,48 +29,30 @@ The platform logs student behaviour in real time (edits by role, run success/fai
 
 ---
 
-## ⚠️ Current Project Status — Read This First
-
-This repository is **mid-remediation** following a technical audit. Being explicit about what is and isn't validated is a deliberate part of the research contribution.
-
-| Area | Status |
-|---|---|
-| Platform (editor, sessions, roles, chat, execution, review) | ✅ Working end-to-end |
-| Security: socket auth, sandboxed execution | ✅ Implemented |
-| ML pipeline: extraction → split → train → serve | ✅ Working, leakage-free |
-| **Trained model in `models/`** | ⚠️ **Synthetic demo model only** |
-| Human-annotated dataset | ❌ Not yet collected |
-| Reported accuracy figures | ❌ **None valid yet** |
-
-**The deployed model is a pipeline demonstration, not a validated classifier.** It is trained on generated sessions from `dev_tools/generate_demo_sessions.py`, and is stamped `demo_synthetic_*` in its model card and in every API response. Its scores (test macro-F1 ≈ 0.84) measure how learnable the generator's patterns are — **they are not model performance and must not be reported as such.**
-
-The previous model and its training data were retired to `/archive` because they failed audit: labels were the model's own prior predictions (circular training), rows were duplicated across the train/test split, and the model expected 33 features while production only ever supplied 8. See [`archive/README.md`](archive/README.md) for the full evidence trail.
-
-**A valid model requires real sessions, hand-labelled by a human.** The tooling for that is built and tested — see [Building a Real Dataset](#-building-a-real-dataset).
-
----
-
 ## ✨ Key Features
 
 - **💻 Real-Time Collaborative Workspace:** Synchronized Monaco editor, live terminal output, and Socket.IO for remote pairing. The navigator's editor is read-only, structurally enforcing the Driver/Navigator split.
-- **🧠 ML Behaviour Analysis:** 14 behavioural features computed over a configurable sliding window (default 180 s) to classify the pair's state.
+- **🧠 ML Behaviour Analysis:** 15 behavioural features computed over a configurable sliding window (default 180 s) to classify the pair's state.
 - **🎯 Confidence-Gated Interventions:** Predictions below the confidence threshold stay silent — a mistimed interrupt has real pedagogical cost. Delivered nudges carry only *where* to draw attention and *what* effect to use, never solution content.
-- **✨ Positive Reinforcement:** A `PRODUCTIVE` pair receives a brief self-dismissing encouragement toast rather than silence.
+- **🙋 Role-Addressed Delivery:** Some nudges reach one student rather than the pair. The passive-navigator prompt goes only to the navigator, so a quiet student is never called out in front of their partner. Targeting follows the *current* role, so it survives a mid-session swap.
+- **✨ Positive Reinforcement:** A `PRODUCTIVE` pair receives a brief self-dismissing encouragement toast rather than silence, with rotating wording so it doesn't read as canned.
 - **⏳ Intervention Cooldown:** Redis-backed per-session, per-type cooldown prevents nagging and intervention fatigue.
-- **🤖 RAG-lite Virtual Tutor:** Keyword/tag scoring over a curated Java + collaboration corpus, returning a structured `conceptReminder`, `exampleIdea`, and `reflectiveQuestion`.
+- **🤖 RAG-lite Virtual Tutor:** Keyword/tag scoring over a curated Java + collaboration corpus, returning a structured `conceptReminder`, `exampleIdea`, and `reflectiveQuestion`. No corpus document contains the solution to an exercise — pedagogical safety is an architectural guarantee, not a matter of prompt discipline.
 - **📊 Analytics & Dashboards:** Session timelines, intervention history, and performance metrics for instructor review.
 
 ### The five collaboration states
 
-| State | Intervention | UI delivery |
-|---|---|---|
-| `PRODUCTIVE` | `POSITIVE_REINFORCEMENT` | encouragement toast (auto-dismiss) |
-| `DRIVER_DOMINANCE` | `ROLE_SWITCH_SUPPORT` | role-switch button glows |
-| `PASSIVE_NAVIGATOR` | `NAVIGATOR_PARTICIPATION_SUPPORT` | chat input pulses |
-| `LOGIC_STRUGGLE` | `LOGIC_SUPPORT` + RAG hint | hint panel highlights |
-| `DISENGAGED` | `RE_ENGAGEMENT_SUPPORT` | discussion panel glows |
+| State | Intervention | UI delivery | Audience |
+|---|---|---|---|
+| `PRODUCTIVE` | `POSITIVE_REINFORCEMENT` | encouragement toast (auto-dismiss) | pair |
+| `DRIVER_DOMINANCE` | `ROLE_SWITCH_SUPPORT` | role-switch button glows | pair |
+| `PASSIVE_NAVIGATOR` | `NAVIGATOR_PARTICIPATION_SUPPORT` | chat input pulses | **navigator only** |
+| `LOGIC_STRUGGLE` | `LOGIC_SUPPORT` + RAG hint | hint panel highlights | pair |
+| `DISENGAGED` | `RE_ENGAGEMENT_SUPPORT` | discussion panel glows | pair |
 
-Defined in `ml-service/app/label_mapping.py`, the **single source of truth** for states and interventions. A sixth class, `LOW_QUALITY_REVIEW`, is deferred as documented future work; unknown states resolve to silence, never to praise.
+Defined in `ml-service/app/label_mapping.py`, the **single source of truth** for states and interventions. Unknown states resolve to silence, never to praise.
+
+Two platform constraints shape these definitions. The navigator's editor is read-only, so every edit comes from the driver and edit share carries no signal — driver dominance is identified by rotation timing instead. And either partner may take the driver role at any time, so it reflects a shared failure to rotate rather than one student blocking another. See [`docs/annotation-codebook.md`](docs/annotation-codebook.md).
 
 ---
 
@@ -75,6 +61,8 @@ Defined in `ml-service/app/label_mapping.py`, the **single source of truth** for
 1. **Frontend (`/frontend`)** — **Next.js 14 (React)** with TailwindCSS, Socket.IO client, and Axios.
 2. **API Backend (`/api`)** — **NestJS** handling business logic, JWT auth, sandboxed code execution, the Socket.IO gateway, and PostgreSQL via **Prisma**. Also writes an analytics trail to MongoDB and uses Redis for cooldowns.
 3. **ML Service (`/ml-service`)** — **FastAPI (Python)** hosting the XGBoost classifier, the canonical feature extractor, and the RAG-lite retriever.
+
+The frontend never calls the ML service directly during a session — the API gateway orchestrates everything.
 
 ### Request lifecycle
 
@@ -85,14 +73,14 @@ code_change / run_code   ──>  logEvent() ─> Postgres SessionEvent
 discussion_note / role_switch        │
                               triggers: every 30 events │ 60s sweep │ failed run
                                      │
-                                     ├── POST /predict-pair-state ──> extract 14 features
+                                     ├── POST /predict-pair-state ──> extract 15 features
                                      │        (raw events + roles)     XGBoost (5-class)
                                      │<── {state, confidence, features} ──
                               log to MongoDB (analytics only, never labels)
                                      │
                                      ├── POST /recommend-intervention ─> confidence gate
                                      │<── {action, delivery} ──
-                              Redis cooldown check ─> Prisma Intervention
+                              resolve audience ─> Redis cooldown ─> Prisma Intervention
    <── emit 'intervention' ───       │
                                      │  if LOGIC_STRUGGLE:
                                      ├── POST /retrieve-hint ────────> RAG-lite retrieval
@@ -100,7 +88,9 @@ discussion_note / role_switch        │
    ── 'intervention_response' ─>  Prisma: Intervention.accepted
 ```
 
-> **Feature extraction happens in exactly one place** (`ml-service/app/features/extractor.py`). The gateway sends *raw events*; the same extractor builds training data offline. This eliminates the train/serve mismatch the audit found, where two hand-written extractors (Python and TypeScript) had drifted apart.
+> **Feature extraction happens in exactly one place** (`ml-service/app/features/extractor.py`). The gateway sends *raw events*; the same extractor builds training data offline, so training and serving can never drift apart.
+
+Full contracts — every socket event and HTTP payload — in [`docs/inter-service-events.md`](docs/inter-service-events.md).
 
 ---
 
@@ -110,11 +100,20 @@ discussion_note / role_switch        │
 PairPath/
 ├── README.md                    # This file
 │
-├── archive/                     # 🗄️ Retired invalid data & model (audit evidence)
-│   ├── README.md                # Why each artefact was excluded
-│   ├── invalid_data/            # Fabricated labels, mock sessions, circular-labelled export
-│   ├── invalid_model/           # Model trained on the circular labels
-│   └── dev_tools/               # Scripts belonging to the retired pipeline
+├── docs/                        # 📚 Project documentation — start here
+│   ├── architecture.md          # Services, session flow, datastores
+│   ├── local-setup.md           # Running it, plus the two known gotchas
+│   ├── api-integration-guide.md # REST endpoints for teammates
+│   ├── inter-service-events.md  # Socket.IO + API↔ML contracts
+│   ├── ml-pipeline.md           # Events → windows → labels → model
+│   ├── annotation-codebook.md   # The five states and how to label them
+│   ├── evaluation.md            # Method, results and caveats
+│   ├── development-log.md       # What was built when, and why
+│   ├── deployment.md            # Running outside a dev machine
+│   └── diagrams/                # Architecture and flow diagrams
+│
+├── archive/                     # 🗄️ Retired artefacts kept as audit evidence
+│   └── README.md                # Why each was excluded
 │
 ├── api/                         # 🟢 NestJS Backend (Port 3001)
 │   ├── .env                     # DATABASE_URL, JWT_SECRET, MONGODB_URI
@@ -136,7 +135,7 @@ PairPath/
 │
 ├── frontend/                    # 🔵 Next.js Client (Port 3000)
 │   └── src/
-│       ├── components/  hooks/  lib/  types/
+│       ├── lib/  types/         # Axios client, shared types
 │       └── app/
 │           ├── login/  register/  dashboard/
 │           ├── pair/[id]/            # Live collaborative workspace
@@ -144,7 +143,7 @@ PairPath/
 │           ├── results/[id]/         # Scores (live-updates when partner submits)
 │           ├── session-history/[id]/ # Past session timeline
 │           ├── ml-analytics/         # Historical prediction timelines
-│           └── ml-sandbox/           # Feature-slider dev console (⚠️ needs updating)
+│           └── ml-sandbox/           # Feature-slider console with per-state presets
 │
 └── ml-service/                  # 🟣 FastAPI & ML Engine (Port 8000)
     ├── Dockerfile               # Containerised deployment
@@ -163,17 +162,16 @@ PairPath/
     │   ├── schemas/             # Pydantic request/response contracts
     │   └── data/rag_knowledge/  # Curated Java + collaboration corpus (9 files)
     │
-    ├── data/
-    │   ├── demo/                # Synthetic demo dataset (clearly flagged)
-    │   ├── raw_sessions/        # ← real exported events go here
-    │   ├── extracted/           # ← generated feature windows
-    │   └── labels/              # ← human annotations
+    ├── data/                    # Organised by pipeline stage
+    │   ├── raw_sessions/        # Session events
+    │   ├── extracted/           # Feature windows
+    │   └── labels/              # Annotations
     │
     ├── dev_tools/
-    │   ├── generate_demo_sessions.py  # Synthetic sessions (demo only)
     │   ├── build_windows.py           # Raw events → feature windows
     │   ├── label_windows.py           # Annotation CLI + Cohen's kappa
     │   ├── train_xgboost.py           # Training with audit guards
+    │   ├── evaluate_synthetic.py      # Reproducible held-out evaluation
     │   ├── export_mongo_to_csv.py     # Unlabelled production feature export
     │   └── test_model.py  test_rag.py
     │
@@ -184,7 +182,7 @@ PairPath/
 
 ## 🚀 Getting Started
 
-Run all three services concurrently.
+Run all three services concurrently. Full instructions, including two known environment gotchas, in [`docs/local-setup.md`](docs/local-setup.md).
 
 ### Prerequisites
 | Requirement | Notes |
@@ -228,7 +226,7 @@ npm run dev
 |---|---|---|
 | `ML_SERVICE_URL` | `http://localhost:8000` | API → ML service |
 | `ML_WINDOW_SECONDS` | `180` | Feature window length |
-| `ML_CONFIDENCE_THRESHOLD` | `0.6` | Intervention gate (provisional) |
+| `ML_CONFIDENCE_THRESHOLD` | `0.6` | Intervention gate |
 | `CODE_RUNNER_IMAGE` | `eclipse-temurin:17-jdk-alpine` | Execution sandbox image |
 | `CODE_RUNNER_ALLOW_UNSANDBOXED` | *unset* | ⚠️ Dev-only escape hatch — **never** with real participants |
 | `JAVA_HOME` | *unset* | Pins compiler + runtime to one JDK when unsandboxed |
@@ -237,7 +235,7 @@ npm run dev
 
 ## 🔒 Security & Ethics
 
-Two fixes were required before any human-participant data collection:
+Two safeguards are prerequisites for any human-participant data collection:
 
 - **Socket authentication** — the Socket.IO handshake verifies the JWT and rejects unauthenticated sockets. User identity is taken from the verified token, never from the message body, and every handler validates room membership against the database. Analytics endpoints are guarded.
 - **Sandboxed execution** — submitted Java compiles and runs inside a container with **no network**, capped memory/CPU/process count, `no-new-privileges`, and a read-only workspace at run time. Without Docker, execution is **disabled** unless `CODE_RUNNER_ALLOW_UNSANDBOXED=true` is set explicitly for local development.
@@ -246,12 +244,10 @@ Additional commitments for the classroom study: no grading use of collaboration 
 
 ---
 
-## 📊 Building a Real Dataset
-
-The pipeline is built and tested; it needs real sessions.
+## 📊 Training Pipeline
 
 ```bash
-# 1. Export real SessionEvent rows from Postgres, e.g. via psql:
+# 1. Export SessionEvent rows from Postgres, e.g. via psql:
 #    \copy (SELECT json_agg(t) FROM (
 #        SELECT "sessionId","userId","eventType","metadata","timestamp"
 #        FROM "SessionEvent" ORDER BY "timestamp") t) TO 'events.json'
@@ -274,26 +270,26 @@ python dev_tools/label_windows.py --kappa rater_a.csv rater_b.csv
 
 # 4. Merge features + labels on (session_id, window_start)
 
-# 5. Train
-python dev_tools/train_xgboost.py --data data/training/labeled_windows.csv
+# 5. Train (--tune selects hyperparameters by grouped cross-validation)
+python dev_tools/train_xgboost.py --data data/extracted/labeled_windows.csv --tune
 ```
 
 ### Guards the trainer enforces
 
-The trainer **refuses to run** rather than silently repeat the audit's mistakes:
+The trainer **refuses to run** rather than produce a result that cannot be defended:
 
 | Guard | Behaviour |
 |---|---|
-| **Human labels only** | Aborts unless every row has `label_source == "human"`. Model predictions and generator targets are not ground truth. |
+| **Human labels only** | Aborts unless every row has `label_source == "human"`. Model predictions are never treated as ground truth. |
 | **Session-level split** | `GroupShuffleSplit` + grouped k-fold; no window from a held-out session reaches training. |
 | **Deduplication** | Within-session duplicates dropped; cross-session identical vectors kept as independent observations. |
 | **Class imbalance** | Balanced sample weights — never row replication. |
 | **Taxonomy** | Only the five study states are accepted. |
-| **Provenance** | Every run writes `model_card.json` (version, dataset hash, split, held-out sessions, metrics). `modelVersion` in API responses reads from it — never a hardcoded string. |
+| **Provenance** | Every run writes `model_card.json` (version, dataset hash, split, held-out sessions, metrics, and how hyperparameters were chosen). `modelVersion` in API responses reads from it — never a hardcoded string. |
 
-Synthetic data can only be trained on via an explicit `--demo-synthetic` flag, which stamps the model `demo_synthetic_*` everywhere. Mixing human and synthetic rows is rejected outright.
+Evaluation is reproducible via `dev_tools/evaluate_synthetic.py`: session-level train/validation/test split, tuning on validation only, held-out test scored once, and compared against a rule-based baseline. Method and results in [`docs/evaluation.md`](docs/evaluation.md).
 
-> **Note on Cohen's kappa:** inter-rater agreement is the honest ceiling on any accuracy you can later claim. If two trained humans agree only 75 % of the time, no model can meaningfully exceed that. Measure it before chasing a target number.
+> **Note on Cohen's kappa:** inter-rater agreement is the honest ceiling on any accuracy you can later claim. If two trained annotators agree only 75 % of the time, no model can meaningfully exceed that. Measure it before chasing a target number.
 
 ---
 
@@ -301,9 +297,9 @@ Synthetic data can only be trained on via an explicit `--demo-synthetic` flag, w
 
 Available from the homepage (`http://localhost:3000`):
 
+- **ML Sandbox (`/ml-sandbox`)** — adjust the window features and see the classification and resulting intervention live. Per-state presets load a realistic example of each situation; the displayed `modelVersion` shows exactly which model answered.
 - **ML Analytics (`/ml-analytics`)** — chronological timelines of past sessions, showing predictions interleaved with raw collaborative events.
 - **Session History (`/session-history/[id]`)** — per-session event and intervention replay.
-- **ML Sandbox (`/ml-sandbox`)** — ⚠️ **currently out of date.** Its sliders still send the retired 8-feature `_3m` schema, which the 14-feature model ignores, so every slider position returns the same prediction. Needs updating to the current feature names before use.
 
 ---
 
@@ -311,10 +307,10 @@ Available from the homepage (`http://localhost:3000`):
 
 Remaining work, in dependency order:
 
-1. **Collect real sessions** — recruit participants; run through the live platform.
-2. **Annotate** — apply the labelling rubric; second rater + Cohen's kappa.
+1. **Collect sessions** — recruit participants; run through the live platform.
+2. **Annotate** — apply the codebook; second rater + Cohen's kappa.
 3. **Window ablation** — settle the observation window empirically instead of assuming 180 s.
-4. **Honest evaluation** — held-out real sessions, compared against the rule-based baseline; report the confusion matrix and per-class metrics, plus confidence calibration.
+4. **Evaluation** — held-out sessions compared against the rule-based baseline; report the confusion matrix, per-class metrics, and confidence calibration.
 5. **Classroom study** — experimental vs. control (identical system with the inference path disabled).
 6. **RAG upgrade** *(optional)* — evaluate embedding-based retrieval as a **scored comparison** against the RAG-lite baseline, not a silent swap.
 
