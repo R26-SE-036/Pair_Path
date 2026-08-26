@@ -46,6 +46,15 @@ POSITIVE_REINFORCEMENT_MESSAGES = [
 # Intervention mapping for each state. Delivery carries only WHERE the UI
 # should draw attention and WHAT effect to use — never solution content
 # (pedagogical safety is enforced by this contract shape, NFR10).
+#
+# `audience` controls who receives the message:
+#   "pair"      -> both students (default; use for anything phrased to the pair)
+#   "navigator" -> only whoever currently holds the navigator role
+#   "driver"    -> only whoever currently holds the driver role
+# Anything that singles out one student MUST be addressed to them alone —
+# broadcasting "Navigator, you aren't contributing" to both students calls the
+# quieter one out in front of their partner, which is the opposite of the
+# intended effect and is worse when the prediction is wrong.
 STATE_INTERVENTIONS = {
     # Reinforcement, not correction: a brief self-dismissing toast that
     # affirms the pair without interrupting their flow. uiEffect "toast"
@@ -75,7 +84,8 @@ STATE_INTERVENTIONS = {
             "type": "prompt",
             "uiTarget": "chat_input",
             "uiEffect": "pulse",
-            "message": "Navigator, try explaining your thinking or suggesting the next step.",
+            "message": "Try explaining your thinking or suggesting the next step.",
+            "audience": "navigator",
         },
     },
     "LOGIC_STRUGGLE": {

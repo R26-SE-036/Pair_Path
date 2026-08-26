@@ -158,6 +158,27 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     this.server?.to(sessionId).emit('review_submitted', payload);
   }
 
+  /**
+   * Connected sockets in a session held by whoever currently has the given
+   * role ('navigator' | 'driver'). Returns an empty list when that student
+   * isn't connected, so callers can decline to fire rather than sending a
+   * targeted nudge into the void.
+   */
+  private socketsWithRole(
+    sessionId: string,
+    roles: Record<string, string>,
+    audience: string,
+  ): string[] {
+    const members = this.rooms.get(sessionId);
+    if (!members) return [];
+    const wanted = audience.toUpperCase();
+    const sockets: string[] = [];
+    members.forEach((userId, socketId) => {
+      if (roles[userId] === wanted) sockets.push(socketId);
+    });
+    return sockets;
+  }
+
   @SubscribeMessage('code_change')
   async handleCodeChange(
     @MessageBody() data: { sessionId: string; code: string; userId: string },
@@ -407,6 +428,15 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         );
 
         if (intervention && intervention.action !== 'NO_ACTION') {
+          // Some interventions are addressed to one student rather than the
+          // pair. Resolve the recipients before anything else: if the intended
+          // student isn't connected there is nobody to nudge, and firing would
+          // burn the cooldown on a message no one sees.
+          const audience = intervention.delivery?.audience || 'pair';
+          const targets =
+            audience === 'pair' ? null : this.socketsWithRole(sessionId, roles, audience);
+          if (targets && targets.length === 0) return;
+
           // L8/L11: per-session cooldown — don't fire the same intervention
           // type back-to-back; students disengage from nagging nudges.
           const canShow = await this.redis.canShowIntervention(
@@ -428,13 +458,19 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
             },
           });
 
-          // Broadcast to room
-          this.server.to(sessionId).emit('intervention', {
+          const payload = {
             id: saved.id,
             state: prediction.predictedState,
             action: intervention.action,
             delivery: intervention.delivery,
-          });
+          };
+          if (targets) {
+            for (const socketId of targets) {
+              this.server.to(socketId).emit('intervention', payload);
+            }
+          } else {
+            this.server.to(sessionId).emit('intervention', payload);
+          }
 
           // If LOGIC_STRUGGLE, also retrieve RAG hint
           if (prediction.predictedState === 'LOGIC_STRUGGLE') {
