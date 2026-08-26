@@ -17,8 +17,13 @@ they exist; the demo stamp disappears automatically on retrain.
 
 Usage:
   python generate_demo_sessions.py --sessions-per-state 40
-  # produces: data/raw_sessions/demo_events.json        (build_windows.py input)
-  #           data/labels/demo_session_labels.csv       (session_id,label,label_source,rater)
+  # produces: data/raw_sessions/events.json     (build_windows.py input)
+  #           data/labels/session_labels.csv    (session_id,label,label_source,rater)
+#
+# NOTE: filenames carry no provenance marker. What identifies this data as
+# synthetic is the `label_source=synthetic` column written into the labels,
+# which the trainer checks — it refuses to train unless every row is
+# label_source="human", or --demo-synthetic is passed explicitly.
 """
 
 import argparse
@@ -155,8 +160,8 @@ def main():
             labels.append(f"{session_id},{state},synthetic,generator")
             base_t += SESSION_SECONDS + 3600
 
-    events_path = os.path.join(raw_dir, "demo_events.json")
-    labels_path = os.path.join(labels_dir, "demo_session_labels.csv")
+    events_path = os.path.join(raw_dir, "events.json")
+    labels_path = os.path.join(labels_dir, "session_labels.csv")
     with open(events_path, "w") as f:
         json.dump(all_events, f)
     with open(labels_path, "w") as f:

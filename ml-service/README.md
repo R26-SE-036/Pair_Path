@@ -48,14 +48,19 @@ the window-length ablation, RQ2).
 
 ## Training pipeline (dev_tools/)
 
-Data is organised by pipeline stage, shared by real and synthetic sessions.
-The `demo_` filename prefix is what marks a file as generated:
+Data is organised by pipeline stage:
 
 ```
-data/raw_sessions/   raw session events        (demo_events.json)
-data/extracted/      feature windows           (demo_windows.csv, demo_labeled_windows.csv)
-data/labels/         annotations               (demo_session_labels.csv)
+data/raw_sessions/   raw session events   (events.json)
+data/extracted/      feature windows      (windows.csv, labeled_windows.csv)
+data/labels/         annotations          (session_labels.csv)
 ```
+
+These currently hold **synthetic** data. Provenance is carried inside the
+files, not in their names: every labelled row has a `label_source` column,
+and the trainer aborts unless all rows are `label_source="human"` — synthetic
+data trains only under an explicit `--demo-synthetic` flag, which stamps the
+resulting model `demo_synthetic_*`.
 
 ```
 1. Export real SessionEvent rows from Postgres  →  data/raw_sessions/events.json
