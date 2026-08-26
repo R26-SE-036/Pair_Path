@@ -16,9 +16,9 @@ Replace with human-labeled real sessions (see README pipeline) as soon as
 they exist; the demo stamp disappears automatically on retrain.
 
 Usage:
-  python generate_demo_sessions.py --sessions-per-state 12 --out-dir ../data/demo
-  # produces: demo_events.json  (raw events, build_windows.py compatible)
-  #           demo_session_labels.csv  (session_id,label,label_source,rater)
+  python generate_demo_sessions.py --sessions-per-state 40
+  # produces: data/raw_sessions/demo_events.json        (build_windows.py input)
+  #           data/labels/demo_session_labels.csv       (session_id,label,label_source,rater)
 """
 
 import argparse
@@ -133,12 +133,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sessions-per-state", type=int, default=12)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--out-dir", default=os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "demo"))
+    parser.add_argument("--data-dir", "--out-dir", dest="data_dir", default=os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"),
+        help="Data root. Events land in <data-dir>/raw_sessions, labels in "
+             "<data-dir>/labels — the same folders real sessions use. The "
+             "'demo_' filename prefix is what marks these as synthetic.")
     args = parser.parse_args()
 
     rng = random.Random(args.seed)
-    os.makedirs(args.out_dir, exist_ok=True)
+    raw_dir = os.path.join(args.data_dir, "raw_sessions")
+    labels_dir = os.path.join(args.data_dir, "labels")
+    os.makedirs(raw_dir, exist_ok=True)
+    os.makedirs(labels_dir, exist_ok=True)
 
     all_events, labels = [], []
     base_t = 1_780_000_000.0
@@ -149,8 +155,8 @@ def main():
             labels.append(f"{session_id},{state},synthetic,generator")
             base_t += SESSION_SECONDS + 3600
 
-    events_path = os.path.join(args.out_dir, "demo_events.json")
-    labels_path = os.path.join(args.out_dir, "demo_session_labels.csv")
+    events_path = os.path.join(raw_dir, "demo_events.json")
+    labels_path = os.path.join(labels_dir, "demo_session_labels.csv")
     with open(events_path, "w") as f:
         json.dump(all_events, f)
     with open(labels_path, "w") as f:

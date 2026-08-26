@@ -48,13 +48,24 @@ the window-length ablation, RQ2).
 
 ## Training pipeline (dev_tools/)
 
+Data is organised by pipeline stage, shared by real and synthetic sessions.
+The `demo_` filename prefix is what marks a file as generated:
+
 ```
-1. Export real SessionEvent rows from Postgres  →  events.json
-2. python build_windows.py --events events.json --out windows.csv
-3. python label_windows.py --windows windows.csv --events events.json --rater YOU
+data/raw_sessions/   raw session events        (demo_events.json)
+data/extracted/      feature windows           (demo_windows.csv, demo_labeled_windows.csv)
+data/labels/         annotations               (demo_session_labels.csv)
+```
+
+```
+1. Export real SessionEvent rows from Postgres  →  data/raw_sessions/events.json
+2. python build_windows.py --events ../data/raw_sessions/events.json \
+       --out ../data/extracted/windows.csv
+3. python label_windows.py --windows ../data/extracted/windows.csv \
+       --events ../data/raw_sessions/events.json --rater YOU
      (second rater on an overlap subset, then: label_windows.py --kappa A.csv B.csv)
 4. Merge features + labels on (session_id, window_start)
-5. python train_xgboost.py --data labeled.csv
+5. python train_xgboost.py --data ../data/extracted/labeled_windows.csv
 ```
 
 The trainer enforces the audit corrections and refuses to run otherwise:
