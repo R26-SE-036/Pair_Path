@@ -310,13 +310,13 @@
 <div class="wrap">
 
   <header>
-    <p class="kicker">PairPath · plain-English plan · updated 25 Aug</p>
+    <p class="kicker">PairPath · plain-English plan · updated 26 Aug</p>
     <h1>What's Left On My Model</h1>
     <p class="standfirst">
-      Your model now has a <strong>real, tested result</strong> — but it still learned from
-      made-up sessions, so it proves your pipeline works, not that the tool works on students.
-      One item below is <strong>urgent</strong>: the model running right now is out of date and
-      believes a definition you already replaced. Tick things off as you go; this page remembers.
+      Your model now has a <strong>real, tested result</strong>, a live model that matches it,
+      and <strong>all five situations written down</strong>. What it still lacks is real students —
+      everything so far proves the pipeline works, not that the tool works on people.
+      Tick things off as you go; this page remembers.
     </p>
   </header>
 
@@ -399,21 +399,53 @@
         </p>
       </div>
     </div>
+
+    <div class="task is-done">
+      <input type="checkbox" id="d-rolesbug" checked>
+      <label class="task-title" for="d-rolesbug">
+        Found and fixed a serious data bug
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">What was wrong</span>
+          The tool that turns sessions into training data only worked out who was driving
+          <b>after</b> it saw a role swap. But driver-dominance sessions <i>never swap</i> — that's
+          the whole point of them. So for exactly those sessions, every role-based number was
+          silently recorded as zero.
+        </p>
+        <p>
+          The raw logs showed the navigator writing <b>199 messages</b> in those sessions. The
+          training data recorded <b>zero</b>.
+        </p>
+        <p>
+          <span class="lead">Why it mattered</span>
+          Your key insight — that a <i>talking</i> navigator is what separates dominance from
+          passivity — was being thrown away before the model ever saw it. Now dominance shows
+          1.29 navigator messages and passive shows 0.07. The difference is finally in the data.
+        </p>
+        <p>
+          <span class="lead">Also fixed</span>
+          The model sanity-check script had rotted the same way as the slider page and was
+          reporting the same answer for every input. Rewritten to drive the real code path;
+          it now passes all five situations.
+        </p>
+      </div>
+    </div>
   </section>
 
-  <!-- ===================== URGENT ===================== -->
-  <section class="group urgent" data-group>
+  <!-- ===================== RESOLVED URGENT ===================== -->
+  <section class="group finished" data-group>
     <div class="group-head">
-      <h2 class="group-title">Urgent</h2>
+      <h2 class="group-title">Was urgent — now resolved</h2>
       <span class="group-meta" data-meta></span>
     </div>
 
-    <div class="task is-urgent">
-      <input type="checkbox" id="u-retrain">
+    <div class="task is-done">
+      <input type="checkbox" id="u-retrain" checked>
       <label class="task-title" for="u-retrain">
         Retrain and redeploy the live model
-        <span class="tag urgent">Do now</span>
-        <span class="tag me">I can do this</span>
+        <span class="tag done">Done</span>
       </label>
       <div class="body">
         <p>
@@ -427,54 +459,123 @@
           evaluation found either.
         </p>
         <p>
-          <span class="lead">What to do</span>
-          Retrain with the corrected definitions and the tuned settings, then redeploy.
-          Ten minutes.
+          <span class="lead">Resolved</span>
+          Retrained on the corrected definitions with settings chosen by search rather than by
+          hand, then redeployed and verified. The live model now matches the one you evaluated.
         </p>
       </div>
     </div>
   </section>
 
-  <!-- ===================== START HERE ===================== -->
-  <section class="group first" data-group>
+  <!-- ===================== THE RUBRIC ===================== -->
+  <section class="group finished" data-group>
     <div class="group-head">
-      <h2 class="group-title">Start here</h2>
+      <h2 class="group-title">Your rubric — the 5 situations</h2>
       <span class="group-meta" data-meta></span>
     </div>
-    <p class="group-note">You've solved the hardest part already. Three states left to write down.</p>
+    <p class="group-note">Written. Keep this open while labelling; it also becomes an appendix in your paper.</p>
+
+    <div class="task is-done">
+      <input type="checkbox" id="r-rubric" checked>
+      <label class="task-title" for="r-rubric">
+        All five situations are defined
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">Productive</span>
+          Both students are working on the same problem together. The driver is typing, the
+          navigator is actively contributing out loud, and they hand the keyboard back and forth.
+          <i>Usually:</i> steady editing, navigator sending real messages, roles swapping every
+          few minutes, runs mostly passing.
+          <b>But:</b> quiet doesn't mean unproductive — a pair thinking through something hard
+          may go silent while still working together. And fast, successful runs with
+          <i>no</i> discussion often means one person racing ahead alone: that's dominance.
+        </p>
+        <p>
+          <span class="lead">Driver dominance</span>
+          One student has held the keyboard for a long stretch while the other stays verbally
+          engaged. Because either can take the driver role at any time, this is a
+          <b>shared failure to rotate</b>, not one person blocking the other.
+          <i>Usually:</i> no role switch for a long stretch, while the navigator keeps sending
+          real messages.
+          <b>But:</b> early on nobody has swapped yet — that's normal. Judge against how long
+          they've been working: no swap at minute 6 is nothing, at minute 25 it's the whole story.
+        </p>
+        <p>
+          <span class="lead">Passive navigator</span>
+          The navigator isn't contributing at all. Not suggesting, not questioning, not thinking
+          aloud. The driver works alone.
+          <i>Usually:</i> no messages from the navigator while the driver works steadily.
+          <b>But:</b> read what they wrote, not how much. Five messages of "ok", "yeah", "sure"
+          is passive despite the count. One message of "wait — that loop starts at 1, should it?"
+          is real contribution. Judge content, not number.
+        </p>
+        <p>
+          <span class="lead">Logic struggle</span>
+          Both are working and talking, but stuck — repeated attempts, no progress.
+          <i>Usually:</i> several failed runs in a row, discussion continuing, edits happening
+          but the code not getting closer.
+          <b>But:</b> failing a lot isn't the same as being stuck. Systematic debugging — change
+          one thing, test, narrow down — is productive even with many failures. Struggle looks
+          like repeating the same fix, or chat showing confusion rather than ideas.
+        </p>
+        <p>
+          <span class="lead">Disengaged</span>
+          Neither student is really working on the problem any more. Long gaps, little typing,
+          little talk.
+          <i>Usually:</i> very few actions in the window, almost no discussion.
+          <b>But:</b> quiet-and-working looks the same on counts as quiet-and-gone — if the code
+          is steadily improving through the silence, that's focus. And separate it from struggle:
+          a stuck pair is still trying; a disengaged pair has stopped.
+        </p>
+      </div>
+    </div>
+
+    <div class="task is-done">
+      <input type="checkbox" id="r-order" checked>
+      <label class="task-title" for="r-order">
+        The two rules that make the rubric work
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">Check them in this order</span>
+        </p>
+        <div class="example">Disengaged  ->  Logic struggle  ->  Passive navigator
+        ->  Driver dominance  ->  otherwise Productive</div>
+        <p>
+          A window can genuinely look like two things. The order settles it. Struggle beats
+          dominance because a hint helps more than a role nudge; passive beats dominance because
+          a silent navigator is the more specific problem. <b>Without a fixed order, two people
+          can follow the same rules and still disagree.</b>
+        </p>
+        <p>
+          <span class="lead">When you can't tell, skip it</span>
+          The labelling tool has a skip key. An honest skip costs one window; a forced wrong
+          label teaches the model something false.
+        </p>
+      </div>
+    </div>
 
     <div class="task is-first">
-      <input type="checkbox" id="r-rubric">
-      <label class="task-title" for="r-rubric">
-        Finish writing what each of the 5 situations means
-        <span class="tag first">Do this first</span>
+      <input type="checkbox" id="r-tighten">
+      <label class="task-title" for="r-tighten">
+        Tighten the vague numbers after your first 20 windows
+        <span class="tag first">After labelling starts</span>
         <span class="tag you">You</span>
       </label>
       <div class="body">
         <p>
-          <span class="lead">Already settled</span>
-          Driver dominance = navigator talking but locked out. Passive navigator = navigator
-          not talking. <b>Write these two down exactly as agreed</b> — they were hard won.
+          Phrases like "a long stretch" and "several" are deliberately loose right now — you
+          can't pick real thresholds before seeing real sessions.
         </p>
         <p>
-          <span class="lead">Still to write</span>
-          Productive, logic struggle, and disengaged.
+          Label about <b>20 windows</b>, check whether the wording matched what you actually saw,
+          adjust, then continue. <b>Write down that you did this</b> — revising a rubric against
+          early data is normal methodology and worth a sentence in your paper, not something
+          to hide.
         </p>
-        <p>
-          <span class="lead">Important — don't write them as sums</span>
-          If your rule is just a number test on the same things the model measures, the model
-          only relearns your arithmetic, scores near 100%, and proves nothing. Describe the
-          <b>situation</b>, give numbers as hints, and add a judgement note.
-        </p>
-        <div class="example">Too mechanical:
-  DISENGAGED = fewer than 5 actions AND no chat
-
-Better:
-  DISENGAGED = neither student is really working on the
-  problem. Usually long silent gaps with little typing.
-  BUT: if they're quiet and the code is steadily
-  improving, that's focused work, not disengagement.</div>
-        <p>That judgement sentence is where your contribution lives. It becomes an appendix.</p>
       </div>
     </div>
   </section>
@@ -488,10 +589,10 @@ Better:
     <p class="group-note">I can do all of these. They don't depend on anything else.</p>
 
     <div class="task">
-      <input type="checkbox" id="c-tuning">
+      <input type="checkbox" id="c-tuning" checked>
       <label class="task-title" for="c-tuning">
         Make the real trainer choose its own settings
-        <span class="tag me">I can do this</span>
+        <span class="tag done">Done</span>
       </label>
       <div class="body">
         <p>
@@ -542,25 +643,24 @@ Better:
     </div>
 
     <div class="task">
-      <input type="checkbox" id="c-rolememory">
+      <input type="checkbox" id="c-rolememory" checked>
       <label class="task-title" for="c-rolememory">
         Give the model a longer memory of role-swapping
-        <span class="tag me">I can do this</span>
+        <span class="tag done">Done</span>
       </label>
       <div class="body">
-        <div class="correction">
-          <b>This idea is still right — but for a different problem than before.</b> It wouldn't
-          have fixed the two look-alike states. It <i>will</i> help the new confusion below.
-        </div>
         <p>
-          <span class="lead">The problem now</span>
-          Since driver dominance now involves a talkative navigator, it looks a lot like a
-          healthy pair. The <b>only</b> difference left is whether they swap roles — and inside
-          one 3-minute window, a healthy pair often hasn't swapped either.
+          <span class="lead">The problem it solved</span>
+          The model couldn't tell "hasn't swapped in 3 minutes" from "hasn't swapped in
+          20 minutes" — it stopped counting at 3. So a healthy pair mid-stride looked identical
+          to a pair that had never rotated at all.
         </p>
         <p>
-          The model currently can't tell "hasn't swapped in 3 minutes" from "hasn't swapped in
-          20 minutes" — it stops counting at 3. Letting it count properly should separate them.
+          <span class="lead">Measured result</span>
+          Productive pairs misread as dominance dropped from <b>21 windows to 9</b>. Dominance
+          precision rose from 0.49 to 0.67. In the data, dominance windows now average
+          <b>450 seconds</b> since a swap against <b>206</b> for productive ones — a gap the
+          model previously could not see.
         </p>
       </div>
     </div>
@@ -923,8 +1023,9 @@ Better:
   </section>
 
   <footer>
-    Two things worth doing before anything else: retrain the live model, and finish writing your
-    five definitions. The first takes ten minutes; the second unlocks everything that follows.
+    The code work is largely done and your definitions are written. What's left that matters is
+    no longer code — it's real students. Docker and ethics approval gate that, and ethics takes
+    weeks, so start it while you finish the smaller fixes.
   </footer>
 </div>
 

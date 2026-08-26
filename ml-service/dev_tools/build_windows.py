@@ -35,9 +35,39 @@ from app.features import WindowFeatureExtractor  # noqa: E402
 from app.features.extractor import _metadata, _to_epoch_seconds  # noqa: E402
 
 
-def roles_as_of(events_sorted, t):
-    """Replay ROLE_SWITCH events up to time t to reconstruct the roles map."""
+def initial_roles(events_sorted):
+    """Infer who was driving before the first ROLE_SWITCH.
+
+    The navigator's editor is read-only, so whoever emits CODE_EDIT is by
+    definition the driver at that moment. Any other participant is the
+    navigator.
+
+    This must be seeded explicitly: starting from an empty map and waiting
+    for a ROLE_SWITCH silently zeroes every role-derived feature for pairs
+    that never rotate — precisely the DRIVER_DOMINANCE sessions where those
+    features matter most.
+    """
     roles = {}
+    participants = []
+    for ts, e in events_sorted:
+        uid = e.get("userId")
+        if uid and uid not in participants:
+            participants.append(uid)
+        if e.get("eventType") == "ROLE_SWITCH":
+            break
+        if e.get("eventType") == "CODE_EDIT" and uid and not roles:
+            roles[uid] = "DRIVER"
+    if roles:
+        driver = next(iter(roles))
+        for uid in participants:
+            roles.setdefault(uid, "NAVIGATOR" if uid != driver else "DRIVER")
+    return roles
+
+
+def roles_as_of(events_sorted, t, seed_roles):
+    """Roles in effect at time t: the seeded initial roles, then every
+    ROLE_SWITCH replayed up to t."""
+    roles = dict(seed_roles)
     for ts, e in events_sorted:
         if ts > t:
             break
@@ -75,6 +105,10 @@ def main():
         )
         if not stamped:
             continue
+        seed_roles = initial_roles(stamped)
+        if not seed_roles:
+            print(f"[WARN] {session_id}: no CODE_EDIT before the first role switch — "
+                  "role-based features will be empty for this session")
         t = stamped[0][0] + args.window_seconds
         last_switch = None
         while t <= stamped[-1][0] + args.stride:
@@ -85,7 +119,7 @@ def main():
             if len(window_events) >= args.min_events:
                 features = extractor.extract(
                     window_events,
-                    roles=roles_as_of(stamped, t),
+                    roles=roles_as_of(stamped, t, seed_roles),
                     window_end=t,
                     last_role_switch_at=last_switch,
                     session_start_at=stamped[0][0],

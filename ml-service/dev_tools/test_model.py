@@ -1,87 +1,145 @@
+"""Sanity-check the deployed model against hand-built scenarios.
+
+Scenarios are written as RAW EVENT STREAMS and pushed through the real
+feature extractor — the same path the live service uses. An earlier version
+hand-wrote feature dictionaries, which silently rotted when the feature set
+was renamed: every value resolved to zero and the script reported the same
+prediction for every scenario while appearing to pass.
+
+This is a smoke test, not an evaluation. For real numbers with a held-out
+test set, use evaluate_synthetic.py.
+
+Usage:
+    python test_model.py          # exits non-zero if any scenario fails
+"""
+
+import asyncio
+import json
 import os
 import sys
-import asyncio
+import time
 
-# Add ml-service root to path so we can import app modules
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.models.predictor import PairStatePredictor
+from app.features import WindowFeatureExtractor  # noqa: E402
+from app.models.predictor import PairStatePredictor  # noqa: E402
 
-async def test_model():
-    print("[INFO] Initializing Predictor...")
-    predictor = PairStatePredictor()
-    
-    # Define test cases for all possible states
-    test_cases = {
-        "Expected: DISENGAGED (High idle, no chat)": {
-            "edit_balance_ratio_3m": 0.5,
-            "avg_run_success_rate_3m": 0.5,
-            "total_discussion_note_count_3m": 0,
-            "navigator_chat_count_3m": 0,
-            "avg_idle_ratio_3m": 0.9,
-            "role_switch_frequency_3m": 0,
-            "error_recovery_time_avg_3m": 0,
-            "collaboration_score_3m": 0.1
-        },
-        "Expected: DRIVER_DOMINANCE (One person coding, no navigator chat)": {
-            "edit_balance_ratio_3m": 0.95,
-            "avg_run_success_rate_3m": 0.8,
-            "total_discussion_note_count_3m": 2,
-            "navigator_chat_count_3m": 0,
-            "avg_idle_ratio_3m": 0.1,
-            "role_switch_frequency_3m": 0,
-            "error_recovery_time_avg_3m": 10,
-            "collaboration_score_3m": 0.3
-        },
-        "Expected: LOGIC_STRUGGLE (Low run success, some chat)": {
-            "edit_balance_ratio_3m": 0.5,
-            "avg_run_success_rate_3m": 0.1,
-            "total_discussion_note_count_3m": 5,
-            "navigator_chat_count_3m": 2,
-            "avg_idle_ratio_3m": 0.2,
-            "role_switch_frequency_3m": 0,
-            "error_recovery_time_avg_3m": 120,
-            "collaboration_score_3m": 0.6
-        },
-        "Expected: LOW_QUALITY_REVIEW (Fast code runs, no chat, low switch)": {
-            "edit_balance_ratio_3m": 0.8,
-            "avg_run_success_rate_3m": 0.9,
-            "total_discussion_note_count_3m": 0,
-            "navigator_chat_count_3m": 0,
-            "avg_idle_ratio_3m": 0.2,
-            "role_switch_frequency_3m": 0,
-            "error_recovery_time_avg_3m": 5,
-            "collaboration_score_3m": 0.2
-        },
-        "Expected: PASSIVE_NAVIGATOR (Coding, some chat, but navigator silent)": {
-            "edit_balance_ratio_3m": 0.7,
-            "avg_run_success_rate_3m": 0.6,
-            "total_discussion_note_count_3m": 1,
-            "navigator_chat_count_3m": 0,
-            "avg_idle_ratio_3m": 0.1,
-            "role_switch_frequency_3m": 1,
-            "error_recovery_time_avg_3m": 20,
-            "collaboration_score_3m": 0.4
-        },
-        "Expected: PRODUCTIVE (Balanced coding, good chat, good success)": {
-            "edit_balance_ratio_3m": 0.5,
-            "avg_run_success_rate_3m": 0.8,
-            "total_discussion_note_count_3m": 6,
-            "navigator_chat_count_3m": 3,
-            "avg_idle_ratio_3m": 0.1,
-            "role_switch_frequency_3m": 2,
-            "error_recovery_time_avg_3m": 15,
-            "collaboration_score_3m": 0.9
-        }
+WINDOW = 180
+NOW = time.time()
+DRIVER, NAVIGATOR = "u1", "u2"
+ROLES = {DRIVER: "DRIVER", NAVIGATOR: "NAVIGATOR"}
+
+
+def ev(seconds_ago, user, event_type, meta=None):
+    return {
+        "timestamp": NOW - seconds_ago,
+        "userId": user,
+        "eventType": event_type,
+        "metadata": json.dumps(meta or {}),
     }
-    
-    print("-" * 50)
-    for scenario_name, features in test_cases.items():
-        print(f"\n[TEST] {scenario_name}")
-        prediction = await predictor.predict(features)
-        print(f"  --> Predicted State: {prediction['state']}")
-        print(f"  --> Confidence: {prediction['confidence']:.2f}")
-    print("\n" + "-" * 50)
+
+
+def edits(user, count, start_ago=175, gap=None):
+    gap = gap or (start_ago - 5) / max(count - 1, 1)
+    return [ev(start_ago - i * gap, user, "CODE_EDIT", {"codeLength": 200 + i * 7})
+            for i in range(count)]
+
+
+def runs(user, results, start_ago=150, gap=30):
+    out = []
+    for i, ok in enumerate(results):
+        out.append(ev(start_ago - i * gap, user, "CODE_RUN", {}))
+        out.append(ev(start_ago - i * gap - 2, user, "CODE_RUN_RESULT",
+                      {"success": ok, "hasError": not ok}))
+    return out
+
+
+def notes(user, count, start_ago=160, gap=45):
+    return [ev(start_ago - i * gap, user, "DISCUSSION_NOTE", {"note": "discussion"})
+            for i in range(count)]
+
+
+# Each scenario: (expected_state, description, events, session_age, last_switch_ago)
+# last_switch_ago = None means the pair has never rotated.
+SCENARIOS = [
+    (
+        "PRODUCTIVE",
+        "Balanced work, navigator talking, runs passing, rotated recently",
+        edits(DRIVER, 13) + notes(NAVIGATOR, 2) + notes(DRIVER, 1, start_ago=120)
+        + runs(DRIVER, [True, True]),
+        420, 60,
+    ),
+    (
+        "DRIVER_DOMINANCE",
+        "Navigator engaged and talking, but roles never rotate",
+        edits(DRIVER, 20, gap=9) + notes(NAVIGATOR, 3, gap=55)
+        + runs(DRIVER, [True, True]),
+        600, None,
+    ),
+    (
+        "PASSIVE_NAVIGATOR",
+        "Driver working steadily, navigator completely silent",
+        edits(DRIVER, 14) + notes(DRIVER, 1) + runs(DRIVER, [True, True]),
+        500, 200,
+    ),
+    (
+        "LOGIC_STRUGGLE",
+        "Active discussion but runs keep failing",
+        edits(DRIVER, 11) + notes(NAVIGATOR, 2) + notes(DRIVER, 2, start_ago=130)
+        + runs(DRIVER, [False, False, False, True, False], gap=28),
+        450, 240,
+    ),
+    (
+        "DISENGAGED",
+        "Almost no activity, nobody talking",
+        [ev(170, DRIVER, "CODE_EDIT", {"codeLength": 210}),
+         ev(95, DRIVER, "CODE_EDIT", {"codeLength": 214}),
+         ev(20, DRIVER, "CODE_EDIT", {"codeLength": 216})],
+        400, None,
+    ),
+]
+
+
+async def main():
+    predictor = PairStatePredictor()
+    extractor = WindowFeatureExtractor(window_seconds=WINDOW)
+    print(f"\nModel under test: {predictor.model_version}")
+    if predictor.model is None:
+        print("[WARN] No trained model loaded — exercising the rule-based fallback.")
+    print("=" * 72)
+
+    passed = 0
+    for expected, description, events, session_age, switch_ago in SCENARIOS:
+        features = extractor.extract(
+            events,
+            roles=ROLES,
+            window_end=NOW,
+            last_role_switch_at=None if switch_ago is None else NOW - switch_ago,
+            session_start_at=NOW - session_age,
+        )
+        result = await predictor.predict(features)
+        ok = result["state"] == expected
+        passed += ok
+
+        print(f"\n{'PASS' if ok else 'FAIL'}  expected {expected}")
+        print(f"      {description}")
+        print(f"      got {result['state']} ({result['confidence']:.2f})")
+        print(f"      edits={features['total_edit_count']:.0f} "
+              f"nav_notes={features['navigator_note_count']:.0f} "
+              f"runs={features['run_attempt_count']:.0f} "
+              f"success={features['run_success_rate']:.2f} "
+              f"idle={features['idle_ratio']:.2f} "
+              f"since_switch={features['seconds_since_role_switch']:.0f}s "
+              f"session_age={features['session_elapsed_seconds']:.0f}s")
+
+    print("\n" + "=" * 72)
+    print(f"{passed}/{len(SCENARIOS)} scenarios matched.")
+    if passed < len(SCENARIOS):
+        print("A mismatch is not automatically a bug — these are hand-built windows,\n"
+              "and the states they sit between are genuinely close. Check the printed\n"
+              "features look like the situation described before blaming the model.")
+    return 0 if passed == len(SCENARIOS) else 1
+
 
 if __name__ == "__main__":
-    asyncio.run(test_model())
+    sys.exit(asyncio.run(main()))
