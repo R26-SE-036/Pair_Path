@@ -1,3 +1,17 @@
 Tags: peer review, feedback, quality, critique
-Content: A high-quality peer review provides constructive, specific, and actionable feedback. Instead of just saying "looks good" or "this is wrong", point out exactly what could be improved and suggest an alternative approach. Focus on the code, not the person. Ask questions like "What was your reasoning for this logic?" to encourage deeper reflection.
-Keywords: review, feedback, critique, constructive, quality, improve
+Keywords: review, feedback, critique, comment, quality, improve
+Content: Useful review feedback is specific and actionable. Saying that something is good or bad tells the author nothing they can work with; naming what specifically works and suggesting one concrete alternative does.
+Example: Pick one part of the code and describe what it does well, then one part where a different approach might read more clearly.
+Question: Could the author act on your feedback without having to ask what you meant?
+---
+Tags: peer review, feedback, reasoning, understanding
+Keywords: why, reasoning, understand, explain, intent, review
+Content: The most valuable review question asks why a decision was made rather than pointing out what is wrong. It often surfaces a misunderstanding the author did not know they had, and does so without putting them on the defensive.
+Example: Choose one section you found hard to follow and ask the author to walk you through their reasoning for it.
+Question: What was the original reasoning behind this part of the code?
+---
+Tags: peer review, feedback, readability, quality
+Keywords: readable, clear, naming, confusing, understand, maintain
+Content: Code is read far more often than it is written. A name that made sense while writing a section may say very little to someone meeting it for the first time, and that gap is exactly what a reviewer can see and the author cannot.
+Example: Read one section aloud without explaining it, and note where you had to pause to work out what something meant.
+Question: Which part of this code took you longest to understand, and why?

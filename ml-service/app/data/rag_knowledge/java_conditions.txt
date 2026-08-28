@@ -1,3 +1,17 @@
-Tags: conditions, if, else, logic
-Content: Conditional statements like 'if' and 'else' allow the code to make decisions. The condition must evaluate to a boolean (true or false). Be careful when using '==' to compare objects like Strings; use the .equals() method instead.
-Keywords: if, else, condition, boolean, compare, equals, true, false
+Tags: conditions, if, else, branching, logic
+Keywords: if, else, condition, branch, true, false
+Content: An if statement chooses between paths based on a condition that is either true or false. Only one branch of an if-else runs. If neither branch does what you expect, the problem is usually the condition rather than the code inside.
+Example: Print the value of the condition itself just before the if statement, so you can see which branch it chose and why.
+Question: For the input you are testing, is your condition true or false, and which branch should have run?
+---
+Tags: conditions, boundaries, edge cases, comparison
+Keywords: boundary, edge, equal, greater, less, threshold, condition
+Content: Conditions behave differently at their boundaries than in the middle of a range. A comparison that is correct for values well above and well below a threshold can still be wrong for the value sitting exactly on it.
+Example: Test with a value just below the boundary, exactly on it, and just above it, and check all three behave as intended.
+Question: What should happen when the value is exactly equal to your threshold?
+---
+Tags: conditions, nested, complex, logic
+Keywords: nested, else if, chain, complex, condition
+Content: When conditions are chained, the first one that matches wins and the rest are never checked. An ordering that puts a broad condition before a narrow one means the narrow case can never be reached.
+Example: Take one specific input and walk down your chain in order, marking the first condition it satisfies.
+Question: Is there any input that should reach a later branch but is caught by an earlier one first?

@@ -1,0 +1,23 @@
+Tags: modulo, operators, remainder, divisibility
+Keywords: modulo, modulus, remainder, percent, divisible, even, odd
+Content: The modulo operator gives the remainder left after division. Dividing any whole number by two leaves a remainder of either zero or one, which is what makes it useful for telling even numbers from odd ones.
+Example: Work out by hand what your condition produces for the number 4 and for the number 7, and write down the remainder in each case.
+Question: What remainder would you expect from a number that divides evenly?
+---
+Tags: operators, comparison, equality, conditions
+Keywords: equals, ==, compare, comparison, assign, assignment
+Content: Comparing two values and assigning a value are different operations that look similar. One asks a question and produces true or false; the other changes a variable and produces the value stored. Using the wrong one changes the meaning of a condition entirely.
+Example: Read your condition aloud as a question. If it does not sound like a question with a yes or no answer, look again at the operator in the middle.
+Question: Is this line asking whether two things are the same, or making them the same?
+---
+Tags: operators, arithmetic, division, integer
+Keywords: divide, division, integer, decimal, fraction, round, truncate, arithmeticexception, by zero, zero
+Content: Dividing two whole numbers in Java produces a whole number, with any fractional part discarded rather than rounded. This is why an average built from integer division can come out lower than expected.
+Example: Print the result of your division on its own, before it is used anywhere else, and check whether it kept the fractional part.
+Question: Are the values on both sides of your division whole numbers, and does the result need to be?
+---
+Tags: operators, boolean, logic, and, or
+Keywords: boolean, and, or, not, true, false, condition, logical
+Content: Combining conditions with and requires every part to be true, while or requires only one. Swapping them silently changes which cases pass, often in a way that still produces plausible output for some inputs.
+Example: Build a small table of the inputs you care about and mark what each individual condition gives for each one, before combining them.
+Question: For your combined condition to be true, does every part need to hold, or just one?

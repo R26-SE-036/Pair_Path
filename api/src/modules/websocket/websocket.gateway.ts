@@ -31,6 +31,13 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   private inactivityInterval: NodeJS.Timeout;
   private activeWorkCounters = new Map<string, number>(); // sessionId -> event count
 
+  // Recent context for hint retrieval. Without these, hint selection depends
+  // entirely on how the question was tagged — a pair hitting an array error on
+  // a question tagged "modulo" would receive generic advice. Held in memory
+  // only; they are transient working state, not part of the research record.
+  private lastError = new Map<string, string>(); // sessionId -> stderr of the last failed run
+  private lastCode = new Map<string, string>(); // sessionId -> most recent editor contents
+
   constructor(
     private readonly codeRunnerService: CodeRunnerService,
     private readonly prisma: PrismaService,
@@ -188,6 +195,8 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     const userId = client.data.userId;
     if (!this.isInRoom(client, sessionId)) return;
 
+    this.lastCode.set(sessionId, code);
+
     // Broadcast to others in room (not sender)
     client.to(sessionId).emit('code_update', { code, userId });
 
@@ -258,6 +267,8 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     const userId = client.data.userId;
     if (!this.isInRoom(client, sessionId)) return;
 
+    this.lastCode.set(sessionId, code);
+
     // Log the run attempt
     await this.logEvent(sessionId, userId, 'CODE_RUN', { codeLength: code.length });
 
@@ -267,6 +278,14 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
 
       // Broadcast result to everyone in room
       this.server.to(sessionId).emit('code_result', result);
+
+      // Keep the failure text for hint retrieval; clear it on success so a hint
+      // never cites an error the pair has already fixed.
+      if (result.success) {
+        this.lastError.delete(sessionId);
+      } else {
+        this.lastError.set(sessionId, result.compileError || result.stderr || '');
+      }
 
       // Log the result
       await this.logEvent(sessionId, userId, 'CODE_RUN_RESULT', {
@@ -322,6 +341,11 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   ) {
     const { sessionId } = data;
     if (!this.isInRoom(client, sessionId)) return;
+
+    // Release the transient hint context — the session is over.
+    this.lastError.delete(sessionId);
+    this.lastCode.delete(sessionId);
+    this.activeWorkCounters.delete(sessionId);
 
     // Broadcast to all members to redirect to review
     this.server.to(sessionId).emit('session_ended', { sessionId });
@@ -487,8 +511,8 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
                 predictedState: 'LOGIC_STRUGGLE',
                 interventionType: 'LOGIC_HINT',
                 questionConceptTags: conceptTags,
-                recentErrorContext: '',
-                recentCodeSnippet: '',
+                recentErrorContext: this.lastError.get(sessionId) || '',
+                recentCodeSnippet: this.lastCode.get(sessionId) || '',
               });
 
               if (hint) {

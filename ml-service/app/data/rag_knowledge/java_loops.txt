@@ -1,3 +1,29 @@
-Tags: loops, iteration, for, while, boundaries
-Content: A 'for' loop is used when the number of iterations is known. It has three parts: initialization, condition, and update. A 'while' loop runs as long as its condition is true. Watch out for infinite loops if the condition never becomes false.
-Keywords: loop, iterate, condition, infinite, for, while, update
+Tags: loops, iteration, for, boundaries
+Keywords: for, loop, iterate, iteration, counter
+Content: A for loop has three parts: where the counter starts, the condition that must stay true to continue, and how the counter changes each pass. Whether the loop runs the intended number of times depends entirely on how those three fit together.
+Example: Say out loud what your counter equals on the first pass and on the last pass, then count how many passes that gives.
+Question: How many times does your loop body run, and how many times did you intend it to run?
+---
+Tags: loops, infinite loop, while, termination
+Keywords: while, infinite, hang, freeze, forever, loop, stuck
+Content: A loop keeps running while its condition stays true. If nothing inside the loop changes a value used in that condition, the condition can never become false and the loop never ends.
+Example: List every variable that appears in your loop condition, then check whether each one is updated somewhere inside the loop body.
+Question: Which variable in your condition is meant to change, and where exactly does that change happen?
+---
+Tags: loops, off-by-one, boundaries, logic
+Keywords: off-by-one, offbyone, boundary, first, last, missing, extra
+Content: Off-by-one problems happen at the edges of a loop, not in the middle. The loop body may be entirely correct while still running one time too many or one time too few, which shows up as a missing first element, a missing last element, or one step beyond the end.
+Example: Test with the smallest possible input, such as a single element, and check whether the first and last items are both handled.
+Question: Does your loop handle the very first and very last item exactly once each?
+---
+Tags: loops, nested, iteration
+Keywords: nested, inner, outer, loop, matrix, grid
+Content: When one loop sits inside another, the inner loop completes fully on every single pass of the outer loop. Confusing which counter belongs to which loop is a common source of unexpected repetition.
+Example: Print both counters together at the top of the inner loop and watch the pattern they follow.
+Question: For each single pass of your outer loop, how many times does the inner loop run?
+---
+Tags: loops, accumulator, sum, total
+Keywords: sum, total, accumulate, count, running, average
+Content: Building up a total across a loop needs a variable declared before the loop starts, updated inside it, and read after it finishes. Declaring it in the wrong place resets it or puts it out of reach.
+Example: Print your total at the end of every pass and watch whether it grows the way you expect.
+Question: Where is your total created, where is it updated, and where is it read?

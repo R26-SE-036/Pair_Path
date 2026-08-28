@@ -14,7 +14,10 @@ UI interventions. Part of the PairPath component of Code Guru (R26-SE-036).
   (`modelVersion: "rule_fallback_v1"`), which also serves as the RQ1
   baseline.
 - **Retrieval is RAG-lite, not embeddings** (L14): keyword/tag scoring over
-  a curated corpus in `app/data/rag_knowledge/`. This is a deliberate
+  a curated corpus of **37 entries** in `app/data/rag_knowledge/`, ranked by
+  concept tag, primary-topic match, error keyword and code keyword. Measured
+  at **100% top-1 retrieval accuracy** over 26 labelled cases
+  (`dev_tools/evaluate_rag.py`). This is a deliberate
   architectural guarantee — no corpus document contains the solution to any
   exercise — not a placeholder for "real" RAG. An embedding-based retriever
   is Phase 3 future work, to be evaluated as a scored comparison against

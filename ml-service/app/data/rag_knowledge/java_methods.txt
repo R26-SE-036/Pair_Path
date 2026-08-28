@@ -1,3 +1,17 @@
 Tags: methods, functions, return, parameters
-Content: Methods break code into reusable blocks. A method must have a return type or be 'void' if it returns nothing. Make sure to pass the correct type and number of arguments when calling a method.
-Keywords: method, function, return, void, parameter, argument
+Keywords: method, function, return, parameter, argument, void, missing return
+Content: A method declares what type it gives back, and every path through it must return that type. A method declared void gives nothing back, so calling it and expecting a value will not compile.
+Example: Follow each possible route through your method, including every branch, and check that each one ends in a return.
+Question: Is there any path through this method that reaches the end without returning?
+---
+Tags: methods, parameters, arguments, scope
+Keywords: parameter, argument, pass, copy, modify, unchanged
+Content: Values passed into a method are copies for simple types, so changing a parameter inside a method does not change the caller's variable. Objects behave differently, because the copy still points at the same object.
+Example: Print the value both inside the method and back in the caller after it returns, and compare the two.
+Question: Do you expect this method to change the caller's variable, or to give back a new value?
+---
+Tags: methods, calling, invocation, null
+Keywords: null, nullpointer, nullpointerexception, object, reference, uninitialised
+Content: A NullPointerException means a variable expected to hold an object holds nothing instead. It appears at the moment the program tries to use that variable, which may be some distance from where the problem began.
+Example: Look at the line the error names and identify which variable on it might never have been given a value.
+Question: Where was that variable supposed to be assigned, and is that line guaranteed to run first?

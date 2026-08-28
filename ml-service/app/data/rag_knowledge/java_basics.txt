@@ -1,3 +1,23 @@
-Tags: basics, variables, types, syntax
-Content: Java requires every variable to be declared with a data type. Common types are int, double, boolean, and String. Every statement in Java must end with a semicolon.
-Keywords: semicolon, type, declare, int, string, syntax error
+Tags: basics, variables, declaration, scope
+Keywords: variable, declare, scope, undefined, cannot find symbol
+Content: A variable exists only inside the block of braces where it was declared. Declaring it inside a loop or an if statement means it disappears when that block ends, which is why it can appear undefined a few lines later.
+Example: Find where your variable is declared and trace the braces around it to see how far it reaches.
+Question: Is your variable declared in a place that is still in scope everywhere you use it?
+---
+Tags: basics, data types, types, conversion
+Keywords: type, int, double, string, char, boolean, cast, convert, incompatible
+Content: Every Java variable has a fixed type that decides what it can hold and how it behaves. Combining values of different types either converts one automatically or refuses to compile, and automatic conversion can lose information such as a fractional part.
+Example: Write down the type of each value involved in the line that is misbehaving, and check what happens when they are combined.
+Question: What type is each value here, and what type does the result need to be?
+---
+Tags: basics, syntax, semicolon, braces
+Keywords: semicolon, brace, bracket, parenthesis, syntax, expected
+Content: Java statements end with a semicolon and blocks are enclosed in braces. A missing or extra one changes where a statement or block is considered to end, which can move code inside or outside a loop without any visible sign.
+Example: Check that the braces around the block you are working on open and close where you intend, and that each statement ends properly.
+Question: Does each block start and finish exactly where you meant it to?
+---
+Tags: basics, strings, text, comparison
+Keywords: string, text, equals, concatenate, compare, char
+Content: Strings in Java are objects, not simple values, so comparing them with the equality operator asks whether they are the same object rather than whether they contain the same characters. Two strings can look identical on screen and still fail that comparison.
+Example: Print both strings with visible markers around them, such as brackets, so any difference in spacing becomes obvious.
+Question: Are you checking whether these two strings are the same object, or whether they hold the same text?

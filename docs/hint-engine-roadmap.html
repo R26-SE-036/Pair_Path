@@ -105,20 +105,20 @@
     <p class="eyebrow">PairPath · hint engine</p>
     <h1>Hint Engine Roadmap</h1>
     <p class="standfirst">
-      The retrieval chain is built and working. What's missing is that it runs on
-      <strong>a third of the signal it was designed for</strong>, from a library of nine entries,
-      with no way to tell whether a hint was any good. Five phases, roughly a day of work,
-      ordered by value per hour.
+      <strong>Phases 1 to 4 are done.</strong> All three signals are connected, the library
+      grew from 9 entries to 37, hints carry their own wording, and retrieval is measured at
+      100% top-1 (up from 69.2% before the error was supplied). This page is kept as the
+      reasoning behind those decisions; phases 5 and 6 remain optional.
     </p>
   </header>
 
   <div class="panel">
-    <h2>Measured right now</h2>
+    <h2>The diagnosis this plan was written from — all since addressed</h2>
     <div class="diag">
-      <div class="stat"><div class="n">9</div><div class="l">knowledge entries<br>(one per file — the loader keeps only the last)</div></div>
-      <div class="stat"><div class="n bad">2 of 3</div><div class="l">search signals disabled<br>error text and code arrive empty</div></div>
-      <div class="stat"><div class="n bad">54</div><div class="l">keywords never used<br>written for error matching that never runs</div></div>
-      <div class="stat"><div class="n bad">2</div><div class="l">question tags unmatched<br><code>bounds</code>, <code>modulo</code> → generic fallback</div></div>
+      <div class="stat"><div class="n">9 <span style="font-size:.85rem;color:var(--ok);">→ 37</span></div><div class="l">knowledge entries<br>the loader kept only the last per file</div></div>
+      <div class="stat"><div class="n bad">2 of 3 <span style="font-size:.85rem;color:var(--ok);">→ 0</span></div><div class="l">search signals disabled<br>error text and code arrived empty</div></div>
+      <div class="stat"><div class="n bad">54 <span style="font-size:.85rem;color:var(--ok);">→ live</span></div><div class="l">keywords never used<br>written for error matching that never ran</div></div>
+      <div class="stat"><div class="n bad">2 <span style="font-size:.85rem;color:var(--ok);">→ 0</span></div><div class="l">question tags unmatched<br><code>bounds</code> and <code>modulo</code> now covered</div></div>
     </div>
   </div>
 
@@ -178,9 +178,9 @@ recentCodeSnippet: '',</pre>
     </div>
     <div class="phase-body">
       <p>
-        <span class="lead">The problem</span>
-        <code>knowledge_loader.py</code> reads one <code>Content:</code> line per file and
-        overwrites earlier ones. Nine files means nine entries, and adding a hint means adding
+        <span class="lead">The problem it solved</span>
+        <code>knowledge_loader.py</code> read one <code>Content:</code> line per file and
+        overwrote earlier ones, so nine files meant nine entries and adding a hint meant adding
         a file.
       </p>
       <p>
@@ -382,8 +382,7 @@ Content: ...</pre>
   </div>
 
   <footer>
-    The plumbing is finished. It's carrying a third of the water it was built for, from a
-    library of nine entries, with no gauge attached. Phases 1, 2 and 4 fix exactly those three
-    things.
+    Phases 1, 2 and 4 are complete: the pipe carries everything it was built for, the library
+    is four times larger, and there is now a gauge attached reading 100% on 26 cases.
   </footer>
 </div>

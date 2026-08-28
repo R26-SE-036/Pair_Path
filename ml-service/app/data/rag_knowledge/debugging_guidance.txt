@@ -1,3 +1,23 @@
 Tags: debugging, errors, print, trace
-Content: When logic isn't working, use print statements (System.out.println) to trace variable values at different stages of the execution. Identify exactly where the actual output deviates from the expected output. Try testing with the simplest possible input first.
-Keywords: debug, print, trace, unexpected output, values, test
+Keywords: debug, print, trace, println, output, inspect
+Content: Printing values is the fastest way to find where a program stops matching your expectation. The useful place to print is not where the error appears but a few steps earlier, where the values were still correct.
+Example: Print your key variables at two points, one where you are confident they are right and one where you suspect they are wrong, then narrow the gap between them.
+Question: What is the last point in your program where you are certain every value is correct?
+---
+Tags: debugging, errors, stack trace, exceptions
+Keywords: exception, stack, trace, error, thrown, line, caused
+Content: An error message names the line where the program stopped, which is not always the line that caused the problem. The top line of a stack trace tells you where it broke; the cause is often earlier, where a value was set incorrectly.
+Example: Read the first line of the error, find that line in your code, then work backwards to see where the values it uses came from.
+Question: Which values does the failing line depend on, and where were each of them set?
+---
+Tags: debugging, isolation, testing, simplify
+Keywords: isolate, simplify, smaller, test, reproduce, narrow
+Content: A problem that is hard to see in a full program is often obvious in a smaller one. Reducing the input, or running a single part in isolation, removes everything that is not contributing to the failure.
+Example: Try the smallest input that still shows the problem, such as one or two elements instead of many.
+Question: What is the simplest input that still produces this behaviour?
+---
+Tags: debugging, compile error, syntax
+Keywords: syntax error, compile, semicolon, bracket, expected, cannot find symbol
+Content: A compile error means the code could not be understood, so nothing ran at all. The reported line is where the compiler noticed the problem, which is frequently just after where it actually is, such as on the line following a missing bracket or semicolon.
+Example: Look at the line named in the error and also the line directly above it.
+Question: Is everything on the previous line properly closed and terminated?
