@@ -115,9 +115,9 @@ nothing errors, accuracy just quietly degrades.
 | **Taxonomy** | Only the five study states accepted. |
 | **Provenance** | Writes `model_card.json`: version, dataset path and hash, split, held-out sessions, metrics, hyperparameters and how they were chosen. |
 
-Synthetic data trains only under an explicit `--demo-synthetic` flag, which
-stamps the model `demo_synthetic_*` in the card and in every API response.
-**Mixing human and synthetic rows is rejected outright** — no silent blending.
+Simulated data trains only under an explicit `--demo-simulated` flag, which
+stamps the model `demo_simulated_*` in the card and in every API response.
+**Mixing human and simulated rows is rejected outright** — no silent blending.
 
 `--tune` selects hyperparameters by grouped cross-validation within
 train/validation; the held-out test sessions are never seen during the search.
@@ -139,7 +139,7 @@ Together these mean any accuracy figure from that model is meaningless. The
 guards above exist so each defect is now impossible rather than merely
 discouraged.
 
-## The synthetic corpus
+## The simulated corpus
 
 `generate_demo_sessions.py` produces sessions per state from a behavioural
 regime — inter-edit gap, discussion frequency, navigator participation, run
@@ -162,6 +162,6 @@ data/extracted/      windows.csv          feature windows
 data/labels/         session_labels.csv   annotations
 ```
 
-Real and synthetic data share these folders. Provenance lives **inside** the
+Real and simulated data share these folders. Provenance lives **inside** the
 files — the `label_source` column — not in their names, which is what the
 trainer checks.

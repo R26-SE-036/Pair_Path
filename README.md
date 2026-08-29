@@ -171,7 +171,7 @@ PairPath/
     │   ├── build_windows.py           # Raw events → feature windows
     │   ├── label_windows.py           # Annotation CLI + Cohen's kappa
     │   ├── train_xgboost.py           # Training with audit guards
-    │   ├── evaluate_synthetic.py      # Reproducible held-out evaluation
+    │   ├── evaluate_simulated.py      # Reproducible held-out evaluation
     │   ├── export_mongo_to_csv.py     # Unlabelled production feature export
     │   └── test_model.py  test_rag.py
     │
@@ -287,7 +287,7 @@ The trainer **refuses to run** rather than produce a result that cannot be defen
 | **Taxonomy** | Only the five study states are accepted. |
 | **Provenance** | Every run writes `model_card.json` (version, dataset hash, split, held-out sessions, metrics, and how hyperparameters were chosen). `modelVersion` in API responses reads from it — never a hardcoded string. |
 
-Evaluation is reproducible via `dev_tools/evaluate_synthetic.py`: session-level train/validation/test split, tuning on validation only, held-out test scored once, and compared against a rule-based baseline. Method and results in [`docs/evaluation.md`](docs/evaluation.md).
+Evaluation is reproducible via `dev_tools/evaluate_simulated.py`: session-level train/validation/test split, tuning on validation only, held-out test scored once, and compared against a rule-based baseline. Method and results in [`docs/evaluation.md`](docs/evaluation.md).
 
 > **Note on Cohen's kappa:** inter-rater agreement is the honest ceiling on any accuracy you can later claim. If two trained annotators agree only 75 % of the time, no model can meaningfully exceed that. Measure it before chasing a target number.
 

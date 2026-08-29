@@ -139,7 +139,7 @@ failing the session.
   "sessionId": "clx...",
   "predictedState": "LOGIC_STRUGGLE",
   "confidence": 0.94,
-  "modelVersion": "demo_synthetic_20260825_2003_2a57adcc",
+  "modelVersion": "demo_simulated_20260825_2003_2a57adcc",
   "features": { "total_edit_count": 13.0, "...": 0.0 }
 }
 ```

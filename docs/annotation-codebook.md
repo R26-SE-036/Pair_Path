@@ -135,7 +135,7 @@ early data is normal methodology and belongs in the write-up, not hidden.
 
 ## Typical values for orientation
 
-From the synthetic corpus — indicative shape only, **not** thresholds:
+From the simulated corpus — indicative shape only, **not** thresholds:
 
 | State | Edits | Nav msgs | Runs pass | Idle | Since swap |
 |---|---|---|---|---|---|

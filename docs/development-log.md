@@ -37,7 +37,7 @@ deleted.
 **Trainer guards.** Rewritten to refuse non-human labels, split by session, use
 grouped k-fold, dedupe within sessions, weight classes rather than replicate
 rows, reject states outside the taxonomy, and write a model card recording
-dataset, split, metrics and how hyperparameters were chosen. Synthetic data
+dataset, split, metrics and how hyperparameters were chosen. Simulated data
 trains only under an explicit flag that stamps the resulting model.
 
 **Hyperparameters from data.** Previously hardcoded; a `--tune` flag now selects
@@ -67,7 +67,7 @@ identical corpus.
 
 ### Evaluation
 
-Built `evaluate_synthetic.py`: session-level three-way split, tuning on
+Built `evaluate_simulated.py`: session-level three-way split, tuning on
 validation only, test touched once, compared against a rule baseline, with
 latency measurement. **Accuracy 0.891, macro-F1 0.871, baseline 0.609.**
 Reproducible to identical figures.
@@ -137,7 +137,7 @@ this honestly is treated as a contribution, not a footnote.
 
 ## Where things stand
 
-The platform works end to end. The classifier is trained on synthetic data, so
+The platform works end to end. The classifier is trained on simulated data, so
 the pipeline is validated but detection accuracy on real students is unknown.
 
 **Next:** ethics approval, then real sessions, then annotation with a second

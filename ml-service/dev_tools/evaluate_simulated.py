@@ -1,4 +1,4 @@
-"""Reproducible evaluation of the PairPath classifier on a SYNTHETIC corpus.
+"""Reproducible evaluation of the PairPath classifier on a SIMULATED corpus.
 
 SCOPE OF THE CLAIM (read before quoting any number):
     This measures whether the pipeline can recover generator-planted
@@ -20,8 +20,8 @@ Protocol:
     8. Benchmark end-to-end inference latency.
 
 Usage:
-    python evaluate_synthetic.py                    # defaults used in the paper
-    python evaluate_synthetic.py --per-state 40 --seed 20260824
+    python evaluate_simulated.py                    # defaults used in the paper
+    python evaluate_simulated.py --per-state 40 --seed 20260824
 """
 
 import argparse
@@ -144,7 +144,7 @@ def main():
                        if args.without_clock else FEATURE_COLUMNS)
 
     print("=" * 74)
-    print("  SYNTHETIC-CORPUS EVALUATION — measures generator separability,")
+    print("  SIMULATED-CORPUS EVALUATION — measures generator separability,")
     print("  NOT real-world accuracy on student pairs.")
     print("=" * 74)
 
@@ -259,7 +259,7 @@ def main():
           f"| p95 {times[int(len(times)*0.95)]:.2f} ms")
 
     print("\n" + "=" * 74)
-    print("  REMINDER: synthetic corpus. Report as pipeline validation only.")
+    print("  REMINDER: simulated corpus. Report as pipeline validation only.")
     print("=" * 74)
 
 

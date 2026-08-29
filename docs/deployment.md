@@ -124,7 +124,7 @@ curl -X POST http://ml-service:8000/predict-pair-state \
   -d '{"sessionId":"x","features":{}}' | jq .modelVersion
 ```
 
-A `demo_synthetic_*` version means the model was trained on generated data.
+A `demo_simulated_*` version means the model was trained on generated data.
 **Do not run a study against one** — it is a pipeline demonstration.
 
 ## Before going live
@@ -136,6 +136,6 @@ A `demo_synthetic_*` version means the model was trained on generated data.
 - [ ] ML service not publicly routable
 - [ ] Redis running if more than one API instance
 - [ ] Migrations applied
-- [ ] `modelVersion` is **not** `demo_synthetic_*` or `rule_fallback_v1`
+- [ ] `modelVersion` is **not** `demo_simulated_*` or `rule_fallback_v1`
 - [ ] `/health` responding
 - [ ] One full pair session run end to end on the deployed stack

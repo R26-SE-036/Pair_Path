@@ -20,7 +20,7 @@ looks like.
 
 ## Method
 
-**Corpus.** 200 synthetic sessions (40 per state, 12 simulated minutes each)
+**Corpus.** 200 simulated sessions (40 per state, 12 simulated minutes each)
 from a seeded generator. Sliced into 180-second windows at 30-second stride,
 minimum 3 events per window, using the same extractor that runs in production.
 2,906 windows after removing 787 within-session duplicates.
@@ -37,7 +37,7 @@ class weights, and the test set was scored **once**.
 **Reproduce:**
 
 ```bash
-cd ml-service && python dev_tools/evaluate_synthetic.py
+cd ml-service && python dev_tools/evaluate_simulated.py
 ```
 
 Two consecutive runs produce identical figures.
@@ -63,7 +63,7 @@ classifier improves on it by **+0.283 accuracy and +0.256 macro-F1**.
 
 **Latency.** Feature extraction plus prediction, 17-event window, n=200: mean
 **1.5 ms**, p95 under 4 ms. Unlike the accuracy figures, this one holds for real
-deployment — speed doesn't care whether the data is synthetic.
+deployment — speed doesn't care whether the data is simulated.
 
 **Principal confusions.** Logic struggle read as productive (18 windows);
 dominance ↔ passive navigator (11 and 6); productive read as dominance (9).
@@ -87,7 +87,7 @@ after both belong in the write-up.
 
 ## Honest caveats
 
-**Synthetic data is cleaner than reality.** Real sessions contain state
+**Simulated data is cleaner than reality.** Real sessions contain state
 *transitions within* a window; the generator holds one state per session, so
 the model has never seen a boundary.
 
@@ -125,7 +125,7 @@ likely improve experienced accuracy.
 5. Re-run this evaluation against the real labelled set
 6. Calibrate the confidence threshold against real data
 
-Step 5 needs no new code — `evaluate_synthetic.py` already implements the
+Step 5 needs no new code — `evaluate_simulated.py` already implements the
 protocol. Only the data is missing.
 
 ## A calibration note

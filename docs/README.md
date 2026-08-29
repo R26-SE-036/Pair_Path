@@ -32,7 +32,7 @@ how it's built, and how to run it. Everything here is the detail behind it.
 
 The platform works end to end: authenticated real-time sessions, sandboxed Java
 execution, behavioural logging, live classification, and targeted interventions.
-The classifier is trained on a **synthetic corpus**, so what has been validated
+The classifier is trained on a **simulated corpus**, so what has been validated
 is the pipeline, not detection accuracy on real students. Collecting and
 annotating real sessions is the next phase — see
 [evaluation.md](evaluation.md) for exactly what is and isn't claimed.

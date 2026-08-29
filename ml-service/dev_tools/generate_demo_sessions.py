@@ -1,4 +1,4 @@
-"""SYNTHETIC demo-session generator — provenance is the whole point.
+"""SIMULATED demo-session generator — provenance is the whole point.
 
 Generates enacted-style pair-programming sessions for each of the five
 collaboration states so the END-TO-END PIPELINE can be demonstrated
@@ -6,9 +6,9 @@ collaboration states so the END-TO-END PIPELINE can be demonstrated
 data exists.
 
 THIS IS NOT TRAINING DATA IN THE RESEARCH SENSE:
-  * every emitted label carries label_source="synthetic" and rater="generator"
-  * the trainer only accepts it with the explicit --demo-synthetic flag
-  * the resulting model card and every API response are stamped demo_synthetic
+  * every emitted label carries label_source="simulated" and rater="generator"
+  * the trainer only accepts it with the explicit --demo-simulated flag
+  * the resulting model card and every API response are stamped demo_simulated
   * metrics measured on this data describe the generator, not students —
     do NOT quote them as model performance anywhere
 
@@ -21,9 +21,9 @@ Usage:
   #           data/labels/session_labels.csv    (session_id,label,label_source,rater)
 #
 # NOTE: filenames carry no provenance marker. What identifies this data as
-# synthetic is the `label_source=synthetic` column written into the labels,
+# simulated is the `label_source=simulated` column written into the labels,
 # which the trainer checks — it refuses to train unless every row is
-# label_source="human", or --demo-synthetic is passed explicitly.
+# label_source="human", or --demo-simulated is passed explicitly.
 """
 
 import argparse
@@ -122,7 +122,7 @@ def gen_session(session_id, state, base_t, rng):
             next_edit = t + edit_gap * rng.uniform(0.6, 1.6)
         elif t == next_note:
             author = navigator if rng.random() < nav_note_p else driver
-            emit(events, t, session_id, author, "DISCUSSION_NOTE", {"note": "synthetic demo note"})
+            emit(events, t, session_id, author, "DISCUSSION_NOTE", {"note": "simulated demo note"})
             next_note = t + note_every * rng.uniform(0.6, 1.6)
         elif t == next_run:
             emit(events, t, session_id, driver, "CODE_RUN", {"codeLength": rng.randint(80, 900)})
@@ -142,7 +142,7 @@ def main():
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"),
         help="Data root. Events land in <data-dir>/raw_sessions, labels in "
              "<data-dir>/labels — the same folders real sessions use. The "
-             "'demo_' filename prefix is what marks these as synthetic.")
+             "'demo_' filename prefix is what marks these as simulated.")
     args = parser.parse_args()
 
     rng = random.Random(args.seed)
@@ -157,7 +157,7 @@ def main():
         for i in range(args.sessions_per_state):
             session_id = f"demo_{state.lower()}_{i:02d}"
             all_events.extend(gen_session(session_id, state, base_t, rng))
-            labels.append(f"{session_id},{state},synthetic,generator")
+            labels.append(f"{session_id},{state},simulated,generator")
             base_t += SESSION_SECONDS + 3600
 
     events_path = os.path.join(raw_dir, "events.json")
@@ -168,8 +168,8 @@ def main():
         f.write("session_id,label,label_source,rater\n" + "\n".join(labels) + "\n")
 
     n = args.sessions_per_state * len(STATES)
-    print(f"[SUCCESS] {n} SYNTHETIC sessions ({len(all_events)} events) -> {events_path}")
-    print(f"[SUCCESS] session labels (label_source=synthetic) -> {labels_path}")
+    print(f"[SUCCESS] {n} SIMULATED sessions ({len(all_events)} events) -> {events_path}")
+    print(f"[SUCCESS] session labels (label_source=simulated) -> {labels_path}")
     print("[REMINDER] Demo/pipeline-validation use only — never report metrics "
           "from this data as model performance.")
 

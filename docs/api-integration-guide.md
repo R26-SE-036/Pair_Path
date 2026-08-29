@@ -184,5 +184,5 @@ context. Nothing in front of `ml-service` authenticates.
 
 **Predictions may be rule-based.** When no trained model is loaded the service
 answers from rules and reports `modelVersion: "rule_fallback_v1"`. Check that
-field rather than assuming a model is live — and note that a `demo_synthetic_*`
+field rather than assuming a model is live — and note that a `demo_simulated_*`
 version means the model was trained on generated data.

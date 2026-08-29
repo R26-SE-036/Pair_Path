@@ -59,11 +59,11 @@ data/extracted/      feature windows      (windows.csv, labeled_windows.csv)
 data/labels/         annotations          (session_labels.csv)
 ```
 
-These currently hold **synthetic** data. Provenance is carried inside the
+These currently hold **simulated** data. Provenance is carried inside the
 files, not in their names: every labelled row has a `label_source` column,
-and the trainer aborts unless all rows are `label_source="human"` — synthetic
-data trains only under an explicit `--demo-synthetic` flag, which stamps the
-resulting model `demo_synthetic_*`.
+and the trainer aborts unless all rows are `label_source="human"` — simulated
+data trains only under an explicit `--demo-simulated` flag, which stamps the
+resulting model `demo_simulated_*`.
 
 ```
 1. Export real SessionEvent rows from Postgres  →  data/raw_sessions/events.json
