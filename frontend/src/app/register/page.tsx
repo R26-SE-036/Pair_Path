@@ -71,9 +71,11 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="reg-email" className="block text-sm font-medium text-surface-300 mb-1.5">Email address</label>
-              <input id="reg-email" name="email" type="email" autoComplete="email" required value={formData.email} onChange={handleChange}
+              {/* Any address is accepted — the SLIIT-only rule was dropped when
+                  PairPath moved onto the shared Code Coach identity service. */}
+              <input id="reg-email" name="email" type="text" autoComplete="email" required value={formData.email} onChange={handleChange}
                 className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                placeholder="IT########@my.sliit.lk" />
+                placeholder="you@example.com" />
             </div>
 
             <div>

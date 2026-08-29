@@ -6,7 +6,9 @@ import Link from 'next/link'
 import api from '@/lib/api'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  // Named `identifier` to match the shared Code Coach backend, which accepts
+  // a username as well as an email address.
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,7 +20,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const { data } = await api.post('/auth/login', { email, password })
+      const { data } = await api.post('/auth/login', { identifier, password })
       localStorage.setItem('token', data.accessToken)
       localStorage.setItem('refreshToken', data.refreshToken)
       localStorage.setItem('user', JSON.stringify(data.user))
@@ -49,19 +51,22 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label htmlFor="login-email" className="block text-sm font-medium text-surface-300 mb-1.5">
-                Email address
+              <label htmlFor="login-identifier" className="block text-sm font-medium text-surface-300 mb-1.5">
+                Email or username
               </label>
               <input
-                id="login-email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="login-identifier"
+                name="identifier"
+                // type="text", not "email": the backend accepts a username too,
+                // and the browser's own email check would block a valid one
+                // before the form was ever submitted.
+                type="text"
+                autoComplete="username"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                placeholder="IT########@my.sliit.lk"
+                placeholder="you@example.com"
               />
             </div>
 

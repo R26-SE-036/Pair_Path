@@ -19,6 +19,12 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Links this account to its identity in the shared Code Coach backend.
+  // Null for accounts that only ever logged in locally. Everything else in
+  // this schema keys on `id`, so a Code Coach user still gets a local row —
+  // that is what keeps the foreign keys on sessions and events intact.
+  codeCoachUserId String? @unique
+
   // Relations
   sessionMemberships PairSessionMember[]
   sessionEvents      SessionEvent[]
