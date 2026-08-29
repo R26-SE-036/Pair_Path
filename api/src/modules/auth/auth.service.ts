@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
@@ -95,6 +100,53 @@ export class AuthService {
     }
 
     return this.authResponse(user, 'local');
+  }
+
+  /**
+   * Adopt a session the student already established with Code Coach.
+   *
+   * This is how single sign-on reaches PairPath. The Code Guru portal signs the
+   * student in once; the browser arrives here holding a Code Coach access
+   * token, and this endpoint trades it for a PairPath one.
+   *
+   * Why trade rather than just accept the Code Coach token everywhere: the
+   * Socket.IO handshake verifies PairPath's own signature, and every foreign
+   * key in this schema points at the local `users.id`. Adopting a foreign token
+   * would break both. Exchanging keeps the platform's single identity while
+   * leaving everything downstream untouched.
+   *
+   * Unlike login(), there is no local fallback. The token is the only evidence
+   * offered, so if Code Coach cannot vouch for it, nobody can — see the note on
+   * CodeCoachService.me() about failing closed.
+   */
+  async exchange(codeCoachAccessToken: string) {
+    const token = (codeCoachAccessToken || '').trim();
+    if (!token) {
+      throw new BadRequestException('codeCoachAccessToken is required');
+    }
+
+    let remote: Awaited<ReturnType<CodeCoachService['me']>>;
+    try {
+      remote = await this.codeCoach.me(token);
+    } catch (error: any) {
+      // Could not verify. Explicitly NOT an UnauthorizedException: telling the
+      // client "your token is bad" would send them off to re-authenticate over
+      // an outage that a retry would ride out.
+      throw new ServiceUnavailableException(
+        'Could not verify your session with Code Coach. Please try again.',
+      );
+    }
+
+    if (!remote) {
+      throw new UnauthorizedException('Your Code Guru session is no longer valid.');
+    }
+
+    if (remote.status && remote.status !== 'active') {
+      throw new UnauthorizedException('This account is not active.');
+    }
+
+    const user = await this.linkOrCreateFromCodeCoach(remote);
+    return this.authResponse(user, 'code-coach');
   }
 
   /**

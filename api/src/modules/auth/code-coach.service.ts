@@ -57,6 +57,53 @@ export class CodeCoachService {
     return this.call('/api/v1/auth/register', { full_name: fullName, email, password });
   }
 
+  /**
+   * Verify an access token Code Coach itself issued.
+   *
+   * Unlike login/register below, this one FAILS CLOSED. Those two degrade to
+   * local auth when Code Coach is unreachable, because a student who typed a
+   * correct password should not be locked out by someone else's downtime. Here
+   * the caller is presenting a token as proof of identity, and "we could not
+   * check it" is not proof of anything — returning a user in that case would
+   * turn an outage into an authentication bypass.
+   *
+   * Returns null only for a token Code Coach actively rejected. Throws when it
+   * could not be checked at all.
+   */
+  async me(accessToken: string): Promise<CodeCoachAuthResult | null> {
+    if (!this.enabled) {
+      throw new Error('CODE_COACH_URL is not configured; cannot verify a platform token.');
+    }
+
+    const response = await firstValueFrom(
+      this.http.get(`${this.baseUrl}/api/v1/auth/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: this.timeoutMs,
+        validateStatus: () => true,
+      }),
+    );
+
+    // Expired, revoked, or an inactive account. A definite "no".
+    if (response.status === 401 || response.status === 403) return null;
+
+    if (response.status >= 400) {
+      throw new Error(`Code Coach /auth/me returned ${response.status}`);
+    }
+
+    const user = response.data?.user;
+    if (!user?.user_id || !user?.email) {
+      throw new Error('Code Coach /auth/me returned an unexpected body');
+    }
+
+    return {
+      userId: user.user_id,
+      email: user.email,
+      fullName: user.full_name || '',
+      role: user.role || 'student',
+      status: user.status || 'active',
+    };
+  }
+
   private async call(path: string, body: Record<string, unknown>): Promise<CodeCoachAuthResult | null> {
     if (!this.enabled) return null;
 

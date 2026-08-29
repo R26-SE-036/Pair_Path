@@ -7,7 +7,21 @@ const api = axios.create({
   },
 })
 
-// Request interceptor — attach JWT token
+/**
+ * Request interceptor — attach PairPath's own JWT.
+ *
+ * Two tokens live in localStorage and they are not interchangeable:
+ *
+ *   'token'                 PairPath's JWT. The only one this API and the
+ *                           Socket.IO gateway accept, because every foreign
+ *                           key here points at the local users.id.
+ *   'codeguru.accessToken'  The Code Coach platform token, kept by
+ *                           codeguru-auth. Used to obtain the above via
+ *                           POST /auth/exchange, and available for calling
+ *                           Code Coach's own /api/v1/... endpoints directly.
+ *
+ * Sending the platform token to this API would fail signature verification.
+ */
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token')

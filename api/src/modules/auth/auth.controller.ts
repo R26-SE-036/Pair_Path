@@ -19,6 +19,17 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  /**
+   * Single sign-on entry point: trade a Code Coach access token for a PairPath
+   * one. The shared Code Guru portal signs the student in; the frontend calls
+   * this on arrival. See AuthService.exchange for why PairPath issues its own
+   * token rather than adopting Code Coach's.
+   */
+  @Post('exchange')
+  async exchange(@Body('codeCoachAccessToken') codeCoachAccessToken: string) {
+    return this.authService.exchange(codeCoachAccessToken);
+  }
+
   @Post('refresh')
   async refresh(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshToken(refreshToken);
