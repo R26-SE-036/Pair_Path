@@ -11,9 +11,9 @@ Example: Read your condition aloud as a question. If it does not sound like a qu
 Question: Is this line asking whether two things are the same, or making them the same?
 ---
 Tags: operators, arithmetic, division, integer
-Keywords: divide, division, integer, decimal, fraction, round, truncate, arithmeticexception, by zero, zero
+Keywords: divide, division, integer, decimal, fraction, round, truncate
 Content: Dividing two whole numbers in Java produces a whole number, with any fractional part discarded rather than rounded. This is why an average built from integer division can come out lower than expected.
-Example: Print the result of your division on its own, before it is used anywhere else, and check whether it kept the fractional part.
+Example: Work out the division by hand for your inputs, then compare that answer against what the program uses.
 Question: Are the values on both sides of your division whole numbers, and does the result need to be?
 ---
 Tags: operators, boolean, logic, and, or

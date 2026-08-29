@@ -1,7 +1,7 @@
 Tags: conditions, if, else, branching, logic
 Keywords: if, else, condition, branch, true, false
 Content: An if statement chooses between paths based on a condition that is either true or false. Only one branch of an if-else runs. If neither branch does what you expect, the problem is usually the condition rather than the code inside.
-Example: Print the value of the condition itself just before the if statement, so you can see which branch it chose and why.
+Example: Choose one input, decide which branch it should take before running anything, then check whether it took that one.
 Question: For the input you are testing, is your condition true or false, and which branch should have run?
 ---
 Tags: conditions, boundaries, edge cases, comparison

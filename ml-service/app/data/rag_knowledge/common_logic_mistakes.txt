@@ -13,5 +13,5 @@ Question: Is your result wrong by a random amount, or wrong by exactly one every
 Tags: logic, variables, state, mistakes
 Keywords: variable, overwrite, reset, state, changed, unexpected
 Content: A variable holding an unexpected value has usually been changed somewhere between where it was set and where it was read. Reassignment inside a loop or branch is easy to overlook because the line looks harmless on its own.
-Example: Print the variable immediately after you set it and again immediately before you use it, and see whether the two agree.
+Example: Name the last line that changes the variable, then check whether anything between there and its use could change it again.
 Question: Between setting this variable and using it, is there anywhere its value could have changed?

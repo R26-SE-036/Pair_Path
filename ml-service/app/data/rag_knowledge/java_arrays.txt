@@ -7,17 +7,17 @@ Question: If an array has N elements, what is the largest index you can safely a
 Tags: arrays, iteration, loops, traversal
 Keywords: array, loop, iterate, traverse, each, element
 Content: Walking through an array means visiting every position exactly once. The loop that does this needs a starting point, a stopping condition, and a step that moves toward stopping. If any of the three is wrong, some elements are visited twice or missed entirely.
-Example: Add a print inside your loop showing both the index and the value at that index, then compare what you see with the array you expected.
+Example: Count the passes your loop makes for a three-element array, then compare that number against how many elements you meant to visit.
 Question: Which elements does your loop actually visit, and does that match every element exactly once?
 ---
 Tags: arrays, length, size, capacity
 Keywords: length, size, capacity, empty, array
 Content: An array's length is fixed when it is created and never changes afterwards. The length property tells you how many slots exist, not how many hold meaningful values. An array can be full-size and still contain defaults you never assigned.
-Example: Print the array's length alongside the values it holds, and check whether every slot was actually given a value.
+Example: Write down how many values you intended to store, then compare that against the size the array was created with.
 Question: How many slots does your array have, and have all of them been filled?
 ---
 Tags: arrays, initialization, defaults
 Keywords: array, initialise, initialize, default, null, zero
 Content: A newly created array is not empty. Numeric arrays start filled with zeros, boolean arrays with false, and object arrays with null. Reading a position you never assigned gives you that default rather than an error.
-Example: Print each position of your array immediately after creating it and before assigning anything.
+Example: List the positions you assigned a value to, then check that list against every position the array actually has.
 Question: Which positions in your array have you actually assigned, and which still hold their starting value?

@@ -1,0 +1,71 @@
+Tags: compile error, cannot find symbol, undeclared, spelling, scope
+Keywords: cannot, find, symbol, undeclared, unknown, variable, method, location
+Content: Cannot find symbol means the compiler reached a name it has never been told about. Either the name was never declared, it was spelled differently where it was declared, or it was declared inside a block that has already closed. The compiler names the exact symbol it could not place.
+Example: Read the symbol named in the error, then search your file for that exact spelling and see whether it appears anywhere other than the failing line.
+Question: Where is that name introduced, and is the failing line still inside the block where it was introduced?
+---
+Tags: compile error, incompatible types, conversion, assignment
+Keywords: incompatible, types, cannot, convert, required, found, assign
+Content: Incompatible types means the value on the right of an assignment is a different kind of thing from the variable on the left. Java reports both sides: what the variable requires and what it actually found. The two must agree before the assignment is allowed.
+Example: Write out the required type and the found type from the error as two columns, then decide which of the two is wrong for what you are trying to do.
+Question: Which side is wrong here, the type you declared or the value you produced?
+---
+Tags: compile error, lossy conversion, narrowing, precision, types
+Keywords: possible, lossy, conversion, double, int, precision, narrowing
+Content: Possible lossy conversion means the value would not fit in the variable without losing part of itself. Java refuses to discard information silently, so a value with a fractional part cannot slide into a whole-number variable on its own. The compiler names both types involved.
+Example: Decide whether losing the fractional part is actually acceptable for what you are computing, before deciding how to handle it.
+Question: Does this value need its fractional part, or is a whole number genuinely what you want here?
+---
+Tags: compile error, semicolon, syntax, statement
+Keywords: expected, semicolon, ';' expected, syntax, statement, missing
+Content: An expected-semicolon error means the compiler reached the end of what looked like a statement without finding the marker that ends it. The line it names is often correct in itself; the real omission is usually at the end of the line just above.
+Example: Start at the line named in the error and read upwards until you find the first line that does not end the way its neighbours do.
+Question: Does the line above the one named in the error end the same way the lines around it end?
+---
+Tags: compile error, braces, end of file, unbalanced, missing brace
+Keywords: reached, brace, braces, unbalanced, unclosed, end of file, reached end of file
+Content: Reached end of file while parsing means a block was opened and never closed. The compiler read to the last line still waiting for a closing brace, so the error points at the end of the file rather than at the place the brace is actually missing.
+Example: Collapse or indent each block in turn and find the first one whose closing brace does not line up with where it opened.
+Question: Which block in your file opens without a matching close?
+---
+Tags: compile error, class name, file name, public class
+Keywords: public, should, declared, named, filename, classname
+Content: This error means the public class inside the file has a different name from the file itself. Java requires the two to match exactly, including capitalisation, so that a class can always be located from its name alone.
+Example: Compare the class name on your class line against the file name in the editor tab, letter by letter including capitals.
+Question: Do the class name and the file name match exactly, capital letters included?
+---
+Tags: compile error, missing return, methods, return value
+Keywords: missing, return, statement, method, value
+Content: Missing return statement means a method promises to give a value back but has a route through it that reaches the end without doing so. Every possible path, including the one where no condition is satisfied, has to end by returning something.
+Example: Sketch each branch of your method as a separate line on paper and mark which ones finish by handing a value back.
+Question: If none of your conditions are true, what does your method give back?
+---
+Tags: compile error, uninitialized, variable, definite assignment
+Keywords: variable, might, not, have, been, initialized, initialised
+Content: This error means the compiler found a path where a variable is read before it was ever given a value. Declaring a local variable does not give it one. If a value is only assigned inside a condition, the compiler must assume that condition may not hold.
+Example: Follow the route through your code where the condition is false, and check what the variable holds at the point it is read.
+Question: Is there a path through your code where this variable is used but never assigned?
+---
+Tags: compile error, arguments, parameters, method call
+Keywords: cannot, applied, given, types, arguments, actual, formal, required
+Content: Cannot be applied to given types means a method exists with that name, but it is being called with a different number of values, or values of different kinds, from the ones it declares. The compiler prints both the expected list and the supplied list.
+Example: Line up the parameters the method declares against the values you passed, one against one, and find the first pair that disagree.
+Question: How many values does that method declare, and how many are you handing it?
+---
+Tags: compile error, static, non-static context, main
+Keywords: non-static, static, context, referenced
+Content: This error means code that belongs to the class as a whole is trying to use something that only exists once an object has been made. Main runs without any object existing, so anything it reaches must also exist independently of one.
+Example: Identify whether the thing being called belongs to one particular object or to the class itself, before deciding where it should be called from.
+Question: Does the member you are calling need a particular object to exist first?
+---
+Tags: compile error, illegal start, syntax, structure
+Keywords: illegal, start, expression, type, syntax
+Content: Illegal start of expression means the compiler met something in a position where that thing is not allowed. It commonly follows an unclosed brace or bracket earlier in the file, which leaves the compiler reading later lines in the wrong context.
+Example: Check the brackets and braces on the lines above the error before examining the line the error names.
+Question: Is every bracket and brace before this line properly closed?
+---
+Tags: compile error, operator, operand types, boolean, comparison
+Keywords: bad, operand, types, binary, operator, boolean, comparison
+Content: Bad operand types means an operator was given values it cannot work with. Comparison and arithmetic operators each accept only certain kinds of value, and text, whole numbers, and true-or-false values cannot always be combined with the same symbols.
+Example: Name the type of the value on each side of the operator, then check whether that operator accepts that combination.
+Question: What kind of value sits on each side of that operator?

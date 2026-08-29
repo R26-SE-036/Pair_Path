@@ -19,5 +19,5 @@ Question: Does each block start and finish exactly where you meant it to?
 Tags: basics, strings, text, comparison
 Keywords: string, text, equals, concatenate, compare, char
 Content: Strings in Java are objects, not simple values, so comparing them with the equality operator asks whether they are the same object rather than whether they contain the same characters. Two strings can look identical on screen and still fail that comparison.
-Example: Print both strings with visible markers around them, such as brackets, so any difference in spacing becomes obvious.
+Example: Count the characters in each string, including spaces at either end, and compare the two counts.
 Question: Are you checking whether these two strings are the same object, or whether they hold the same text?

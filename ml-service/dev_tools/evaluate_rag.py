@@ -125,7 +125,12 @@ def main():
             if bad:
                 print(f"\nExperiment {name} — failures:")
                 for r in bad:
-                    print(f"  {r['id']}  expected {r['expect'] or 'FALLBACK':<26}"
+                    # `expect` may be a list when a concept legitimately spans
+                    # more than one file, so render it before padding.
+                    expect = r["expect"]
+                    if isinstance(expect, list):
+                        expect = " | ".join(expect)
+                    print(f"  {r['id']}  expected {expect or 'FALLBACK':<26}"
                           f" got {str(r['got']):<24} {r['note']}")
 
     print("\n" + "=" * 68)

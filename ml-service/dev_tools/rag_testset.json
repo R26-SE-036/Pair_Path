@@ -102,7 +102,10 @@
       "tags": [],
       "error": "java.lang.NullPointerException: Cannot invoke method because value is null",
       "code": "",
-      "expect": "java_methods",
+      "expect": [
+        "java_methods",
+        "java_runtime_errors"
+      ],
       "note": "null pointer"
     },
     {
@@ -110,7 +113,10 @@
       "tags": [],
       "error": "Main.java:7: error: ';' expected",
       "code": "",
-      "expect": "debugging_guidance",
+      "expect": [
+        "debugging_guidance",
+        "java_compile_errors"
+      ],
       "note": "compile error guidance"
     },
     {
@@ -118,7 +124,10 @@
       "tags": [],
       "error": "java.lang.ArithmeticException: / by zero",
       "code": "",
-      "expect": "java_operators",
+      "expect": [
+        "java_operators",
+        "java_runtime_errors"
+      ],
       "note": "division error"
     },
     {
@@ -126,7 +135,10 @@
       "tags": [],
       "error": "error: cannot find symbol variable total",
       "code": "",
-      "expect": "java_basics",
+      "expect": [
+        "java_basics",
+        "java_compile_errors"
+      ],
       "note": "scope or declaration"
     },
     {
@@ -134,7 +146,10 @@
       "tags": [],
       "error": "incompatible types: possible lossy conversion from double to int",
       "code": "",
-      "expect": "java_basics",
+      "expect": [
+        "java_basics",
+        "java_compile_errors"
+      ],
       "note": "type conversion"
     },
     {
@@ -154,7 +169,10 @@
       ],
       "error": "java.lang.NullPointerException",
       "code": "String s = null; s.length();",
-      "expect": "java_methods",
+      "expect": [
+        "java_methods",
+        "java_runtime_errors"
+      ],
       "note": "error beats unrelated tag"
     },
     {
@@ -262,6 +280,22 @@
       "code": "",
       "expect": null,
       "note": "no input at all — fallback expected"
+    },
+    {
+      "id": "D03",
+      "note": "unrelated library error, must abstain",
+      "tags": [],
+      "error": "org.hibernate.LazyInitializationException: could not initialize proxy",
+      "code": "",
+      "expect": null
+    },
+    {
+      "id": "D04",
+      "note": "prose with no concept, must abstain",
+      "tags": [],
+      "error": "it just does not work properly",
+      "code": "",
+      "expect": null
     }
   ]
 }

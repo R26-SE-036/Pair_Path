@@ -1,0 +1,47 @@
+Tags: division by zero, arithmetic, runtime error, operators
+Keywords: arithmeticexception, by zero, divide, division, zero, denominator
+Content: Dividing a whole number by zero has no defined answer, so Java stops the program rather than continuing with a meaningless value. The divisor was zero at the moment the line ran, which is often a count or total that nothing ever added to.
+Example: Work out what the divisor holds just before this line runs, and decide what should happen when it is legitimately zero.
+Question: What is the divisor at that moment, and what should the program do when nothing has been counted?
+---
+Tags: null, nullpointerexception, runtime error, objects
+Keywords: nullpointerexception, null, cannot invoke, because, is null
+Content: A null pointer exception means something was used as if it held a value, when in fact it holds nothing. Java names the variable and what was attempted on it. The variable was either never given a value, or was given one that itself came back as nothing.
+Example: Find the variable Java names in the message, then trace backwards to the last place it was assigned.
+Question: Which variable is empty here, and where was it supposed to be given its value?
+---
+Tags: parsing, numberformatexception, text to number, conversion, input
+Keywords: numberformatexception, for input string, parseint, parsedouble, parse
+Content: This error means text was handed to something expecting a number, but the text does not describe one. Java shows the exact text it could not read. Spaces, empty text, and stray characters all cause it, because the conversion demands digits and nothing else.
+Example: Look at the exact text quoted in the error and decide whether it could ever be read as a number.
+Question: What text was actually passed in, and where did it come from?
+---
+Tags: input, scanner, inputmismatchexception, runtime error
+Keywords: inputmismatchexception, scanner, nextint, nextline, input mismatch
+Content: An input mismatch means the value waiting to be read is not the kind being asked for. Reading a number when the next thing available is text will fail. This often follows an earlier read that left part of the input behind.
+Example: List the reads your program performs in order, and note what each one consumes and what it leaves behind.
+Question: What is actually waiting in the input at the moment this read happens?
+---
+Tags: recursion, stackoverflowerror, infinite recursion, runtime error
+Keywords: stackoverflowerror, recursion, recursive, stack overflow
+Content: A stack overflow means a method kept calling itself without ever reaching a case that stops. Every call waits for the one inside it, so the waiting calls pile up until no room is left. There must be a case that returns without calling again, and each call must move closer to it.
+Example: Name the case where your method should stop calling itself, then check whether every path actually reaches it.
+Question: Which input makes your method return without calling itself again?
+---
+Tags: casting, classcastexception, types, objects, runtime error
+Keywords: classcastexception, cast, casting, cannot be cast
+Content: A class cast exception means a value was treated as a kind of thing it is not. Java allows the claim to be written but checks it when the line runs, and stops if the actual value does not match what was claimed.
+Example: Note the two types named in the error and identify where the value was originally created.
+Question: What kind of thing is that value really, and where was it made?
+---
+Tags: strings, comparison, equality, equals
+Keywords: string comparison, equals, same text, string equality
+Content: Comparing two pieces of text with the equality operator asks whether they are the same stored item, not whether they read the same. Two separately built strings can spell the same word and still not be the same item, which is why a comparison that looks obviously true can come out false.
+Example: Check whether the two strings were built separately, then compare what they contain rather than whether they are the same item.
+Question: Are you asking whether these two read the same, or whether they are the same stored item?
+---
+Tags: strings, index, bounds, stringindexoutofbounds
+Keywords: stringindexoutofboundsexception, charat, substring, string index
+Content: A string index error means a position was requested that the text does not have. Positions run from zero to one less than the length, exactly as with arrays, so the last character sits one below the length rather than at it.
+Example: Compare the position being requested against the length of the text at that moment.
+Question: How long is the text here, and what is the largest position it actually has?

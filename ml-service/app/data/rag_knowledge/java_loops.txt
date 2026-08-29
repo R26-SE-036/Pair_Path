@@ -19,11 +19,11 @@ Question: Does your loop handle the very first and very last item exactly once e
 Tags: loops, nested, iteration
 Keywords: nested, inner, outer, loop, matrix, grid
 Content: When one loop sits inside another, the inner loop completes fully on every single pass of the outer loop. Confusing which counter belongs to which loop is a common source of unexpected repetition.
-Example: Print both counters together at the top of the inner loop and watch the pattern they follow.
+Example: Work out on paper how many times the inner loop runs for each single pass of the outer one, then multiply.
 Question: For each single pass of your outer loop, how many times does the inner loop run?
 ---
 Tags: loops, accumulator, sum, total
 Keywords: sum, total, accumulate, count, running, average
 Content: Building up a total across a loop needs a variable declared before the loop starts, updated inside it, and read after it finishes. Declaring it in the wrong place resets it or puts it out of reach.
-Example: Print your total at the end of every pass and watch whether it grows the way you expect.
+Example: Work out the answer by hand for a two-element input, then compare it against what your code produces.
 Question: Where is your total created, where is it updated, and where is it read?

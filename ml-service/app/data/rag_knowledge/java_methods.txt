@@ -7,11 +7,11 @@ Question: Is there any path through this method that reaches the end without ret
 Tags: methods, parameters, arguments, scope
 Keywords: parameter, argument, pass, copy, modify, unchanged
 Content: Values passed into a method are copies for simple types, so changing a parameter inside a method does not change the caller's variable. Objects behave differently, because the copy still points at the same object.
-Example: Print the value both inside the method and back in the caller after it returns, and compare the two.
+Example: Decide what the method should hand back for one specific input, then check that against what the caller receives.
 Question: Do you expect this method to change the caller's variable, or to give back a new value?
 ---
 Tags: methods, calling, invocation, null
-Keywords: null, nullpointer, nullpointerexception, object, reference, uninitialised
+Keywords: object, reference, uninitialised, never assigned
 Content: A NullPointerException means a variable expected to hold an object holds nothing instead. It appears at the moment the program tries to use that variable, which may be some distance from where the problem began.
 Example: Look at the line the error names and identify which variable on it might never have been given a value.
 Question: Where was that variable supposed to be assigned, and is that line guaranteed to run first?
