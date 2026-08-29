@@ -219,3 +219,66 @@ model RAGChunk {
 
   @@map("rag_chunks")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// SIMULATED TRAINING CORPUS
+//
+// The 200-session dataset the current demo model was trained on, loaded from
+// ml-service/data/ so it can be browsed and demonstrated rather than living
+// only as CSV and JSON files.
+//
+// Kept separate from PairSession / SessionEvent on purpose: those hold real
+// recorded behaviour and are the source of truth for the research, so mixing
+// 14,771 generated events into them would make every future export a silent
+// blend of real and simulated data. Every row here comes from
+// dev_tools/generate_demo_sessions.py and is not student data.
+// ─────────────────────────────────────────────────────────────────────────
+
+model SimulatedSession {
+  id          String   @id // e.g. "demo_productive_00" — self-identifying
+  label       String   // the collaboration state this session was generated to represent
+  labelSource String   @default("simulated")
+  rater       String   @default("generator")
+  createdAt   DateTime @default(now())
+
+  events  SimulatedEvent[]
+  windows SimulatedWindow[]
+
+  @@index([label])
+  @@map("simulated_sessions")
+}
+
+model SimulatedEvent {
+  id        String   @id @default(cuid())
+  sessionId String
+  userId    String // "U1" / "U2" — generated participants, not real users
+  eventType String
+  timestamp DateTime
+  metadata  Json
+
+  session SimulatedSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, timestamp])
+  @@index([eventType])
+  @@map("simulated_events")
+}
+
+// One row per sliding window: the 15 feature values the model actually sees,
+// plus the label. This is literally the training set, row for row.
+model SimulatedWindow {
+  id          String   @id @default(cuid())
+  sessionId   String
+  windowStart Float // epoch seconds
+  windowEnd   Float
+  features    Json // the 15 canonical features
+  label       String
+  labelSource String   @default("simulated")
+  rater       String   @default("generator")
+  createdAt   DateTime @default(now())
+
+  session SimulatedSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([label])
+  @@map("simulated_windows")
+}
