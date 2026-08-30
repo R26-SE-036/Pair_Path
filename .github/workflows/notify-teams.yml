@@ -1,0 +1,85 @@
+# Posts commits and pull requests to the team's MS Teams channel.
+#
+# This is the GitHub half of the RP visibility setup: Planner and GitHub both
+# feed Power Automate, which posts into Teams so supervisors can see progress
+# without asking for it.
+#
+# Setup (one-off, needs a Microsoft account — see docs/teams-notifications.md):
+#   1. In Teams: Workflows app -> "Post to a channel when a webhook request is
+#      received" -> pick the channel -> copy the generated URL.
+#      NOTE: the old "Incoming Webhook" connector was disabled in May 2026.
+#      Only Power Automate Workflows URLs work now.
+#   2. In GitHub: Settings -> Secrets and variables -> Actions -> New secret
+#      named TEAMS_WEBHOOK_URL, pasted from step 1.
+#
+# Until that secret exists this workflow skips quietly. It never fails a build —
+# a notification problem must not look like a broken project.
+
+name: Notify Teams
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    types: [opened, reopened, ready_for_review, closed]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    # Skip the whole job when the secret is absent, so forks and unconfigured
+    # clones do not show a red cross on every push.
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Post to Teams
+        env:
+          WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "TEAMS_WEBHOOK_URL is not set — skipping notification."
+            echo "See docs/teams-notifications.md to configure it."
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            KIND="Pull request ${{ github.event.action }}"
+            TITLE=$(printf '%s' "${{ github.event.pull_request.title }}")
+            URL="${{ github.event.pull_request.html_url }}"
+            WHO="${{ github.event.pull_request.user.login }}"
+            DETAIL="${{ github.event.pull_request.head.ref }} -> ${{ github.event.pull_request.base.ref }}"
+          else
+            KIND="Push to ${{ github.ref_name }}"
+            TITLE=$(printf '%s' "${{ github.event.head_commit.message }}" | head -1)
+            URL="${{ github.event.head_commit.url }}"
+            WHO="${{ github.event.head_commit.author.name }}"
+            DETAIL="${{ github.repository }}"
+          fi
+
+          # Flat fields rather than a card, so the Power Automate flow can map
+          # them onto whatever message layout the team prefers.
+          jq -n \
+            --arg kind "$KIND" \
+            --arg title "$TITLE" \
+            --arg who "$WHO" \
+            --arg detail "$DETAIL" \
+            --arg url "$URL" \
+            --arg repo "${{ github.repository }}" \
+            '{kind:$kind, title:$title, author:$who, detail:$detail, url:$url, repository:$repo}' \
+            > payload.json
+
+          echo "Sending:" && cat payload.json
+
+          CODE=$(curl -sS -o response.txt -w '%{http_code}' \
+                   -X POST "$WEBHOOK" \
+                   -H 'Content-Type: application/json' \
+                   --data @payload.json) || CODE=000
+
+          echo "HTTP $CODE"
+          [ -s response.txt ] && cat response.txt
+
+          # Never fail the build over a notification.
+          if [ "$CODE" -ge 400 ] || [ "$CODE" = "000" ]; then
+            echo "::warning::Teams notification failed (HTTP $CODE) — the commit itself is fine."
+          fi
