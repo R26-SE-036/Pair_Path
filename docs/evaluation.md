@@ -62,11 +62,42 @@ the state definitions, not fitted — scores 0.609 accuracy / 0.615 macro-F1. Th
 classifier improves on it by **+0.283 accuracy and +0.256 macro-F1**.
 
 **Latency.** Feature extraction plus prediction, 17-event window, n=200: mean
-**1.5 ms**, p95 under 4 ms. Unlike the accuracy figures, this one holds for real
+**1.89 ms** median (4.93 ms mean), p95 16.2 ms. Unlike the accuracy figures, this one holds for real
 deployment — speed doesn't care whether the data is simulated.
 
 **Principal confusions.** Logic struggle read as productive (18 windows);
 dominance ↔ passive navigator (11 and 6); productive read as dominance (9).
+
+## The deployed model
+
+The section above measures the *pipeline*: `evaluate_simulated.py` generates its
+own sessions and trains fresh models, answering "can this method recover the
+states at all?"
+
+A different question is how the model file the service actually loads performs.
+Scored on the 40 sessions its own model card records as held out — 744 windows
+it never saw during training or tuning:
+
+| State | Precision | Recall | F1 | Windows |
+|---|---|---|---|---|
+| Disengaged | 1.000 | 1.000 | 1.000 | 117 |
+| Passive navigator | 0.897 | 0.991 | 0.942 | 114 |
+| Logic struggle | 0.971 | 0.868 | 0.917 | 228 |
+| Driver dominance | 0.741 | 0.901 | 0.813 | 152 |
+| Productive | 0.821 | 0.692 | 0.751 | 133 |
+| **Overall accuracy** | | | **0.883** | 744 |
+| **Macro F1** | | | **0.885** | |
+
+It reproduces its model card to six decimal places (0.884482) with the dataset
+hash verified, so the artifact on disk is provably the one that produced the
+documented figures. Retraining from the same data and seed returns the identical
+model — only the version timestamp changes.
+
+**The weakest result.** Productive recall is 0.692, the lowest of the five: 33
+genuinely productive windows are read as driver dominance. A pair working well
+who simply have not swapped recently looks dominant. That is the more awkward
+direction of error — telling a functioning pair to change what they are doing —
+and it points at the boundary condition rather than at a shortage of data.
 
 ## The taxonomy finding
 

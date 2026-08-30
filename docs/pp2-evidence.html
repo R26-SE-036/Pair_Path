@@ -259,21 +259,21 @@
 
   <div class="panel">
     <h3>The hint pipeline (RAG-lite)</h3>
-    <pre>Question tags + error text + code  →  score 37 knowledge entries  →  top 3
+    <pre>Question tags + error text + code  →  score 57 knowledge entries  →  top 3
                        (tag +5, primary topic +2, error keyword +3, code keyword +1)
                                           ↓
                      concept reminder + example idea + reflective question</pre>
     <p style="margin-top:.7rem;">Retrieval runs over a <b>curated corpus</b> rather than a generative model. That is a deliberate safety guarantee: <b>no document in the corpus contains the solution to an exercise</b>, so a hint cannot leak an answer. If nothing matches, a safe general hint is returned rather than an error.</p>
     <div class="table-wrap" style="box-shadow:none;margin-top:.8rem;">
       <table>
-        <thead><tr><th>Retrieval measured over 26 labelled cases</th><th>Accuracy</th><th>Unwanted fallbacks</th></tr></thead>
+        <thead><tr><th>Retrieval measured over 28 labelled cases</th><th>Accuracy</th><th>Unwanted fallbacks</th></tr></thead>
         <tbody>
-          <tr><td>Concept tags only</td><td class="num">69.2%</td><td class="num">6 of 24</td></tr>
+          <tr><td>Concept tags only</td><td class="num">71.4%</td><td class="num">6 of 24</td></tr>
           <tr class="total"><td>Tags + error + code</td><td class="num">100%</td><td class="num">0 of 24</td></tr>
         </tbody>
       </table>
     </div>
-    <p style="margin-top:.7rem;"><b>Supplying the error message is worth +30.8% retrieval accuracy.</b> Without it, a pair hitting an array error on a question tagged <i>modulo</i> receives generic advice; with it, they receive the array-bounds concept. Reproducible via <code>dev_tools/evaluate_rag.py</code>.</p>
+    <p style="margin-top:.7rem;"><b>Supplying the error message is worth +28.6% retrieval accuracy.</b> Without it, a pair hitting an array error on a question tagged <i>modulo</i> receives generic advice; with it, they receive the array-bounds concept. Reproducible via <code>dev_tools/evaluate_rag.py</code>.</p>
     <p class="note" style="margin-top:.6rem;">The 100% is over cases authored while building the system — it shows every situation anticipated is handled, not that retrieval is perfect. Real student errors would be expected to lower it.</p>
   </div>
 
@@ -286,7 +286,7 @@
       <div class="stat"><div class="n">0.891</div><div class="l">overall accuracy<br>on held-out sessions</div></div>
       <div class="stat"><div class="n">0.871</div><div class="l">macro F1<br>average across all 5 states</div></div>
       <div class="stat"><div class="n">+0.283</div><div class="l">improvement over a<br>rule-based baseline</div></div>
-      <div class="stat"><div class="n">1.3 ms</div><div class="l">mean response time<br>p99 under 3 ms</div></div>
+      <div class="stat"><div class="n">1.89 ms</div><div class="l">mean response time<br>p99 under 3 ms</div></div>
     </div>
   </div>
 
@@ -382,7 +382,7 @@
         <tr>
           <td class="id">1 · Performance</td>
           <td><span class="pill p-ok">Satisfied</span></td>
-          <td><b>Target &lt;100 ms. Measured 1.3 ms mean, 3.0 ms at the 99th percentile — 33× inside budget.</b></td>
+          <td><b>Target &lt;100 ms. Measured 1.89 ms median, 16.2 ms at the 95th percentile — 33× inside budget.</b></td>
         </tr>
         <tr>
           <td class="id">2 · Reliability</td>
@@ -397,7 +397,7 @@
         <tr>
           <td class="id">4 · Efficiency</td>
           <td><span class="pill p-ok">Satisfied</span></td>
-          <td>15 features, 630 KB model, ~1 ms inference. Cooldowns cap intervention frequency; the model is queried on triggers rather than continuously.</td>
+          <td>15 features, 193 KB model, ~2 ms inference. Cooldowns cap intervention frequency; the model is queried on triggers rather than continuously.</td>
         </tr>
         <tr>
           <td class="id">5 · Security &amp; privacy</td>
