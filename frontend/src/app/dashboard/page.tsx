@@ -126,15 +126,6 @@ export default function DashboardPage() {
               </div>
               <h1 className="text-xl font-bold text-surface-200">PairPath</h1>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-surface-300">
-                Welcome, <span className="text-primary-400 font-medium">{user?.firstName || 'Loading...'}</span>
-              </span>
-              <button onClick={handleLogout}
-                className="px-3 py-1.5 bg-surface-800 hover:bg-surface-700 text-surface-300 rounded-lg text-sm transition-colors border border-surface-600">
-                Logout
-              </button>
-            </div>
           </div>
         </div>
       </nav>
