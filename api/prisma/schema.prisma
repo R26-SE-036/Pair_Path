@@ -7,7 +7,17 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+
+  // Runtime queries go through Neon's connection pooler. A NestJS app opens a
+  // connection per worker and holds it, and Neon caps direct connections well
+  // below what that needs — without the pooler the app starts fine and then
+  // fails under a few concurrent users, which is the worst time to find out.
+  url = env("DATABASE_URL_POOLED")
+
+  // Migrations must NOT go through the pooler: it runs in transaction mode and
+  // cannot handle the session-level statements (advisory locks, DDL batches)
+  // that Prisma Migrate needs. Prisma uses this one for migrate/introspect.
+  directUrl = env("DATABASE_URL")
 }
 
 model User {
