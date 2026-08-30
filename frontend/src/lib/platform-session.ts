@@ -13,6 +13,22 @@
 import api from './api'
 import { consumeHandoffFragment, loadTokens, clearTokens } from './codeguru-auth.js'
 
+/**
+ * How an attempt to establish a PairPath session ended.
+ *
+ * `rejected` and `unavailable` are kept apart on purpose. Collapsing them was a
+ * real bug: a PairPath API that was simply down got treated as "your login is
+ * bad", the platform token was thrown away, and the student was bounced back to
+ * the portal to sign in again — which produced another token that failed the
+ * same way. An endless loop caused by a service being offline for a moment.
+ */
+export type AdoptResult =
+  | 'adopted' // exchanged a platform token for a PairPath one just now
+  | 'existing' // already had a PairPath session
+  | 'none' // not signed in anywhere; the page's own guard should redirect
+  | 'rejected' // PairPath refused the platform token — it really is no good
+  | 'unavailable' // could not reach PairPath — the token is fine, retry later
+
 /** True when PairPath already has its own session. */
 export function hasPairPathSession(): boolean {
   if (typeof window === 'undefined') return false
@@ -21,9 +37,7 @@ export function hasPairPathSession(): boolean {
 
 /**
  * Exchange a Code Coach access token for a PairPath one and store it.
- *
- * Throws if the platform token cannot be exchanged — the caller decides
- * whether that means "send them back to the portal" or "show an error".
+ * Throws on failure; callers use `attemptExchange` for the classified result.
  */
 export async function exchangePlatformToken(codeCoachAccessToken: string) {
   const { data } = await api.post('/auth/exchange', { codeCoachAccessToken })
@@ -36,34 +50,53 @@ export async function exchangePlatformToken(codeCoachAccessToken: string) {
 }
 
 /**
- * Adopt a session handed over by the portal, if there is one in the URL.
+ * Trade the stored platform token for a PairPath one.
  *
- * Returns 'adopted' when a platform handoff was consumed and exchanged,
- * 'existing' when PairPath was already signed in, 'none' when there is
- * nothing to do, and 'failed' when a handoff arrived but could not be
- * exchanged.
+ * Exported so the "try again" button can retry without sending the student
+ * back through the portal — the platform token is still in storage, and a
+ * failed exchange is usually PairPath restarting, not a bad login.
  */
-export async function adoptPlatformSession(): Promise<
-  'adopted' | 'existing' | 'none' | 'failed'
-> {
-  const handedOff = consumeHandoffFragment()
-
-  if (!handedOff) {
-    return hasPairPathSession() ? 'existing' : 'none'
-  }
-
+export async function attemptExchange(): Promise<AdoptResult> {
   const { accessToken } = loadTokens()
-  if (!accessToken) return 'failed'
+  if (!accessToken) return 'none'
 
   try {
     await exchangePlatformToken(accessToken)
     return 'adopted'
-  } catch {
-    // The platform token was rejected or Code Coach was unreachable. Drop it
-    // rather than leaving a half-session behind that looks signed in.
-    clearTokens()
-    return 'failed'
+  } catch (error: any) {
+    const status = error?.response?.status
+
+    // 401/403 is PairPath saying it checked with Code Coach and the answer was
+    // no. That token will never work, so drop it and make them sign in again.
+    if (status === 401 || status === 403) {
+      clearTokens()
+      return 'rejected'
+    }
+
+    // Anything else — no response at all (API down), a 503 because Code Coach
+    // was unreachable from the server, a 500 — is not the student's fault.
+    // KEEP the platform token so a retry costs nothing.
+    return 'unavailable'
   }
+}
+
+/**
+ * Work out what session this page load has, adopting a portal handoff if there
+ * is one in the URL.
+ *
+ * Also covers the awkward middle state: a platform token in storage but no
+ * PairPath token, which is what a previously failed exchange leaves behind.
+ * Retrying it here is what stops that state becoming permanent.
+ */
+export async function adoptPlatformSession(): Promise<AdoptResult> {
+  const handedOff = consumeHandoffFragment()
+
+  if (handedOff) return attemptExchange()
+  if (hasPairPathSession()) return 'existing'
+
+  // No handoff and no PairPath session — but maybe a platform token survived a
+  // failed attempt. If so, finish the job; otherwise we are simply signed out.
+  return loadTokens().accessToken ? attemptExchange() : 'none'
 }
 
 /** Clear both the PairPath session and the platform one. */

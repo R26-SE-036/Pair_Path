@@ -32,11 +32,25 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Response interceptor — handle 401
+/**
+ * Response interceptor — a 401 means the PairPath session is gone, so clear it
+ * and send them to sign in again.
+ *
+ * With one exception: /auth/exchange. That endpoint IS the sign-in, and a 401
+ * from it means the platform token was refused — which PlatformSessionGate
+ * handles, telling the student whether to retry or sign in again. Redirecting
+ * from here as well sent them to /login, which redirects to the portal, which
+ * hands back another token, which fails the same way: an infinite loop, purely
+ * because two pieces of code both tried to handle the same failure.
+ */
+const EXCHANGE_PATH = '/auth/exchange'
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
+    const isExchange = (error.config?.url || '').includes(EXCHANGE_PATH)
+
+    if (error.response?.status === 401 && !isExchange && typeof window !== 'undefined') {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
