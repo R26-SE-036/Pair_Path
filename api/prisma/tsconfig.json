@@ -1,0 +1,12 @@
+{
+  // One-off scripts in this folder run outside the app's source root, so
+  // compiling them alone makes ./prisma the inferred common source directory
+  // and TypeScript refuses to emit (TS5011). Pinning rootDir to the package
+  // root fixes that without touching the app's own build.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true
+  },
+  "include": ["./**/*.ts"]
+}

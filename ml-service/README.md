@@ -14,7 +14,10 @@ UI interventions. Part of the PairPath component of Code Guru (R26-SE-036).
   (`modelVersion: "rule_fallback_v1"`), which also serves as the RQ1
   baseline.
 - **Retrieval is RAG-lite, not embeddings** (L14): keyword/tag scoring over
-  a curated corpus in `app/data/rag_knowledge/`. This is a deliberate
+  a curated corpus of **37 entries** in `app/data/rag_knowledge/`, ranked by
+  concept tag, primary-topic match, error keyword and code keyword. Measured
+  at **100% top-1 retrieval accuracy** over 26 labelled cases
+  (`dev_tools/evaluate_rag.py`). This is a deliberate
   architectural guarantee — no corpus document contains the solution to any
   exercise — not a placeholder for "real" RAG. An embedding-based retriever
   is Phase 3 future work, to be evaluated as a scored comparison against
@@ -40,7 +43,7 @@ mappings. `LOW_QUALITY_REVIEW` is deferred as documented future work.
 
 `app/features/extractor.py` is the **only** feature implementation — the
 NestJS gateway sends raw session events at inference time, and the offline
-dataset builder imports the same class. 14 window-agnostic features
+dataset builder imports the same class. 15 window-agnostic features
 (edits by role, run success/failure streaks, error recovery time, idle
 ratio, discussion counts, role-switch timing, activity dominance) over a
 configurable window (`ML_WINDOW_SECONDS`, default 180 — to be settled by
@@ -56,11 +59,11 @@ data/extracted/      feature windows      (windows.csv, labeled_windows.csv)
 data/labels/         annotations          (session_labels.csv)
 ```
 
-These currently hold **synthetic** data. Provenance is carried inside the
+These currently hold **simulated** data. Provenance is carried inside the
 files, not in their names: every labelled row has a `label_source` column,
-and the trainer aborts unless all rows are `label_source="human"` — synthetic
-data trains only under an explicit `--demo-synthetic` flag, which stamps the
-resulting model `demo_synthetic_*`.
+and the trainer aborts unless all rows are `label_source="human"` — simulated
+data trains only under an explicit `--demo-simulated` flag, which stamps the
+resulting model `demo_simulated_*`.
 
 ```
 1. Export real SessionEvent rows from Postgres  →  data/raw_sessions/events.json

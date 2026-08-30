@@ -1,3 +1,23 @@
-Tags: arrays, indexing, boundaries, out of bounds
-Content: Java arrays start at index 0. This means the first element is at array[0], and the last valid index is exactly array.length - 1. Attempting to access an index equal to or greater than array.length will cause an ArrayIndexOutOfBoundsException.
-Keywords: array, index, outofbounds, length, bounds
+Tags: arrays, indexing, bounds, out of bounds, boundaries
+Keywords: array, index, outofbounds, arrayindex, length, bounds
+Content: Java arrays are zero-indexed. An array holding N elements has valid positions 0 through N-1, so the highest index you can read is one less than the length. Reaching for position N or beyond throws an ArrayIndexOutOfBoundsException.
+Example: Trace your loop by hand for a three-element array. Write down the index used on each pass and mark the pass where it goes past the end.
+Question: If an array has N elements, what is the largest index you can safely access?
+---
+Tags: arrays, iteration, loops, traversal
+Keywords: array, loop, iterate, traverse, each, element
+Content: Walking through an array means visiting every position exactly once. The loop that does this needs a starting point, a stopping condition, and a step that moves toward stopping. If any of the three is wrong, some elements are visited twice or missed entirely.
+Example: Count the passes your loop makes for a three-element array, then compare that number against how many elements you meant to visit.
+Question: Which elements does your loop actually visit, and does that match every element exactly once?
+---
+Tags: arrays, length, size, capacity
+Keywords: length, size, capacity, empty, array
+Content: An array's length is fixed when it is created and never changes afterwards. The length property tells you how many slots exist, not how many hold meaningful values. An array can be full-size and still contain defaults you never assigned.
+Example: Write down how many values you intended to store, then compare that against the size the array was created with.
+Question: How many slots does your array have, and have all of them been filled?
+---
+Tags: arrays, initialization, defaults
+Keywords: array, initialise, initialize, default, null, zero
+Content: A newly created array is not empty. Numeric arrays start filled with zeros, boolean arrays with false, and object arrays with null. Reading a position you never assigned gives you that default rather than an error.
+Example: List the positions you assigned a value to, then check that list against every position the array actually has.
+Question: Which positions in your array have you actually assigned, and which still hold their starting value?

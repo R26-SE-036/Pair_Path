@@ -26,6 +26,11 @@ yarn-error.log*
 
 # local env files
 .env*.local
+# Also catch the dot-less misspelling. Next only ever reads `.env.local`, so a
+# file named `env.local` is silently ignored by the app but would otherwise be
+# committed — config that looks applied and is not.
+env.local
+env*.local
 .env
 
 # vercel

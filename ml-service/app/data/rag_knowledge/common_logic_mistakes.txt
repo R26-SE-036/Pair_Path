@@ -1,3 +1,17 @@
-Tags: logic, mistakes, boundary, off-by-one, infinite loop
-Content: An off-by-one error happens when a loop iterates one time too many or too few. For example, using '<=' instead of '<' when looping up to array.length. Another common mistake is modifying a collection while iterating over it.
-Keywords: off-by-one, boundary, iteration, logical error, infinite
+Tags: logic, mistakes, wrong output, debugging
+Keywords: wrong, unexpected, output, incorrect, logical error, logic
+Content: Code that compiles and runs but produces the wrong answer has a logic problem rather than a syntax one. The computer did exactly what was written; the instructions did not match the intention. These are found by comparing expected values against actual ones step by step, not by rereading the code.
+Example: Pick one input where you know the right answer, then check the value of each variable at each stage against what you expected.
+Question: At which step does the actual value first stop matching what you expected?
+---
+Tags: logic, boundary, off-by-one, mistakes
+Keywords: first, last, missing, extra, boundary, edge, one
+Content: A result that is close but consistently one out points to a boundary rather than a broken calculation. The arithmetic is right; the range it runs over is not.
+Example: Compare your output against the correct answer for a very small input, and note whether the difference is exactly one item or one step.
+Question: Is your result wrong by a random amount, or wrong by exactly one every time?
+---
+Tags: logic, variables, state, mistakes
+Keywords: variable, overwrite, reset, state, changed, unexpected
+Content: A variable holding an unexpected value has usually been changed somewhere between where it was set and where it was read. Reassignment inside a loop or branch is easy to overlook because the line looks harmless on its own.
+Example: Name the last line that changes the variable, then check whether anything between there and its use could change it again.
+Question: Between setting this variable and using it, is there anywhere its value could have changed?

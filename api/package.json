@@ -18,7 +18,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "corpus:load": "ts-node --transpile-only -P prisma/tsconfig.json prisma/load-simulated-corpus.ts"
   },
   "keywords": [],
   "author": "",
@@ -35,8 +36,7 @@
     "@nestjs/platform-socket.io": "^11.1.19",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/websockets": "^11.1.19",
-    "@prisma/client": "^5.16.2",
-    "@prisma/engines": "^7.8.0",
+    "@prisma/client": "^5.22.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^25.6.0",
     "@types/passport-jwt": "^4.0.1",
@@ -48,7 +48,6 @@
     "nodemon": "^3.1.14",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
-    "prisma": "^5.22.0",
     "redis": "^5.12.1",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.3",
@@ -59,6 +58,7 @@
     "@nestjs/cli": "^11.0.21",
     "@nestjs/testing": "^11.1.19",
     "@types/jest": "^30.0.0",
-    "jest": "^30.3.0"
+    "jest": "^30.3.0",
+    "prisma": "^5.22.0"
   }
 }

@@ -1,0 +1,409 @@
+<title>Hint Pipeline Checklist</title>
+<style>
+  :root {
+    --bg:#F2F5F4; --surface:#FFFFFF; --surface-2:#E6EBE9;
+    --border:#D3DAD8; --border-strong:#B6C1BD;
+    --ink:#14211D; --muted:#4F5D58; --faint:#82908B;
+    --accent:#1F6B4F; --accent-soft:#DEEDE6;
+    --now:#8A6111; --now-soft:#F7ECD6;
+    --later:#5B6B7A; --later-soft:#E8EDF1;
+    --done:#1F6B4F;
+    --shadow:0 1px 2px rgba(20,33,29,.05), 0 2px 10px rgba(20,33,29,.04);
+    --sans:ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --serif:"Iowan Old Style", Charter, Georgia, "Noto Serif", serif;
+    --mono:ui-monospace, Menlo, Consolas, "Roboto Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#0E1412; --surface:#16201C; --surface-2:#1E2925;
+      --border:#2C3833; --border-strong:#3E4C46;
+      --ink:#E4EBE7; --muted:#9DACA6; --faint:#77857F;
+      --accent:#5EB98D; --accent-soft:#123023;
+      --now:#D9A441; --now-soft:#2E2411;
+      --later:#93A3B2; --later-soft:#1C242B;
+      --done:#5EB98D;
+      --shadow:0 1px 3px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#0E1412; --surface:#16201C; --surface-2:#1E2925;
+    --border:#2C3833; --border-strong:#3E4C46;
+    --ink:#E4EBE7; --muted:#9DACA6; --faint:#77857F;
+    --accent:#5EB98D; --accent-soft:#123023;
+    --now:#D9A441; --now-soft:#2E2411;
+    --later:#93A3B2; --later-soft:#1C242B;
+    --done:#5EB98D;
+    --shadow:0 1px 3px rgba(0,0,0,.45);
+  }
+
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:760px; margin:0 auto; padding:3rem 1.25rem 5rem; display:flex; flex-direction:column; gap:1.75rem; }
+
+  .eyebrow { margin:0; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); }
+  h1 { margin:.5rem 0 0; font-size:clamp(1.85rem,5vw,2.4rem); font-weight:800; letter-spacing:-.022em; line-height:1.08; }
+  .standfirst { margin:.8rem 0 0; font-family:var(--serif); font-size:1.04rem; color:var(--muted); max-width:62ch; }
+  .standfirst strong { color:var(--ink); font-weight:600; }
+
+  .progress { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem 1.15rem; display:flex; flex-direction:column; gap:.65rem; box-shadow:var(--shadow); }
+  .prow { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; }
+  .plabel { font-size:.71rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--faint); }
+  .pcount { font-size:.92rem; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .pcount b { color:var(--ink); font-weight:700; }
+  .track { height:7px; background:var(--surface-2); border-radius:99px; overflow:hidden; }
+  .fill { height:100%; width:0%; background:var(--accent); border-radius:99px; transition:width .35s ease; }
+  @media (prefers-reduced-motion: reduce){ .fill { transition:none; } }
+
+  .group { display:flex; flex-direction:column; gap:.8rem; }
+  .ghead { display:flex; align-items:baseline; gap:.8rem; padding-bottom:.2rem; border-bottom:2px solid var(--border-strong); flex-wrap:wrap; }
+  .gn { font-family:var(--mono); font-size:1.15rem; font-weight:700; color:var(--accent); }
+  .ghead h2 { margin:0; font-size:1.05rem; font-weight:700; letter-spacing:-.01em; flex:1; min-width:170px; }
+  .effort { font-family:var(--mono); font-size:.71rem; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:99px; padding:.18rem .55rem; white-space:nowrap; }
+  .gnote { margin:0; font-family:var(--serif); font-size:.93rem; color:var(--muted); max-width:60ch; }
+
+  .group.now .ghead { border-bottom-color:var(--now); }
+  .group.now .gn { color:var(--now); }
+  .group.later { opacity:.85; }
+  .group.later .gn { color:var(--later); }
+  .group.later .ghead { border-bottom-color:var(--later); }
+
+  .tag { font-size:.6rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; padding:.15rem .42rem; border-radius:4px; white-space:nowrap; }
+  .t-now { background:var(--now); color:#fff; }
+  .t-paper { background:var(--accent); color:#fff; }
+  .t-later { background:var(--later-soft); color:var(--later); }
+
+  .item { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:.8rem .95rem; display:grid; grid-template-columns:auto 1fr; gap:.45rem .7rem; box-shadow:var(--shadow); }
+  .item input[type=checkbox] {
+    appearance:none; -webkit-appearance:none; width:1.1rem; height:1.1rem; margin:.15rem 0 0;
+    border:1.5px solid var(--border-strong); border-radius:4px; background:var(--surface);
+    cursor:pointer; position:relative; flex-shrink:0;
+  }
+  .item input:checked { background:var(--done); border-color:var(--done); }
+  .item input:checked::after { content:""; position:absolute; left:5px; top:1px; width:4px; height:9px; border:solid #fff; border-width:0 2.5px 2.5px 0; transform:rotate(45deg); }
+  .item input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .item label { grid-column:2; font-size:.96rem; font-weight:600; cursor:pointer; }
+  .item input:checked ~ label { color:var(--faint); text-decoration:line-through; text-decoration-color:var(--border-strong); }
+  .item input:checked ~ .d { opacity:.5; }
+  .d { grid-column:2; font-size:.88rem; color:var(--muted); font-family:var(--serif); }
+  .d code { font-family:var(--mono); font-size:.85em; background:var(--surface-2); padding:.08em .3em; border-radius:3px; }
+  .check { grid-column:2; font-size:.83rem; color:var(--accent); font-weight:600; }
+  .check::before { content:"✓ verify: "; font-weight:700; }
+
+  .callout { background:var(--accent-soft); border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:1rem 1.2rem; }
+  .callout p { margin:0 0 .5rem; font-size:.94rem; }
+  .callout p:last-child { margin-bottom:0; }
+  .warn { background:var(--now-soft); border-left:4px solid var(--now); border-radius:0 10px 10px 0; padding:1rem 1.2rem; }
+  .warn p { margin:0 0 .5rem; font-size:.94rem; }
+  .warn p:last-child { margin-bottom:0; }
+
+  footer { border-top:1px solid var(--border); padding-top:1.2rem; font-family:var(--serif); font-size:.89rem; color:var(--faint); }
+
+  @media print {
+    :root, :root[data-theme="dark"] {
+      --bg:#FFF; --surface:#FFF; --surface-2:#F0F3F2; --border:#C5CFCB; --border-strong:#A7B3AE;
+      --ink:#14211D; --muted:#3E4C47; --faint:#6A7873; --accent:#1F6B4F; --accent-soft:#E7F1EC;
+      --now:#6F4D0D; --now-soft:#FAF1E0; --shadow:none;
+    }
+    @page { size:A4; margin:14mm 12mm; }
+    body { background:#fff; font-size:10.5pt; }
+    .wrap { max-width:none; padding:0; gap:1rem; }
+    .item,.callout,.warn { break-inside:avoid; box-shadow:none; }
+    .group { break-inside:avoid-page; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">PairPath · hint pipeline</p>
+    <h1>Hint Pipeline Checklist</h1>
+    <p class="standfirst">
+      <strong>Groups 1 to 4 are complete.</strong> All three inputs are connected, the library
+      grew from 9 entries to 37, each entry carries its own wording, and retrieval is measured
+      at 100% top-1 over 26 labelled cases — up from 69.2% before the error was supplied.
+      What remains is optional. Ticks are saved in this browser.
+    </p>
+  </header>
+
+  <div class="progress">
+    <div class="prow">
+      <span class="plabel">Progress</span>
+      <span class="pcount" id="count"><b>0</b> of 0 done</span>
+    </div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+  </div>
+
+  <!-- GROUP 1 -->
+  <section class="group now" data-group>
+    <div class="ghead">
+      <span class="gn">1</span>
+      <h2>Connect the missing inputs</h2>
+      <span class="tag t-now">Start here</span>
+      <span class="effort">~30 min</span>
+    </div>
+    <p class="gnote">The gateway sends two empty strings, so the error and code scoring paths can
+      never fire. Nothing new to build — only values that already exist a few lines away.</p>
+
+    <div class="item">
+      <input type="checkbox" id="a1" checked>
+      <label for="a1">Keep the last failed run's error in session state</label>
+      <div class="d">The gateway already handles <code>CODE_RUN_RESULT</code> and sees
+        <code>stderr</code>. Store it against the session instead of discarding it.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="a2" checked>
+      <label for="a2">Keep the current code in session state</label>
+      <div class="d">Already arriving on every <code>code_change</code>. Hold the latest copy.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="a3" checked>
+      <label for="a3">Pass both into the hint request</label>
+      <div class="d">Replace <code>recentErrorContext: ''</code> and
+        <code>recentCodeSnippet: ''</code> with the stored values.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="a4" checked>
+      <label for="a4">Confirm hints now follow the error</label>
+      <div class="check">Break an array bound, run it, and check the hint matches the
+        <i>error</i> — not just the question's topic. Try it on a question tagged something
+        unrelated; the array entry should still win.</div>
+    </div>
+  </section>
+
+  <!-- GROUP 2 -->
+  <section class="group" data-group>
+    <div class="ghead">
+      <span class="gn">2</span>
+      <h2>Grow the library</h2>
+      <span class="effort">~1 hour</span>
+    </div>
+    <p class="gnote">Done — the loader now reads many entries per file, and the corpus holds
+      37 entries across 10 files covering every tag in the question bank.</p>
+
+    <div class="item">
+      <input type="checkbox" id="b1" checked>
+      <label for="b1">Let one file hold several entries</label>
+      <div class="d">Separate them with a marker such as <code>---</code>, and collect each into
+        its own chunk instead of overwriting.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="b2" checked>
+      <label for="b2">Cover the two unmatched question tags</label>
+      <div class="d">Your questions use <code>bounds</code> and <code>modulo</code>; neither
+        matches anything today, so those students receive a generic hint.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="b3" checked>
+      <label for="b3">Expand to roughly 25–30 entries</label>
+      <div class="d">Several per topic — a common misconception each, rather than one broad
+        entry per subject.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="b4" checked>
+      <label for="b4">Confirm every question tag has a match</label>
+      <div class="check">List the distinct <code>conceptTags</code> across your question bank and
+        check each one scores against at least one entry.</div>
+    </div>
+  </section>
+
+  <!-- GROUP 3 -->
+  <section class="group" data-group>
+    <div class="ghead">
+      <span class="gn">3</span>
+      <h2>Write the hints properly</h2>
+      <span class="effort">~1 hour</span>
+    </div>
+    <p class="gnote">Only four topics have tailored wording. Everything else is assembled from a
+      template that produces grammatically fine, pedagogically empty advice.</p>
+
+    <div class="item">
+      <input type="checkbox" id="c1" checked>
+      <label for="c1">Add <code>Example:</code> and <code>Question:</code> to the file format</label>
+      <div class="d">So each entry carries its own example idea and reflective question rather
+        than having them generated from its topic name.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="c2" checked>
+      <label for="c2">Move the four special cases into the files</label>
+      <div class="d">Loops, arrays, collaboration and peer review are currently hardcoded in an
+        <code>if</code> chain. They become ordinary entries.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="c3" checked>
+      <label for="c3">Reduce the generator to assembly</label>
+      <div class="d">With wording stored per entry, it stops writing text and starts arranging
+        it. The special-case chain disappears.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="c4" checked>
+      <label for="c4">Confirm no two topics share wording</label>
+      <div class="check">Request a hint for each topic and read them side by side. A repeated
+        sentence across unrelated topics means the template is still in play.</div>
+    </div>
+  </section>
+
+  <!-- GROUP 4 -->
+  <section class="group now" data-group>
+    <div class="ghead">
+      <span class="gn">4</span>
+      <h2>Measure retrieval</h2>
+      <span class="tag t-paper">For the paper</span>
+      <span class="effort">~1 hour</span>
+    </div>
+    <p class="gnote">You cannot currently say anything quantitative about the hint engine. It
+      either returns something or falls back.</p>
+
+    <div class="item">
+      <input type="checkbox" id="d1" checked>
+      <label for="d1">Build a labelled test set</label>
+      <div class="d">20–30 cases of <i>(error text + question tags) → the entry that should come
+        back</i>. Write them from real student errors where you can.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="d2" checked>
+      <label for="d2">Report retrieval accuracy and fallback rate</label>
+      <div class="d">How often is the top result correct, and how often does nothing match at
+        all? Two numbers, one script.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="d3" checked>
+      <label for="d3">Record the baseline figures</label>
+      <div class="d">Date them and note the library size. Without a recorded baseline, any later
+        comparison has nothing to compare against.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="d4" checked>
+      <label for="d4">Add the numbers to the documentation</label>
+      <div class="check">The hint engine should be described the way the classifier is: a
+        component that was evaluated, not just a feature that was built.</div>
+    </div>
+  </section>
+
+  <!-- GROUP 5 -->
+  <section class="group later" data-group>
+    <div class="ghead">
+      <span class="gn">5</span>
+      <h2>Escalating hints</h2>
+      <span class="tag t-later">Optional</span>
+      <span class="effort">~2 hours</span>
+    </div>
+    <p class="gnote">Real scaffolding fades. A pair stuck on the same error for the third time
+      needs something more direct than the first nudge — while still never receiving the answer.</p>
+
+    <div class="item">
+      <input type="checkbox" id="e1">
+      <label for="e1">Count hints per session, per concept</label>
+      <div class="d">Track how many times the same topic has already been surfaced.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="e2">
+      <label for="e2">Define the escalation levels</label>
+      <div class="d">Reflective question → concept reminder → worked analogy on a
+        <i>different</i> example. The final level must still not solve their exercise.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="e3">
+      <label for="e3">Select the level by repeat count</label>
+      <div class="check">Trigger the same struggle three times and confirm the help becomes more
+        direct — and that the third hint still contains no solution.</div>
+    </div>
+  </section>
+
+  <!-- GROUP 6 -->
+  <section class="group later" data-group>
+    <div class="ghead">
+      <span class="gn">6</span>
+      <h2>Embedding comparison</h2>
+      <span class="tag t-later">Research phase 3</span>
+      <span class="effort">Later</span>
+    </div>
+    <p class="gnote">Deliberately last. Over a small hand-curated library, keyword scoring is
+      competitive and fully explainable — and group 4 is what lets you prove that rather than
+      assert it.</p>
+
+    <div class="item">
+      <input type="checkbox" id="f1">
+      <label for="f1">Populate the reserved embedding column</label>
+      <div class="d"><code>RAGChunk.embedding</code> already exists in the schema and is unused.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="f2">
+      <label for="f2">Add an embedding retriever behind the same interface</label>
+      <div class="d">The output contract must stay identical so only retrieval changes.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="f3">
+      <label for="f3">Run the group 4 test set against both</label>
+      <div class="d">Same cases, same metrics, one table.</div>
+    </div>
+
+    <div class="item">
+      <input type="checkbox" id="f4">
+      <label for="f4">Report both results, whichever wins</label>
+      <div class="check">"Embedding retrieval did not justify the added opacity" is a legitimate
+        published finding — but only with numbers behind it.</div>
+    </div>
+  </section>
+
+  <div class="warn">
+    <p><b>One thing not to do: generate hints with a language model at runtime.</b></p>
+    <p>It is the obvious upgrade and it would quietly destroy the guarantee the whole design
+      rests on. Your safety argument is that no document in the library contains an answer — a
+      model writing text on the fly can produce one at any moment, and no prompt reliably
+      prevents it.</p>
+    <p>It also breaks reproducibility, since the same student in the same state would get
+      different help on different runs.</p>
+  </div>
+
+  <div class="callout">
+    <p><b>If you only do two groups, do 1 and 4.</b></p>
+    <p>Group 1 makes hints respond to what the student is actually looking at. Group 4 makes
+      them measurable — and is what allows the embedding comparison to be a result rather than
+      an impression.</p>
+  </div>
+
+  <footer>
+    Groups 1 to 4 are about a day's work and take the hint engine from "it works" to "it works
+    well, and here is how well."
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var KEY = 'pairpath-rag-checklist:';
+    var boxes = [].slice.call(document.querySelectorAll('.item input[type=checkbox]'));
+
+    boxes.forEach(function (b) {
+      var saved = localStorage.getItem(KEY + b.id);
+      if (saved !== null) b.checked = saved === '1';
+      b.addEventListener('change', function () {
+        localStorage.setItem(KEY + b.id, b.checked ? '1' : '0');
+        refresh();
+      });
+    });
+
+    function refresh() {
+      var total = boxes.length;
+      var done = boxes.filter(function (b) { return b.checked; }).length;
+      document.getElementById('count').innerHTML = '<b>' + done + '</b> of ' + total + ' done';
+      document.getElementById('fill').style.width = (total ? (done / total) * 100 : 0) + '%';
+    }
+    refresh();
+  })();
+</script>

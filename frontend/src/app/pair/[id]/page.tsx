@@ -227,7 +227,7 @@ export default function PairRoomPage() {
       <nav className="bg-surface-900 border-b border-surface-700 flex-shrink-0">
         <div className="px-4 flex justify-between h-12 items-center">
           <div className="flex items-center space-x-4">
-            <Link href="/dashboard" className="text-surface-400 hover:text-white text-sm transition-colors">← Dashboard</Link>
+            <Link href="/dashboard" className="text-surface-400 hover:text-surface-200 text-sm transition-colors">← Dashboard</Link>
             <span className="text-surface-500">|</span>
             <span className="text-xs text-surface-400 font-mono bg-surface-800 px-2 py-1 rounded">
               Code: <span className="text-primary-400 font-bold">{session?.joinCode || '...'}</span>
@@ -243,7 +243,7 @@ export default function PairRoomPage() {
           <div className="flex items-center space-x-4">
             <span className="text-xs text-surface-400 font-mono">{formatTime(elapsedTime)}</span>
             <span className={`text-xs flex items-center ${isConnected ? 'text-accent-400' : 'text-red-400'}`}>
-              <span className="w-2 h-2 rounded-full mr-1.5 inline-block" style={{backgroundColor: isConnected ? '#4ade80' : '#f87171'}}></span>
+              <span className="w-2 h-2 rounded-full mr-1.5 inline-block" style={{backgroundColor: isConnected ? 'var(--cg-ok)' : 'var(--cg-danger)'}}></span>
               {isConnected ? 'Connected' : 'Disconnected'}
             </span>
             <span className={`text-xs ${partnerConnected ? 'text-accent-400' : 'text-surface-500'}`}>
@@ -266,7 +266,7 @@ export default function PairRoomPage() {
             <div className="bg-surface-900 border-b border-surface-700 px-4 py-3 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-white">{session.question.title}</h3>
+                  <h3 className="text-sm font-semibold text-surface-200">{session.question.title}</h3>
                   <p className="text-xs text-surface-400 mt-0.5">{session.question.description}</p>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -297,7 +297,7 @@ export default function PairRoomPage() {
             <Editor
               height="100%"
               defaultLanguage="java"
-              theme="vs-dark"
+              theme="vs"
               value={code}
               onChange={handleCodeChange}
               options={{
@@ -355,7 +355,7 @@ export default function PairRoomPage() {
                 <input id="chat-input" type="text" value={chatInput} placeholder="Type a message..."
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage() }}
-                  className="flex-1 px-3 py-2 bg-surface-800 border border-surface-600 rounded-lg text-sm text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                  className="flex-1 px-3 py-2 bg-surface-800 border border-surface-600 rounded-lg text-sm text-surface-200 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                 <button onClick={handleSendMessage}
                   className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm transition-colors">
                   Send
@@ -373,10 +373,10 @@ export default function PairRoomPage() {
               'border-surface-600 bg-surface-800'
             }`}>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-white">
+                <span className="text-sm font-semibold text-surface-200">
                   {getInterventionIcon(intervention.action)} Suggestion
                 </span>
-                <button onClick={() => setIntervention(null)} className="text-surface-400 hover:text-white text-xs">✕</button>
+                <button onClick={() => setIntervention(null)} className="text-surface-400 hover:text-surface-200 text-xs">✕</button>
               </div>
               <p className="text-xs text-surface-300 mb-3">{intervention.delivery?.message}</p>
               <div className="flex space-x-2">
@@ -399,8 +399,8 @@ export default function PairRoomPage() {
                 ? 'border-yellow-500/50 bg-yellow-600/10 animate-highlight' : 'border-surface-600 bg-surface-800'
             }`}>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-white">🧠 Hint</span>
-                <button onClick={() => setRagHint(null)} className="text-surface-400 hover:text-white text-xs">✕</button>
+                <span className="text-sm font-semibold text-surface-200">🧠 Hint</span>
+                <button onClick={() => setRagHint(null)} className="text-surface-400 hover:text-surface-200 text-xs">✕</button>
               </div>
               <div className="space-y-2 text-xs">
                 <div>

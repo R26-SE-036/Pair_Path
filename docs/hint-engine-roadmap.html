@@ -1,0 +1,388 @@
+<title>Hint Engine Roadmap</title>
+<style>
+  :root {
+    --bg: #F5F5F4;
+    --surface: #FFFFFF;
+    --surface-2: #EBEBE8;
+    --border: #DAD9D4;
+    --border-strong: #C2C0B9;
+    --ink: #1F1D1B;
+    --muted: #5C5955;
+    --faint: #8C8985;
+    --accent: #9A3F2B;
+    --accent-soft: #F6E5DF;
+    --ok: #3C6E47;
+    --ok-soft: #E2EDE4;
+    --warn: #8A6111;
+    --warn-soft: #F7EBD5;
+    --shadow: 0 1px 2px rgba(31,29,27,.05), 0 2px 10px rgba(31,29,27,.04);
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --serif: "Iowan Old Style", Charter, Georgia, "Noto Serif", serif;
+    --mono: ui-monospace, Menlo, Consolas, "Roboto Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131311; --surface: #1C1B18; --surface-2: #24231F;
+      --border: #33322D; --border-strong: #45443D;
+      --ink: #EAE8E4; --muted: #A8A49D; --faint: #7E7A73;
+      --accent: #D9805F; --accent-soft: #331E16;
+      --ok: #7FB98C; --ok-soft: #1A2B1E;
+      --warn: #D9A441; --warn-soft: #2E2411;
+      --shadow: 0 1px 3px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131311; --surface: #1C1B18; --surface-2: #24231F;
+    --border: #33322D; --border-strong: #45443D;
+    --ink: #EAE8E4; --muted: #A8A49D; --faint: #7E7A73;
+    --accent: #D9805F; --accent-soft: #331E16;
+    --ok: #7FB98C; --ok-soft: #1A2B1E;
+    --warn: #D9A441; --warn-soft: #2E2411;
+    --shadow: 0 1px 3px rgba(0,0,0,.45);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 800px; margin: 0 auto; padding: 3rem 1.25rem 5rem; display: flex; flex-direction: column; gap: 1.9rem; }
+
+  .eyebrow { margin: 0; font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: .5rem 0 0; font-size: clamp(1.85rem, 5vw, 2.45rem); font-weight: 800; letter-spacing: -.022em; line-height: 1.08; }
+  .standfirst { margin: .85rem 0 0; font-family: var(--serif); font-size: 1.05rem; color: var(--muted); max-width: 62ch; }
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem 1.35rem; box-shadow: var(--shadow); }
+  .panel > h2 { margin: 0 0 .9rem; font-size: .76rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+  .panel p { margin: 0 0 .65rem; font-size: .95rem; }
+  .panel p:last-child { margin-bottom: 0; }
+
+  /* diagnostic */
+  .diag { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+  .stat { border-left: 3px solid var(--accent); padding-left: .75rem; }
+  .stat .n { font-family: var(--mono); font-size: 1.45rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat .n.bad { color: var(--accent); }
+  .stat .l { font-size: .78rem; color: var(--muted); margin-top: .2rem; }
+
+  /* phase cards */
+  .phase { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+  .phase-head { display: flex; align-items: baseline; gap: .85rem; padding: .95rem 1.3rem; background: var(--surface-2); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .pn { font-family: var(--mono); font-size: 1.25rem; font-weight: 700; color: var(--accent); line-height: 1; }
+  .phase-head h2 { margin: 0; font-size: 1.06rem; font-weight: 700; letter-spacing: -.01em; flex: 1; min-width: 200px; }
+  .effort { font-family: var(--mono); font-size: .72rem; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: .2rem .6rem; white-space: nowrap; }
+  .phase-body { padding: 1.15rem 1.3rem; display: flex; flex-direction: column; gap: .8rem; }
+  .lead { display: block; font-size: .67rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-bottom: .25rem; }
+  .phase-body p { margin: 0; font-size: .95rem; }
+  .reason { font-family: var(--serif); color: var(--muted); border-left: 3px solid var(--border-strong); padding-left: .8rem; }
+  .reason em { color: var(--ink); font-style: italic; }
+
+  .priority .phase-head { background: var(--accent-soft); }
+  .badge { font-size: .6rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: .16rem .45rem; border-radius: 4px; background: var(--accent); color: #fff; white-space: nowrap; }
+  .later { opacity: .82; }
+  .later .pn { color: var(--faint); }
+
+  pre { font-family: var(--mono); font-size: .79rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: .75rem .9rem; overflow-x: auto; margin: 0; color: var(--ink); line-height: 1.45; }
+  code { font-family: var(--mono); font-size: .87em; background: var(--surface-2); padding: .1em .35em; border-radius: 4px; }
+
+  .warnbox { background: var(--warn-soft); border-left: 4px solid var(--warn); border-radius: 0 10px 10px 0; padding: 1.05rem 1.25rem; }
+  .warnbox h2 { color: var(--warn); }
+  .okbox { background: var(--ok-soft); border-left: 4px solid var(--ok); border-radius: 0 10px 10px 0; padding: 1.05rem 1.25rem; }
+  .okbox h2 { color: var(--ok); }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: .5rem .65rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  thead th { font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.mono { font-family: var(--mono); font-size: .81rem; white-space: nowrap; }
+  .yes { color: var(--ok); font-weight: 650; }
+  .no { color: var(--accent); font-weight: 650; }
+
+  footer { border-top: 1px solid var(--border); padding-top: 1.25rem; font-family: var(--serif); font-size: .9rem; color: var(--faint); }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">PairPath · hint engine</p>
+    <h1>Hint Engine Roadmap</h1>
+    <p class="standfirst">
+      <strong>Phases 1 to 4 are done.</strong> All three signals are connected, the library
+      grew from 9 entries to 37, hints carry their own wording, and retrieval is measured at
+      100% top-1 (up from 69.2% before the error was supplied). This page is kept as the
+      reasoning behind those decisions; phases 5 and 6 remain optional.
+    </p>
+  </header>
+
+  <div class="panel">
+    <h2>The diagnosis this plan was written from — all since addressed</h2>
+    <div class="diag">
+      <div class="stat"><div class="n">9 <span style="font-size:.85rem;color:var(--ok);">→ 37</span></div><div class="l">knowledge entries<br>the loader kept only the last per file</div></div>
+      <div class="stat"><div class="n bad">2 of 3 <span style="font-size:.85rem;color:var(--ok);">→ 0</span></div><div class="l">search signals disabled<br>error text and code arrived empty</div></div>
+      <div class="stat"><div class="n bad">54 <span style="font-size:.85rem;color:var(--ok);">→ live</span></div><div class="l">keywords never used<br>written for error matching that never ran</div></div>
+      <div class="stat"><div class="n bad">2 <span style="font-size:.85rem;color:var(--ok);">→ 0</span></div><div class="l">question tags unmatched<br><code>bounds</code> and <code>modulo</code> now covered</div></div>
+    </div>
+  </div>
+
+  <div class="okbox">
+    <h2>What already works — don't break it</h2>
+    <p><b>No corpus document contains a solution.</b> That's an architectural guarantee, not
+      caution while writing. Every phase below must preserve it.</p>
+    <p><b>The three-part output holds:</b> concept reminder, example idea, reflective question.
+      Keep that contract stable so the frontend and the paper both stay valid.</p>
+    <p><b>It degrades safely.</b> Nothing matched still returns a usable hint with
+      <code>fallbackUsed: true</code> rather than an error.</p>
+  </div>
+
+  <!-- PHASE 1 -->
+  <section class="phase priority">
+    <div class="phase-head">
+      <span class="pn">1</span>
+      <h2>Send the error and the code</h2>
+      <span class="badge">Start here</span>
+      <span class="effort">~30 min</span>
+    </div>
+    <div class="phase-body">
+      <p>
+        <span class="lead">The problem</span>
+        The gateway hardcodes two empty strings, so the <code>+3</code> and <code>+1</code>
+        scoring paths in your retriever can never fire. Only tag matching works.
+      </p>
+      <pre>// websocket.gateway.ts — today
+recentErrorContext: '',
+recentCodeSnippet: '',</pre>
+      <p>
+        <span class="lead">The fix</span>
+        Keep the last failed run's <code>stderr</code> and the current code in the session, and
+        pass them through. Both are already available where the run result is handled.
+      </p>
+      <div class="reason">
+        Your corpus was <em>designed</em> for this. The keywords are written without spaces —
+        <code>outofbounds</code>, <code>nullpointer</code>, <code>offbyone</code> — which is
+        exactly how they appear inside a Java exception name. Someone wrote them to match real
+        error text, and that text never arrives.
+      </div>
+      <p>
+        <span class="lead">What changes</span>
+        A student hitting <code>ArrayIndexOutOfBoundsException</code> gets the array-bounds
+        entry <b>because the error matched</b>, not because the question happened to be tagged
+        correctly. Hints stop being per-question and start being per-situation.
+      </p>
+    </div>
+  </section>
+
+  <!-- PHASE 2 -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="pn">2</span>
+      <h2>Let the library grow</h2>
+      <span class="effort">~1 hour</span>
+    </div>
+    <div class="phase-body">
+      <p>
+        <span class="lead">The problem it solved</span>
+        <code>knowledge_loader.py</code> read one <code>Content:</code> line per file and
+        overwrote earlier ones, so nine files meant nine entries and adding a hint meant adding
+        a file.
+      </p>
+      <p>
+        <span class="lead">The fix</span>
+        Support multiple entries per file, separated by a blank line or a marker, and carry
+        the hint text with the entry instead of generating it from a template:
+      </p>
+      <pre>Tags: arrays, indexing, bounds
+Keywords: array, index, outofbounds, length
+Content: Java arrays start at index 0, so the last valid
+  index is array.length - 1.
+Example: Check whether your loop condition uses < or <=.
+Question: If an array has N elements, what is the highest
+  valid index you can access?
+---
+Tags: arrays, iteration
+Keywords: array, loop, sum, accumulate
+Content: ...</pre>
+      <p>
+        <span class="lead">Then fill the gaps</span>
+        Your questions use <code>bounds</code> and <code>modulo</code>; neither matches
+        anything, so those students get a hint that is true of every program and useful for
+        none. Aim for <b>25–30 entries</b> covering every tag your question bank actually uses.
+      </p>
+      <div class="reason">
+        This phase is mostly writing, not coding — and it is the part that decides whether a
+        stuck student gets something specific or something generic.
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 3 -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="pn">3</span>
+      <h2>Write the hints properly</h2>
+      <span class="effort">~1 hour</span>
+    </div>
+    <div class="phase-body">
+      <p>
+        <span class="lead">The problem</span>
+        Only four topics get tailored wording — loops, arrays, collaboration, peer review.
+        Everything else is assembled from a template:
+      </p>
+      <pre>example_idea = f"Review your code handling {topic}. Are you
+  sure the logic aligns with the core rule?"</pre>
+      <p>
+        That sentence is grammatically fine and pedagogically empty. It's the same advice
+        whether the student is confused about methods, conditions or types.
+      </p>
+      <p>
+        <span class="lead">The fix</span>
+        Once entries carry their own <code>Example:</code> and <code>Question:</code> (Phase 2),
+        <code>hint_generator.py</code> mostly stops generating and starts assembling. The
+        special-case <code>if</code> chain disappears — every entry brings its own wording.
+      </p>
+      <div class="reason">
+        A good reflective question is written by a person who understands the misconception.
+        It cannot be produced by string formatting, and it should not be produced by a model
+        at runtime — see the warning below.
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 4 -->
+  <section class="phase priority">
+    <div class="phase-head">
+      <span class="pn">4</span>
+      <h2>Measure retrieval</h2>
+      <span class="badge">For the paper</span>
+      <span class="effort">~1 hour</span>
+    </div>
+    <div class="phase-body">
+      <p>
+        <span class="lead">The problem</span>
+        You cannot currently say anything quantitative about the hint engine. It either returns
+        something or falls back — and you have no idea how often it returns the
+        <i>right</i> something.
+      </p>
+      <p>
+        <span class="lead">The fix</span>
+        A small labelled test set — 20 to 30 cases of
+        <i>(error text + question tags) → the entry that should come back</i> — and a script
+        that reports two numbers:
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Metric</th><th>Question it answers</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">retrieval accuracy</td><td>How often is the top result the right one?</td></tr>
+            <tr><td class="mono">fallback rate</td><td>How often does nothing match at all?</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="reason">
+        This is the phase I'd argue hardest for. Your proposal defers embeddings to Phase 3 as
+        <em>"a scored comparison against the RAG-lite baseline."</em>
+        <b>You cannot score that comparison later unless you can measure the baseline now.</b>
+        Without it, the upgrade becomes "we swapped it and it felt better," which isn't a result.
+      </div>
+      <p>
+        It also puts the hint engine on the same footing as the classifier: a component you
+        evaluated, not just a feature you built.
+      </p>
+    </div>
+  </section>
+
+  <!-- PHASE 5 -->
+  <section class="phase later">
+    <div class="phase-head">
+      <span class="pn">5</span>
+      <h2>Escalating hints</h2>
+      <span class="effort">~2 hours · optional</span>
+    </div>
+    <div class="phase-body">
+      <p>
+        <span class="lead">The idea</span>
+        Real scaffolding fades. A pair stuck on the same error for the third time needs
+        something more direct than the first nudge — while still never receiving the answer.
+      </p>
+      <p>
+        Count how many hints a session has already had for the same concept, and step through
+        levels: <b>reflective question → concept reminder → worked analogy on a different
+        example</b>.
+      </p>
+      <div class="reason">
+        This is genuine pedagogical design and would strengthen the dissertation, but it needs
+        the earlier phases first — there's no point escalating between hints that are all
+        generic.
+      </div>
+    </div>
+  </section>
+
+  <!-- PHASE 6 -->
+  <section class="phase later">
+    <div class="phase-head">
+      <span class="pn">6</span>
+      <h2>Embeddings — deliberately last</h2>
+      <span class="effort">Phase 3 of the research</span>
+    </div>
+    <div class="phase-body">
+      <p>
+        <span class="lead">Why not now</span>
+        Not only because your proposal defers it. <b>At 25 entries, embeddings would barely
+        differ from keyword matching.</b> They earn their keep across thousands of documents
+        where wording varies; over a small hand-curated corpus with deliberate tags, keyword
+        scoring is competitive and fully explainable — you can point at exactly why a hint
+        was chosen.
+      </p>
+      <p>
+        <span class="lead">When you do it</span>
+        The <code>RAGChunk.embedding</code> column already exists in your schema. Run the
+        Phase 4 test set against both retrievers and report both numbers. Keep the output
+        contract identical so only retrieval changes.
+      </p>
+      <div class="reason">
+        "We compared embedding retrieval against a keyword baseline and it did not justify the
+        added opacity" is a legitimate, publishable finding — <em>if</em> you have the numbers.
+        Phase 4 is what makes that sentence possible.
+      </div>
+    </div>
+  </section>
+
+  <div class="warnbox">
+    <h2>Do not generate hints with an LLM at runtime</h2>
+    <p>It is the obvious "upgrade" and it would quietly destroy your core guarantee.</p>
+    <p><b>It leaks solutions.</b> Your entire safety argument is that no corpus document
+      contains an answer. A model generating text on the fly can produce one at any time, and
+      no prompt reliably prevents it. The guarantee stops being architectural and becomes a
+      hope.</p>
+    <p><b>It breaks reproducibility.</b> The same student in the same state gets different help
+      on different runs. You could not report what your system does, only what it did once.</p>
+    <p><b>It adds latency and cost</b> to a path that currently answers in milliseconds during a
+      live session.</p>
+    <p>Retrieval over curated text is the right architecture here. The upgrade is a better
+      corpus and better measurement — not a generative model.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Order and effort</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Phase</th><th>Effort</th><th>Ships better hints</th><th>Helps the paper</th></tr></thead>
+        <tbody>
+          <tr><td>1 · Send error and code</td><td class="mono">30 min</td><td class="yes">Yes — most per minute</td><td>Indirectly</td></tr>
+          <tr><td>2 · Grow the library</td><td class="mono">1 h</td><td class="yes">Yes</td><td>Indirectly</td></tr>
+          <tr><td>3 · Write hints properly</td><td class="mono">1 h</td><td class="yes">Yes</td><td>Indirectly</td></tr>
+          <tr><td>4 · Measure retrieval</td><td class="mono">1 h</td><td>No</td><td class="yes">Yes — unlocks the comparison</td></tr>
+          <tr><td>5 · Escalating hints</td><td class="mono">2 h</td><td class="yes">Yes</td><td class="yes">Pedagogical contribution</td></tr>
+          <tr><td>6 · Embeddings</td><td class="mono">Later</td><td>Unclear</td><td class="yes">Scored comparison</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:.85rem;">
+      <b>Phases 1–4 are about a day</b> and take the engine from "works" to "works well, and I
+      can tell you how well." If you only do two, do <b>1</b> and <b>4</b>: one makes hints
+      responsive, the other makes them measurable.
+    </p>
+  </div>
+
+  <footer>
+    Phases 1, 2 and 4 are complete: the pipe carries everything it was built for, the library
+    is four times larger, and there is now a gauge attached reading 100% on 26 cases.
+  </footer>
+</div>

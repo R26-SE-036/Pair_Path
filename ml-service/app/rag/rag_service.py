@@ -50,16 +50,20 @@ class RAGService:
         # 3. Generate structured hint
         hint_data = self.generator.generate(chunks, fallback_type=intervention_type)
         
-        # 4. Format response
+        # 4. Format response. Source is the entry id rather than the filename —
+        # a file now holds several entries, so the filename alone would not say
+        # which one was used.
         retrieved_concepts = []
         source_chunks = []
         for c in chunks:
-            if c["tags"]:
-                retrieved_concepts.extend(c["tags"])
-            source_chunks.append(c["source"])
-            
-        # Deduplicate concepts
-        retrieved_concepts = list(set(retrieved_concepts))
+            retrieved_concepts.extend(c.get("tags", []))
+            source_chunks.append(c.get("id", c.get("source", "")))
+
+        # Deduplicate concepts, preserving retrieval order (best match first).
+        seen = set()
+        retrieved_concepts = [
+            t for t in retrieved_concepts if not (t in seen or seen.add(t))
+        ]
         
         return RAGHintResponse(
             interventionType=intervention_type,

@@ -28,7 +28,7 @@ type Features = {
   active_user_dominance: number;
 };
 
-// Median values of each state in the synthetic corpus — a realistic starting
+// Median values of each state in the simulated corpus — a realistic starting
 // point per state rather than invented numbers.
 const PRESETS: Record<string, Features> = {
   PRODUCTIVE: {
@@ -259,7 +259,7 @@ export default function SandboxPage() {
               <div className="space-y-6">
                 <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
                   <p className="text-sm text-zinc-400 mb-1">Predicted state</p>
-                  <p className="text-3xl font-bold text-white mb-2">
+                  <p className="text-3xl font-bold text-surface-200 mb-2">
                     {prediction.predictedState.replace(/_/g, " ")}
                   </p>
                   <div className="flex justify-between items-center text-sm">
@@ -272,9 +272,9 @@ export default function SandboxPage() {
                     <span className="text-zinc-500">Model</span>
                     <span className="text-zinc-400 font-mono">{prediction.modelVersion}</span>
                   </div>
-                  {prediction.modelVersion?.startsWith("demo_synthetic") && (
+                  {prediction.modelVersion?.startsWith("demo_simulated") && (
                     <p className="text-xs text-amber-400/80 mt-2 italic">
-                      Trained on synthetic sessions — for demonstration, not real-world accuracy.
+                      Trained on simulated sessions — for demonstration, not real-world accuracy.
                     </p>
                   )}
                 </div>
@@ -285,9 +285,9 @@ export default function SandboxPage() {
                       Recommended intervention
                     </p>
                     <div className="space-y-2 text-sm">
-                      <p><span className="text-zinc-400">Action:</span> <span className="text-white">{intervention.action}</span></p>
-                      <p><span className="text-zinc-400">Target:</span> <span className="text-white">{intervention.delivery?.uiTarget}</span></p>
-                      <p><span className="text-zinc-400">Effect:</span> <span className="text-white">{intervention.delivery?.uiEffect}</span></p>
+                      <p><span className="text-zinc-400">Action:</span> <span className="text-surface-200">{intervention.action}</span></p>
+                      <p><span className="text-zinc-400">Target:</span> <span className="text-surface-200">{intervention.delivery?.uiTarget}</span></p>
+                      <p><span className="text-zinc-400">Effect:</span> <span className="text-surface-200">{intervention.delivery?.uiEffect}</span></p>
                       <div className="mt-4 p-3 bg-zinc-950 rounded border border-zinc-800 font-mono text-zinc-300">
                         &ldquo;{intervention.delivery?.message}&rdquo;
                       </div>

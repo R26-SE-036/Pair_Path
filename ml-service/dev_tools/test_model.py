@@ -7,7 +7,7 @@ was renamed: every value resolved to zero and the script reported the same
 prediction for every scenario while appearing to pass.
 
 This is a smoke test, not an evaluation. For real numbers with a held-out
-test set, use evaluate_synthetic.py.
+test set, use evaluate_simulated.py.
 
 Usage:
     python test_model.py          # exits non-zero if any scenario fails

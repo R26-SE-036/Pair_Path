@@ -1,3 +1,23 @@
-Tags: pair programming, driver, navigator, role, collaboration
-Content: Effective pair programming requires active participation from both partners. The 'Driver' focuses on typing and syntactical details, while the 'Navigator' reviews the code, spots potential bugs, and thinks about the broader logic. Swap roles frequently (e.g., every 10-15 minutes) to prevent fatigue and ensure shared understanding. If the Navigator is silent, the Driver should pause and ask questions to re-engage them.
-Keywords: driver, navigator, swap, role, collaborate, passive, dominant, teamwork
+Tags: pair programming, collaboration, navigator, role, participation
+Keywords: navigator, passive, quiet, silent, participate, contribute, collaborate
+Content: The navigator's role is to think a step ahead of the keyboard, watching for problems, questioning the approach, and keeping track of where the solution is going. A pair where only one person is thinking is slower than either working alone.
+Example: Ask your partner to explain the line they just wrote before they start the next one.
+Question: What do you expect this code to do when it runs?
+---
+Tags: pair programming, collaboration, driver, role, rotation
+Keywords: driver, switch, swap, rotate, keyboard, turn, dominant
+Content: Rotating the keyboard regularly keeps both partners engaged and gives each the chance to think at both levels. When one person drives for a long stretch, the other gradually stops following the detail and their contribution fades.
+Example: Finish the step you are on, then hand the keyboard over and let your partner continue from there.
+Question: How long has it been since you last swapped roles?
+---
+Tags: pair programming, collaboration, communication, discussion
+Keywords: talk, discuss, explain, communicate, silence, quiet, teamwork
+Content: Pair programming works because thinking is spoken aloud. When a pair goes quiet, the two people are no longer solving the same problem at the same time, and mistakes stop being caught early.
+Example: Before writing the next section, say out loud what you are about to do and why.
+Question: Do you both currently agree on what the next step should be?
+---
+Tags: pair programming, collaboration, disagreement, reasoning
+Keywords: disagree, stuck, argue, decide, approach, alternative
+Content: Disagreement between partners is useful when it is about reasoning rather than preference. Explaining why an approach should work often reveals the flaw in it faster than trying it does.
+Example: Each of you explain your approach in one or two sentences, focusing on why you expect it to work.
+Question: What would you expect to see if your approach were the correct one?
