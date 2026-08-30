@@ -4,7 +4,9 @@ import { useState } from "react";
 import axios from "axios";
 import { BrainCircuit, Activity, AlertCircle, RotateCcw } from "lucide-react";
 
-const ML_URL = process.env.NEXT_PUBLIC_ML_SERVICE_URL || "http://localhost:8000";
+// 8020, not 8000: port 8000 belongs to Code Coach, and pointing here would
+// send predictions to the identity service and fail as a puzzling 404.
+const ML_URL = process.env.NEXT_PUBLIC_ML_SERVICE_URL || "http://127.0.0.1:8020";
 
 // The 15 features the current model consumes, in the order the extractor emits
 // them. These names must match app/features/extractor.py — an earlier version of
