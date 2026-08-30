@@ -73,7 +73,7 @@ export default function RegisterPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-950 py-12 px-4">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-white mb-2">PairPath</h1>
+          <h1 className="text-3xl font-bold text-surface-200 mb-2">PairPath</h1>
           <p className="text-surface-400">Taking you to Code Guru registration…</p>
         </div>
       </div>
@@ -84,7 +84,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-surface-950 py-12 px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">PairPath</h1>
+          <h1 className="text-3xl font-bold text-surface-200 mb-2">PairPath</h1>
           <p className="text-surface-400">Create your account</p>
         </div>
 
@@ -93,7 +93,7 @@ export default function RegisterPage() {
             Localhost only — the deployed platform registers through the Code Guru portal
           </div>
 
-          <h2 className="text-xl font-semibold text-white mb-6">Register</h2>
+          <h2 className="text-xl font-semibold text-surface-200 mb-6">Register</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
@@ -106,12 +106,12 @@ export default function RegisterPage() {
               <div>
                 <label htmlFor="reg-firstName" className="block text-sm font-medium text-surface-300 mb-1.5">First Name</label>
                 <input id="reg-firstName" name="firstName" type="text" required value={formData.firstName} onChange={handleChange}
-                  className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" />
+                  className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-surface-200 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" />
               </div>
               <div>
                 <label htmlFor="reg-lastName" className="block text-sm font-medium text-surface-300 mb-1.5">Last Name</label>
                 <input id="reg-lastName" name="lastName" type="text" required value={formData.lastName} onChange={handleChange}
-                  className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" />
+                  className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-surface-200 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" />
               </div>
             </div>
 
@@ -120,14 +120,14 @@ export default function RegisterPage() {
               {/* Any address is accepted — the SLIIT-only rule was dropped when
                   PairPath moved onto the shared Code Coach identity service. */}
               <input id="reg-email" name="email" type="text" autoComplete="email" required value={formData.email} onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-surface-200 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 placeholder="you@example.com" />
             </div>
 
             <div>
               <label htmlFor="reg-password" className="block text-sm font-medium text-surface-300 mb-1.5">Password</label>
               <input id="reg-password" name="password" type="password" autoComplete="new-password" required value={formData.password} onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" />
+                className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-surface-200 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all" />
             </div>
 
             <button type="submit" disabled={loading}

@@ -124,7 +124,7 @@ export default function DashboardPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center">
                 <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
               </div>
-              <h1 className="text-xl font-bold text-white">PairPath</h1>
+              <h1 className="text-xl font-bold text-surface-200">PairPath</h1>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-surface-300">
@@ -144,11 +144,11 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="bg-gradient-to-br from-primary-600/15 to-transparent border border-primary-500/10 rounded-2xl p-5">
             <p className="text-xs text-primary-300 font-medium uppercase tracking-wider mb-1">Total Sessions</p>
-            <p className="text-3xl font-bold text-white">{sessions.length}</p>
+            <p className="text-3xl font-bold text-surface-200">{sessions.length}</p>
           </div>
           <div className="bg-gradient-to-br from-accent-600/15 to-transparent border border-accent-500/10 rounded-2xl p-5">
             <p className="text-xs text-accent-300 font-medium uppercase tracking-wider mb-1">Completed</p>
-            <p className="text-3xl font-bold text-white">{completedCount}</p>
+            <p className="text-3xl font-bold text-surface-200">{completedCount}</p>
           </div>
         </div>
 
@@ -166,7 +166,7 @@ export default function DashboardPage() {
                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">Create Session</h3>
+                <h3 className="text-lg font-semibold text-surface-200">Create Session</h3>
                 <p className="text-sm text-surface-400">Start a new pair programming session</p>
               </div>
             </div>
@@ -175,7 +175,7 @@ export default function DashboardPage() {
               <div>
                 <label htmlFor="topic-select" className="block text-sm font-medium text-surface-300 mb-1.5">Select Topic</label>
                 <select id="topic-select" value={selectedTopic} onChange={(e) => handleTopicChange(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                  className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-surface-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                   <option value="">Choose a topic...</option>
                   {topics.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
                 </select>
@@ -185,7 +185,7 @@ export default function DashboardPage() {
                 <div className="animate-fade-in">
                   <label htmlFor="question-select" className="block text-sm font-medium text-surface-300 mb-1.5">Select Question</label>
                   <select id="question-select" value={selectedQuestion} onChange={(e) => setSelectedQuestion(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-surface-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                     <option value="">Choose a question...</option>
                     {questions.map((q) => (
                       <option key={q.id} value={q.id}>{q.title} ({q.difficulty})</option>
@@ -214,7 +214,7 @@ export default function DashboardPage() {
                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">Join Session</h3>
+                <h3 className="text-lg font-semibold text-surface-200">Join Session</h3>
                 <p className="text-sm text-surface-400">Enter a 6-digit code to join</p>
               </div>
             </div>
@@ -225,7 +225,7 @@ export default function DashboardPage() {
                 <input id="join-code-input" type="text" placeholder="e.g. ABC123" value={joinCode} maxLength={6}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleJoinSession() }}
-                  className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-white text-center text-2xl tracking-[0.3em] font-mono placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-all uppercase" />
+                  className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-surface-200 text-center text-2xl tracking-[0.3em] font-mono placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-all uppercase" />
               </div>
               <button onClick={handleJoinSession} disabled={joining || !joinCode.trim()}
                 className="w-full py-2.5 px-4 bg-gradient-to-r from-accent-600 to-accent-700 hover:from-accent-500 hover:to-accent-600 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-accent-600/10">
@@ -243,7 +243,7 @@ export default function DashboardPage() {
                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">Session History</h3>
+                <h3 className="text-lg font-semibold text-surface-200">Session History</h3>
                 <p className="text-sm text-surface-400">Click any session to view full details</p>
               </div>
             </div>
@@ -279,7 +279,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="min-w-0">
-                      <h4 className="text-sm font-medium text-white truncate group-hover:text-primary-300 transition-colors">
+                      <h4 className="text-sm font-medium text-surface-200 truncate group-hover:text-primary-300 transition-colors">
                         {session.question?.title || 'Untitled'}
                       </h4>
                       <div className="flex items-center gap-2 mt-1">

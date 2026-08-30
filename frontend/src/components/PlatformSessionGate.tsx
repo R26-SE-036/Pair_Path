@@ -3,7 +3,34 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
-import { adoptPlatformSession, attemptExchange, AdoptResult } from '@/lib/platform-session'
+import {
+  adoptPlatformSession,
+  attemptExchange,
+  clearAllSessions,
+  AdoptResult,
+} from '@/lib/platform-session'
+import CodeGuruBar, { CodeGuruUser } from '@/components/CodeGuruBar'
+import { PORTAL_URL } from '@/lib/codeguru-config'
+
+/**
+ * Who is signed in, for the platform bar.
+ *
+ * PairPath writes its own user under 'user' when it exchanges the platform
+ * token; 'codeguru.user' is what the portal handed over. Either will do for a
+ * name and initials, and neither is worth failing over.
+ */
+function readUser(): CodeGuruUser {
+  if (typeof window === 'undefined') return null
+  for (const key of ['user', 'codeguru.user']) {
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw) return JSON.parse(raw)
+    } catch {
+      /* a corrupt entry just means no name in the bar */
+    }
+  }
+  return null
+}
 
 type Status = 'resolving' | 'ready' | 'rejected' | 'unavailable'
 
@@ -100,7 +127,7 @@ export default function PlatformSessionGate({ children }: { children: React.Reac
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4">
         <div className="max-w-md text-center">
-          <h1 className="text-2xl font-bold text-white mb-3">PairPath is not responding</h1>
+          <h1 className="text-2xl font-bold text-surface-200 mb-3">PairPath is not responding</h1>
           <p className="text-surface-400 mb-2">
             You are signed in to Code Guru, but PairPath&apos;s own server did not answer, so it
             could not start your session here.
@@ -124,7 +151,7 @@ export default function PlatformSessionGate({ children }: { children: React.Reac
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4">
         <div className="max-w-md text-center">
-          <h1 className="text-2xl font-bold text-white mb-3">Your session has expired</h1>
+          <h1 className="text-2xl font-bold text-surface-200 mb-3">Your session has expired</h1>
           <p className="text-surface-400 mb-6">
             Code Guru could not verify your login, so you will need to sign in again.
           </p>
@@ -139,5 +166,18 @@ export default function PlatformSessionGate({ children }: { children: React.Reac
     )
   }
 
-  return <>{children}</>
+  return (
+    <>
+      <CodeGuruBar
+        service="pairpath"
+        portalUrl={PORTAL_URL}
+        user={readUser()}
+        onSignOut={() => {
+          clearAllSessions()
+          window.location.href = PORTAL_URL.replace(/\/+$/, '') + '/login'
+        }}
+      />
+      {children}
+    </>
+  )
 }

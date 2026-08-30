@@ -62,8 +62,8 @@ export default function ResultsPage() {
     <div className="min-h-screen bg-surface-950">
       <nav className="bg-surface-900 border-b border-surface-700">
         <div className="max-w-4xl mx-auto px-4 flex justify-between h-14 items-center">
-          <Link href="/dashboard" className="text-surface-400 hover:text-white text-sm transition-colors">← Dashboard</Link>
-          <h1 className="text-lg font-semibold text-white">Session Results</h1>
+          <Link href="/dashboard" className="text-surface-400 hover:text-surface-200 text-sm transition-colors">← Dashboard</Link>
+          <h1 className="text-lg font-semibold text-surface-200">Session Results</h1>
           <div />
         </div>
       </nav>
@@ -97,7 +97,7 @@ export default function ResultsPage() {
                   <div key={i} className="bg-surface-800 rounded-xl p-5 border border-surface-700">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h4 className="text-white font-medium">{review.firstName} {review.lastName}</h4>
+                        <h4 className="text-surface-200 font-medium">{review.firstName} {review.lastName}</h4>
                         <p className="text-xs text-surface-400 mt-1">Score: {review.score} / 10</p>
                       </div>
                       <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getScoreBg(review.score)}`}>

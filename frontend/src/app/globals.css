@@ -2,15 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Colours come from ../styles/codeguru-theme.css, imported ahead of this file
+   in app/layout.tsx. The two names below are kept because they are PairPath's
+   own; they are aliases onto the shared tokens now, not values. */
 :root {
-  --background: #020617;
-  --foreground: #f8fafc;
+  --background: var(--cg-page);
+  --foreground: var(--cg-body);
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-image: var(--cg-page-wash);
+  background-attachment: fixed;
+  font-family: var(--cg-font);
 }
 
 /* Scrollbar styling */
@@ -20,26 +25,26 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: var(--cg-page-alt);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--cg-border-strong);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--cg-muted);
 }
 
 /* Selection */
 ::selection {
-  background: rgba(99, 102, 241, 0.3);
-  color: #e0e7ff;
+  background: rgb(var(--cg-rgb-accent) / 0.18);
+  color: var(--cg-ink);
 }
 
 /* Focus outline global */
 *:focus-visible {
-  outline: 2px solid rgba(99, 102, 241, 0.5);
+  outline: 2px solid rgb(var(--cg-rgb-accent) / 0.55);
   outline-offset: 2px;
 }

@@ -78,7 +78,7 @@ export default function AnalyticsPage() {
                     <span className="text-xs text-zinc-400">{new Date(s.startedAt).toLocaleDateString()}</span>
                   </div>
                   <div className="text-sm text-zinc-300">
-                    Final State: <span className="font-semibold text-white">{s.predictions[0]?.predictedState || 'N/A'}</span>
+                    Final State: <span className="font-semibold text-surface-200">{s.predictions[0]?.predictedState || 'N/A'}</span>
                   </div>
                 </button>
               ))
@@ -112,7 +112,7 @@ export default function AnalyticsPage() {
                 {/* We merge events and predictions and sort them by timestamp */}
                 {mergeTimeline(sessionData.events, sessionData.predictions).map((item: any, i: number) => (
                   <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-900 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-surface-700 bg-surface-900 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                       {item.type === 'prediction' ? <Activity className="w-4 h-4 text-emerald-400" /> : <EventIcon type={item.eventType} />}
                     </div>
                     
@@ -126,7 +126,7 @@ export default function AnalyticsPage() {
                       {item.type === 'prediction' ? (
                         <div>
                           <p className="text-sm font-semibold text-emerald-300 mb-1">State Prediction Generated</p>
-                          <p className="text-lg font-bold text-white">{item.predictedState}</p>
+                          <p className="text-lg font-bold text-surface-200">{item.predictedState}</p>
                           <p className="text-xs text-zinc-500 mt-1">Confidence: {(item.confidence * 100).toFixed(1)}%</p>
                         </div>
                       ) : (

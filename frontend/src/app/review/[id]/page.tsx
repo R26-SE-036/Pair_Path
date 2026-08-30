@@ -71,8 +71,8 @@ export default function ReviewPage() {
     <div className="min-h-screen bg-surface-950">
       <nav className="bg-surface-900 border-b border-surface-700">
         <div className="max-w-4xl mx-auto px-4 flex justify-between h-14 items-center">
-          <Link href="/dashboard" className="text-surface-400 hover:text-white text-sm transition-colors">← Dashboard</Link>
-          <h1 className="text-lg font-semibold text-white">Session Review</h1>
+          <Link href="/dashboard" className="text-surface-400 hover:text-surface-200 text-sm transition-colors">← Dashboard</Link>
+          <h1 className="text-lg font-semibold text-surface-200">Session Review</h1>
           <div />
         </div>
       </nav>
@@ -84,7 +84,7 @@ export default function ReviewPage() {
           <div className="space-y-6">
             {/* Question Card */}
             <div className="bg-surface-900 border border-surface-700 rounded-2xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-2">{session.question?.title}</h3>
+              <h3 className="text-lg font-semibold text-surface-200 mb-2">{session.question?.title}</h3>
               <p className="text-sm text-surface-400 mb-4">{session.question?.description}</p>
               <div className="flex gap-2">
                 {(session.question?.conceptTags as string[])?.map((tag: string, i: number) => (
@@ -128,7 +128,7 @@ export default function ReviewPage() {
                   <div className="space-y-4">
                     {reviewQuestions.map((question: string, index: number) => (
                       <div key={index} className="bg-surface-800 rounded-xl p-4 border border-surface-700">
-                        <p className="text-sm text-white mb-3">
+                        <p className="text-sm text-surface-200 mb-3">
                           <span className="text-primary-400 font-semibold mr-2">Q{index + 1}.</span>
                           {question}
                         </p>
@@ -137,13 +137,13 @@ export default function ReviewPage() {
                             <input type="radio" name={`q-${index}`} checked={answers[index] === true}
                               onChange={() => handleAnswerChange(index, true)}
                               className="w-4 h-4 text-accent-600 border-surface-600 focus:ring-accent-500 bg-surface-700" />
-                            <span className="ml-2 text-sm text-surface-300 group-hover:text-white transition-colors">Yes</span>
+                            <span className="ml-2 text-sm text-surface-300 group-hover:text-surface-200 transition-colors">Yes</span>
                           </label>
                           <label className="flex items-center cursor-pointer group">
                             <input type="radio" name={`q-${index}`} checked={answers[index] === false}
                               onChange={() => handleAnswerChange(index, false)}
                               className="w-4 h-4 text-red-600 border-surface-600 focus:ring-red-500 bg-surface-700" />
-                            <span className="ml-2 text-sm text-surface-300 group-hover:text-white transition-colors">No</span>
+                            <span className="ml-2 text-sm text-surface-300 group-hover:text-surface-200 transition-colors">No</span>
                           </label>
                         </div>
                       </div>

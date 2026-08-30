@@ -163,10 +163,10 @@ export default function SessionHistoryDetailPage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <button onClick={() => router.push('/dashboard')} className="p-2 hover:bg-surface-800 rounded-lg transition-colors group">
-                <svg className="w-5 h-5 text-surface-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                <svg className="w-5 h-5 text-surface-400 group-hover:text-surface-200 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
               <div>
-                <h1 className="text-lg font-semibold text-white">{session.question?.title || 'Session Details'}</h1>
+                <h1 className="text-lg font-semibold text-surface-200">{session.question?.title || 'Session Details'}</h1>
                 <p className="text-xs text-surface-400">{formatDate(session.startedAt)}</p>
               </div>
             </div>
@@ -182,19 +182,19 @@ export default function SessionHistoryDetailPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-gradient-to-br from-primary-600/10 to-primary-800/5 border border-primary-500/15 rounded-xl p-4">
             <p className="text-xs text-primary-300 font-medium mb-1">Duration</p>
-            <p className="text-lg font-bold text-white">{getDuration(session.startedAt, session.endedAt)}</p>
+            <p className="text-lg font-bold text-surface-200">{getDuration(session.startedAt, session.endedAt)}</p>
           </div>
           <div className="bg-gradient-to-br from-accent-600/10 to-accent-800/5 border border-accent-500/15 rounded-xl p-4">
             <p className="text-xs text-accent-300 font-medium mb-1">Partner</p>
-            <p className="text-lg font-bold text-white truncate">{getPartnerName()}</p>
+            <p className="text-lg font-bold text-surface-200 truncate">{getPartnerName()}</p>
           </div>
           <div className="bg-gradient-to-br from-amber-600/10 to-amber-800/5 border border-amber-500/15 rounded-xl p-4">
             <p className="text-xs text-amber-300 font-medium mb-1">Interventions</p>
-            <p className="text-lg font-bold text-white">{interventions.length}</p>
+            <p className="text-lg font-bold text-surface-200">{interventions.length}</p>
           </div>
           <div className="bg-gradient-to-br from-cyan-600/10 to-cyan-800/5 border border-cyan-500/15 rounded-xl p-4">
             <p className="text-xs text-cyan-300 font-medium mb-1">Messages</p>
-            <p className="text-lg font-bold text-white">{chatMessages.length}</p>
+            <p className="text-lg font-bold text-surface-200">{chatMessages.length}</p>
           </div>
         </div>
 
@@ -202,7 +202,7 @@ export default function SessionHistoryDetailPage() {
         {session.question && (
           <div className="bg-surface-900 border border-surface-700 rounded-xl p-5 mb-6">
             <div className="flex items-start justify-between mb-2">
-              <h3 className="text-sm font-semibold text-white">{session.question.title}</h3>
+              <h3 className="text-sm font-semibold text-surface-200">{session.question.title}</h3>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                 session.question.difficulty === 'EASY' ? 'bg-green-500/15 text-green-400' :
                 session.question.difficulty === 'MEDIUM' ? 'bg-amber-500/15 text-amber-400' :
@@ -229,7 +229,7 @@ export default function SessionHistoryDetailPage() {
               className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab.key
                   ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20'
-                  : 'text-surface-400 hover:text-white hover:bg-surface-800'
+                  : 'text-surface-400 hover:text-surface-200 hover:bg-surface-800'
               }`}
             >
               {tab.label}
@@ -289,7 +289,7 @@ export default function SessionHistoryDetailPage() {
                           <p className={`text-xs font-medium mb-1 ${isMe ? 'text-primary-300' : 'text-accent-300'}`}>
                             {getUserName(msg.userId)}
                           </p>
-                          <p className="text-sm text-white">{meta.note || '—'}</p>
+                          <p className="text-sm text-surface-200">{meta.note || '—'}</p>
                           <p className="text-[10px] text-surface-500 mt-1 text-right">{formatTime(msg.timestamp)}</p>
                         </div>
                       </div>
@@ -343,7 +343,7 @@ export default function SessionHistoryDetailPage() {
               {/* Final Code */}
               {session.finalCode && (
                 <div className="border-t border-surface-700 p-4">
-                  <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                  <h4 className="text-sm font-semibold text-surface-200 mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 bg-accent-400 rounded-full" />
                     Final Submitted Code
                   </h4>

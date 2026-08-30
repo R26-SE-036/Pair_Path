@@ -73,7 +73,7 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-950 py-12 px-4">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-white mb-2">PairPath</h1>
+          <h1 className="text-3xl font-bold text-surface-200 mb-2">PairPath</h1>
           <p className="text-surface-400">Taking you to the Code Guru sign-in…</p>
         </div>
       </div>
@@ -84,7 +84,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-surface-950 py-12 px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">PairPath</h1>
+          <h1 className="text-3xl font-bold text-surface-200 mb-2">PairPath</h1>
           <p className="text-surface-400">Collaborative Pair Programming Platform</p>
         </div>
 
@@ -93,7 +93,7 @@ export default function LoginPage() {
             Localhost only — the deployed platform signs in through the Code Guru portal
           </div>
 
-          <h2 className="text-xl font-semibold text-white mb-6">Sign in to your account</h2>
+          <h2 className="text-xl font-semibold text-surface-200 mb-6">Sign in to your account</h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
@@ -117,7 +117,7 @@ export default function LoginPage() {
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-surface-200 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 placeholder="you@example.com"
               />
             </div>
@@ -134,7 +134,7 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-2.5 bg-surface-800 border border-surface-600 rounded-lg text-surface-200 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
               />
             </div>
 

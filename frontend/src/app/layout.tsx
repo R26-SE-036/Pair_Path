@@ -1,3 +1,4 @@
+import '../styles/codeguru-theme.css'
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
@@ -17,8 +18,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} bg-surface-950 text-white antialiased`}>
+    <html lang="en">
+      <body className={`${inter.className} bg-surface-950 text-surface-300 antialiased`}>
         {/* Catches a session handed over by the Code Guru portal (tokens arrive
             in the URL fragment) and trades it for a PairPath one. */}
         <PlatformSessionGate>{children}</PlatformSessionGate>
