@@ -327,7 +327,13 @@ export default function PairRoomPage() {
         </div>
 
         {/* Right Sidebar: Chat + Interventions + Hints */}
-        <div className="w-80 flex-shrink-0 border-l border-surface-700 flex flex-col bg-surface-900">
+        {/* min-h-0 is load-bearing. A flex item's default min-height is
+            min-content, so without it this column refuses to shrink below the
+            height of the whole conversation: every message sent made the column
+            taller, which stretched the row and shoved the editor and output
+            panel around. With it, the column stays the height of the row and
+            the message list inside scrolls instead. */}
+        <div className="w-80 flex-shrink-0 min-h-0 border-l border-surface-700 flex flex-col bg-surface-900">
           {/* Chat Panel */}
           <div className={`flex-1 flex flex-col min-h-0 ${
             intervention?.delivery?.uiTarget === 'discussion_panel' && intervention?.delivery?.uiEffect === 'glow'
@@ -376,7 +382,7 @@ export default function PairRoomPage() {
 
           {/* Intervention Card */}
           {intervention && intervention.action !== 'NO_ACTION' && (
-            <div className={`mx-3 mb-3 p-4 rounded-xl border-2 animate-slide-up ${
+            <div className={`mx-3 mb-3 p-4 rounded-xl border-2 flex-shrink-0 animate-slide-up ${
               intervention.delivery?.uiEffect === 'glow' ? 'border-primary-500/50 bg-primary-600/10' :
               intervention.delivery?.uiEffect === 'pulse' ? 'border-accent-500/50 bg-accent-600/10 animate-pulse-soft' :
               intervention.delivery?.uiEffect === 'highlight' ? 'border-yellow-500/50 bg-yellow-600/10 animate-highlight' :
@@ -404,7 +410,7 @@ export default function PairRoomPage() {
 
           {/* RAG Hint Card */}
           {ragHint && (
-            <div id="hint-panel" className={`mx-3 mb-3 p-4 rounded-xl border animate-slide-up ${
+            <div id="hint-panel" className={`mx-3 mb-3 p-4 rounded-xl border flex-shrink-0 animate-slide-up ${
               intervention?.delivery?.uiTarget === 'hint_panel' && intervention?.delivery?.uiEffect === 'highlight'
                 ? 'border-yellow-500/50 bg-yellow-600/10 animate-highlight' : 'border-surface-600 bg-surface-800'
             }`}>
