@@ -214,9 +214,9 @@ export default function PairRoomPage() {
           aria-live="polite"
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up pointer-events-none"
         >
-          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-950/90 shadow-lg shadow-emerald-900/30 backdrop-blur-sm">
+          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-emerald-500/40 bg-emerald-100 shadow-lg shadow-emerald-900/30 backdrop-blur-sm">
             <span className="text-base leading-none" aria-hidden="true">✨</span>
-            <span className="text-sm font-medium text-emerald-200 whitespace-nowrap">
+            <span className="text-sm font-medium text-surface-200 whitespace-nowrap">
               {praise.delivery?.message}
             </span>
           </div>
@@ -339,7 +339,7 @@ export default function PairRoomPage() {
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {messages.map((msg, i) => (
                 <div key={i} className={`text-xs rounded-lg p-2 animate-fade-in ${
-                  msg.userId === user?.id ? 'bg-primary-600/20 text-primary-200 ml-4' : 'bg-surface-800 text-surface-300 mr-4'
+                  msg.userId === user?.id ? 'bg-primary-600/20 text-primary-700 ml-4' : 'bg-surface-800 text-surface-300 mr-4'
                 }`}>
                   <span className="font-semibold">{msg.userId === user?.id ? 'You' : msg.userName || 'Partner'}</span>
                   <p className="mt-0.5">{msg.note}</p>

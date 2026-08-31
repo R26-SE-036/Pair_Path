@@ -105,7 +105,7 @@ export default function ReviewPage() {
             {phase === 'reading' && (
               <div className="bg-primary-600/10 border border-primary-500/30 rounded-2xl p-8 text-center animate-fade-in">
                 <div className="text-4xl font-bold text-primary-300 mb-2">{readingTimer}s</div>
-                <p className="text-primary-200 text-sm">Review the question and reference solution before answering</p>
+                <p className="text-surface-300 text-sm">Review the question and reference solution before answering</p>
                 <button onClick={() => setPhase('questions')}
                   className="mt-4 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm transition-all">
                   Skip to Questions →
