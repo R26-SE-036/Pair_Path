@@ -336,16 +336,26 @@ export default function PairRoomPage() {
             <div className="px-4 py-2.5 border-b border-surface-700">
               <h4 className="text-xs font-semibold text-surface-400 uppercase tracking-wide">Discussion</h4>
             </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {messages.map((msg, i) => (
-                <div key={i} className={`text-xs rounded-lg p-2 animate-fade-in ${
-                  msg.userId === user?.id ? 'bg-primary-600/20 text-primary-700 ml-4' : 'bg-surface-800 text-surface-300 mr-4'
-                }`}>
-                  <span className="font-semibold">{msg.userId === user?.id ? 'You' : msg.userName || 'Partner'}</span>
-                  <p className="mt-0.5">{msg.note}</p>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
+            {/* The inner wrapper is what keeps a short conversation sitting at
+                the BOTTOM of the panel, next to the input, instead of stranded
+                at the top with empty space beneath it. min-h-full + justify-end
+                rather than justify-end on the scroll container itself, because
+                that combination clips the oldest messages out of reach once the
+                conversation is long enough to scroll. */}
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="flex min-h-full flex-col justify-end space-y-2">
+                {messages.map((msg, i) => (
+                  <div key={i} className={`text-xs rounded-lg p-2 animate-fade-in ${
+                    msg.userId === user?.id
+                      ? 'bg-primary-600/20 text-primary-700 ml-4'
+                      : 'bg-surface-800 border border-surface-700 text-surface-300 mr-4'
+                  }`}>
+                    <span className="font-semibold">{msg.userId === user?.id ? 'You' : msg.userName || 'Partner'}</span>
+                    <p className="mt-0.5">{msg.note}</p>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
             </div>
             <div className={`p-3 border-t border-surface-700 ${
               intervention?.delivery?.uiTarget === 'chat_input' && intervention?.delivery?.uiEffect === 'pulse'

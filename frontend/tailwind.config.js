@@ -23,7 +23,11 @@
 const neutral = {
   950: 'rgb(var(--cg-rgb-page) / <alpha-value>)',          // page background
   900: 'rgb(var(--cg-rgb-card) / <alpha-value>)',          // card
-  800: 'rgb(var(--cg-rgb-card) / <alpha-value>)',          // card / input
+  // Inset surfaces that sit ON a card: chat bubbles, inputs, sub-panels. This
+  // has to differ from 900 or they vanish - in the original dark theme 800 and
+  // 900 were two distinct greys, and mapping both to `card` turned a partner's
+  // chat bubble into white on white.
+  800: 'rgb(var(--cg-rgb-page) / <alpha-value>)',          // inset on a card
   700: 'rgb(var(--cg-rgb-border) / <alpha-value>)',        // border
   600: 'rgb(var(--cg-rgb-border-strong) / <alpha-value>)', // stronger border
   500: 'rgb(var(--cg-rgb-muted) / <alpha-value>)',         // placeholder
