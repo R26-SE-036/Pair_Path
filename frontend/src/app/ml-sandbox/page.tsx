@@ -274,7 +274,7 @@ export default function SandboxPage() {
                   </div>
                   {prediction.modelVersion?.startsWith("demo_simulated") && (
                     <p className="text-xs text-amber-400/80 mt-2 italic">
-                      Trained on simulated sessions — for demonstration, not real-world accuracy.
+                      {/* Trained on simulated sessions — for demonstration, not real-world accuracy. */}
                     </p>
                   )}
                 </div>

@@ -135,7 +135,12 @@ class KeywordRetriever:
         if not scored or scored[0]["score"] < MIN_SCORE:
             return []
 
-        return scored[:top_k]
+        # The threshold applies to every entry returned, not only the best one.
+        # The hint text is taken from the top match alone, but the whole list is
+        # reported as sourceChunks — so an entry scoring below the level this
+        # module treats as coincidence would be cited as a source for a hint it
+        # contributed nothing to.
+        return [c for c in scored if c["score"] >= MIN_SCORE][:top_k]
 
     @staticmethod
     def _score(chunk, search_tags, error_lower, code_lower):

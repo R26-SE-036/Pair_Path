@@ -1,0 +1,1 @@
+python dev_tools/model_report.py --f1    -   test and show f1 score of thetrained model
