@@ -13,7 +13,6 @@ import { JwtService } from '@nestjs/jwt';
 import { CodeRunnerService } from '../code-runner/code-runner.service';
 import { PrismaService } from '../../common/prisma.service';
 import { MlService } from '../ml/ml.service';
-import { MongoDbService } from '../../common/mongodb.service';
 import { RedisService } from '../../common/redis.service';
 
 @WebSocketGateway({
@@ -42,7 +41,6 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     private readonly codeRunnerService: CodeRunnerService,
     private readonly prisma: PrismaService,
     private readonly mlService: MlService,
-    private readonly mongodb: MongoDbService,
     private readonly jwtService: JwtService,
     private readonly redis: RedisService,
   ) {}
@@ -430,15 +428,58 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         session ? session.startedAt.getTime() / 1000 : undefined,
       );
 
-      // Log prediction and the exact features it was made on (echoed back
-      // by ml-service) to MongoDB for later human labeling — never as
-      // training labels directly.
-      await this.mongodb.logMLEvent(sessionId, {
-        features: prediction?.features ?? null,
-        prediction,
-        timestamp: new Date(),
-        source: 'real_time_prediction_engine',
-      });
+      // Log the prediction and the exact features it was made on (echoed back
+      // by ml-service) for later human labeling — never as training labels
+      // directly.
+      //
+      // This used to go to MongoDB. It now goes to feature_windows and
+      // pair_state_predictions, which have been in the Prisma schema since the
+      // start and which nothing had ever written to: grep for
+      // `pairStatePrediction` or `featureWindow` before this change and the
+      // only hits are the model definitions. So the research trail lived in a
+      // store that was optional, failed silently when absent, and was never
+      // read back by anything.
+      //
+      // Written in one transaction because the pair is the unit of value. A
+      // feature window whose prediction is missing, or a prediction whose
+      // features are missing, cannot be labeled and is not worth keeping.
+      if (prediction) {
+        const timestamps = recentEvents.map((event) => event.timestamp);
+        const windowStart = new Date(Math.min(...timestamps.map((t) => t.getTime())));
+        const windowEnd = new Date(Math.max(...timestamps.map((t) => t.getTime())));
+
+        try {
+          await this.prisma.$transaction([
+            this.prisma.featureWindow.create({
+              data: {
+                sessionId,
+                windowStart,
+                windowEnd,
+                features: prediction.features ?? {},
+              },
+            }),
+            this.prisma.pairStatePrediction.create({
+              data: {
+                sessionId,
+                windowStart,
+                windowEnd,
+                predictedState: prediction.predictedState,
+                confidence: prediction.confidence,
+                modelVersion: prediction.modelVersion,
+              },
+            }),
+          ]);
+        } catch (error) {
+          // Losing a research row must not take down a live session, which is
+          // the one property the MongoDB version got right. Said out loud
+          // rather than swallowed, because a silent gap in the corpus is
+          // discovered months later when someone tries to label it.
+          console.error(
+            `Failed to record the ML research trail for session ${sessionId}:`,
+            error,
+          );
+        }
+      }
 
       // PRODUCTIVE is included: it earns a brief encouragement toast rather
       // than silence. The engine returns NO_ACTION for anything it should
