@@ -14,10 +14,15 @@ import { CodeRunnerService } from '../code-runner/code-runner.service';
 import { PrismaService } from '../../common/prisma.service';
 import { MlService } from '../ml/ml.service';
 import { RedisService } from '../../common/redis.service';
+import { corsOriginCallback } from '../../common/env';
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    // A callback, not a value. This decorator is evaluated when the module is
+    // imported, which can be before ConfigModule has loaded .env - a literal
+    // read here could capture the fallback and stay wrong for the life of the
+    // process. The callback runs per handshake instead.
+    origin: corsOriginCallback,
     credentials: true,
   },
 })

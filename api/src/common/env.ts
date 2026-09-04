@@ -69,6 +69,56 @@ export function mlServiceUrl(): string {
 }
 
 /**
+ * Browser origins allowed to call this API and open a socket to it.
+ *
+ * Accepts a comma-separated list, which the previous single-value handling did
+ * not: `origin` was `process.env.FRONTEND_URL || 'http://localhost:3000'` in
+ * two places, so exactly one browser origin could ever be allowed. Running the
+ * old PairPath frontend and the unified Code Guru app at the same time meant
+ * editing .env and restarting to switch between them.
+ *
+ * CORS_ORIGINS is the name Study Guider and the gamification engine already
+ * use for this. FRONTEND_URL is still read as a fallback so existing .env files
+ * keep working - it was only ever used for CORS despite the name.
+ */
+export function corsOrigins(): string[] {
+  const raw = process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:4200';
+  return raw
+    .split(',')
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+}
+
+/**
+ * An origin check for both the HTTP layer and the Socket.IO handshake.
+ *
+ * A FUNCTION rather than a list, deliberately. The websocket gateway sets its
+ * CORS inside a decorator, and a decorator is evaluated when its module is
+ * imported - which may be before ConfigModule has loaded .env, depending on
+ * how the module graph happens to resolve. A literal read there can silently
+ * capture the fallback and stay wrong for the life of the process. A callback
+ * is invoked per request, by which point the environment is certainly loaded.
+ *
+ * Requests with no Origin header are allowed: that is curl, a health check, or
+ * any server-to-server call, none of which CORS is meant to govern. CORS
+ * protects browsers, and a browser always sends an Origin.
+ */
+export function corsOriginCallback(
+  origin: string | undefined,
+  callback: (error: Error | null, allow?: boolean) => void,
+): void {
+  if (!origin) return callback(null, true);
+
+  const allowed = corsOrigins();
+  if (allowed.includes(origin.replace(/\/+$/, ''))) return callback(null, true);
+
+  // Refuse by answering false, not by raising. An Error here surfaces as a 500
+  // and reads like the API is broken; a plain refusal is what the browser
+  // expects and reports as a CORS failure.
+  callback(null, false);
+}
+
+/**
  * Called once at startup so a missing variable is one clear message before the
  * server binds, rather than an exception from whichever module happened to
  * initialise first.
