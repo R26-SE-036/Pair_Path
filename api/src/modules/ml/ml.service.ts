@@ -1,13 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { RetrieveHintDto } from './dto/retrieve-hint.dto';
+import { mlServiceUrl } from '../../common/env';
 
 @Injectable()
 export class MlService {
   private readonly mlServiceUrl: string;
 
   constructor(private readonly httpService: HttpService) {
-    this.mlServiceUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+    // No fallback. The old default was http://localhost:8000 - Code Coach's
+    // port - so an unset variable sent feature vectors to the identity
+    // provider and silently used the hardcoded PRODUCTIVE fallback below.
+    this.mlServiceUrl = mlServiceUrl();
   }
 
   /**

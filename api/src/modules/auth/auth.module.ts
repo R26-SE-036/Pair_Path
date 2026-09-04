@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { CodeCoachService } from './code-coach.service';
 import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './jwt.strategy';
+import { jwtSecret } from '../../common/env';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { JwtStrategy } from './jwt.strategy';
     PassportModule,
     HttpModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'pair-programming-secret',
+      secret: jwtSecret(),
       signOptions: { expiresIn: '24h' },
     }),
   ],
