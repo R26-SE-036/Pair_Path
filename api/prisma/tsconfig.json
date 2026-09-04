@@ -8,5 +8,10 @@
     "rootDir": "..",
     "noEmit": true
   },
-  "include": ["./**/*.ts"]
+  "include": ["./**/*.ts"],
+  // `exclude` has to be restated, not inherited. The parent config excludes
+  // "prisma" so that the app's build stops inferring its source root from
+  // these files - and an inherited exclude would leave this config excluding
+  // the very files it includes (TS18003: no inputs were found).
+  "exclude": ["../node_modules", "../dist"]
 }

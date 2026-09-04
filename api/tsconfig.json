@@ -9,12 +9,32 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
+    // rootDir is pinned, and prisma/ is excluded below, because without them
+    // TypeScript inferred the common source root from every .ts file it could
+    // see - and prisma/seeds.ts and prisma/load-simulated-corpus.ts sit
+    // outside src/. The root became ./api, so the build emitted
+    // dist/src/main.js while `start:prod` ran `node dist/main` and
+    // docs/deployment.md documented that same path. Building the API and then
+    // starting it, exactly as written, failed with MODULE_NOT_FOUND.
+    //
+    // The scripts under prisma/ still typecheck: they have their own
+    // prisma/tsconfig.json, which sets rootDir explicitly for that reason.
+    "rootDir": "./src",
     "incremental": true,
+    // Keep the incremental state INSIDE dist. By default it is written to
+    // ./tsconfig.tsbuildinfo at the package root, which nest-cli's
+    // deleteOutDir does not touch - so `rm -rf dist && npm run build` left a
+    // buildinfo claiming everything was current, and the build then succeeded
+    // while emitting nothing at all. Putting it in dist means deleting dist
+    // really does force a full rebuild.
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "skipLibCheck": true,
     "strictNullChecks": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "prisma", "test"]
 }

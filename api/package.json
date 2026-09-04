@@ -26,6 +26,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@aws-sdk/client-lambda": "^3.1126.0",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.1.19",
     "@nestjs/config": "^4.0.4",
