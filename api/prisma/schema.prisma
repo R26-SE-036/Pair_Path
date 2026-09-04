@@ -210,6 +210,26 @@ model ReviewSubmission {
   @@map("review_submissions")
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// UNUSED. Neither of the two models below is referenced anywhere in api/src -
+// grep for `ragDocument` or `ragChunk` and there are no hits outside this
+// file. The hint retrieval that actually runs lives in ml-service/app/rag/
+// and reads the curated .txt files in ml-service/app/data/rag_knowledge/,
+// scoring them by keyword rather than by embedding.
+//
+// So `RAGChunk.embedding Json?` is not "an embedding column waiting for
+// pgvector"; it belongs to a table nothing writes to. Giving it a vector type
+// and an HNSW index would make a dead path look live, which is worse than
+// leaving it plainly dead.
+//
+// If retrieval moves into Postgres, THEN this is the change to make:
+// enable the `vector` extension, type the column `vector(n)` for whichever
+// embedding model is adopted, and add an HNSW index. Until then these two
+// models are either scaffolding for work that has not happened, or they
+// should be dropped - and that is the component owner's call, since dropping
+// them is a destructive migration.
+// ─────────────────────────────────────────────────────────────────────────
+
 model RAGDocument {
   id          String   @id @default(cuid())
   title       String

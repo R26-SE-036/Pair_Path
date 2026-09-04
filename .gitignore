@@ -15,3 +15,9 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# TypeScript incremental build state.
+# nest-cli's deleteOutDir removes dist/ but NOT this file, which lives at the
+# package root. A stale one convinces tsc that everything is up to date, so
+# `rm -rf dist && npm run build` succeeds and emits nothing at all.
+*.tsbuildinfo

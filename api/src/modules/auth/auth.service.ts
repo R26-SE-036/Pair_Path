@@ -11,6 +11,7 @@ import { RegisterDto } from './dto/register.dto';
 import { CodeCoachService } from './code-coach.service';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
+import { jwtSecret } from '../../common/env';
 
 @Injectable()
 export class AuthService {
@@ -226,7 +227,7 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     try {
       const payload = this.jwtService.verify(refreshToken, {
-        secret: process.env.JWT_SECRET || 'pair-programming-secret',
+        secret: jwtSecret(),
       });
 
       const user = await this.usersService.findById(payload.sub);

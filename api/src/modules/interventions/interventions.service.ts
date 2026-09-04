@@ -1,14 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
-import { MongoDbService } from '../../common/mongodb.service';
 import { CreateInterventionDto } from './dto/create-intervention.dto';
 
 @Injectable()
 export class InterventionsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly mongodb: MongoDbService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createInterventionDto: CreateInterventionDto) {
     return this.prisma.intervention.create({
@@ -24,19 +20,15 @@ export class InterventionsService {
   }
 
   async respond(id: string, accepted: boolean) {
-    const updated = await this.prisma.intervention.update({
+    // The MongoDB write that used to follow this update logged
+    // {interventionId, action, accepted, timestamp} "for research analytics".
+    // Every one of those fields is already on the row this line just wrote:
+    // interventions holds action, accepted and shownAt. It was a second copy
+    // of the same fact in a store nothing read back, and the two could only
+    // ever agree or disagree.
+    return this.prisma.intervention.update({
       where: { id },
       data: { accepted },
     });
-
-    // Log to MongoDB for research analytics
-    await this.mongodb.logIntervention(updated.sessionId, {
-      interventionId: id,
-      action: updated.action,
-      accepted,
-      timestamp: new Date()
-    });
-
-    return updated;
   }
 }

@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 
 const execAsync = promisify(exec);
 
@@ -19,10 +20,36 @@ const SANDBOX_MEMORY = process.env.CODE_RUNNER_MEMORY || '256m';
 const SANDBOX_CPUS = process.env.CODE_RUNNER_CPUS || '0.5';
 const SANDBOX_PIDS = process.env.CODE_RUNNER_PIDS || '64';
 
+/**
+ * Where student code actually executes.
+ *
+ * ──────────────────────── WHY THERE ARE THREE ────────────────────────
+ * `lambda`  Production. Each invocation is a Firecracker microVM with its own
+ *           kernel, destroyed afterwards. Chosen because no serverless
+ *           container platform - not ECS Fargate, not Cloud Run - gives a
+ *           container a Docker daemon, so `docker run` cannot be the
+ *           production path. The alternative was mounting the host's
+ *           /var/run/docker.sock into the API container, which hands anything
+ *           escaping the sandbox effective root on the host; docs/deployment.md
+ *           already names that risk. The Lambda is a stronger boundary than the
+ *           container it replaces, and it removes the last reason to run EC2.
+ *
+ * `docker`  Local development, unchanged. Keeps the existing flags and the
+ *           existing behaviour so this refactor is not also a behaviour change.
+ *
+ * `host`    Development only, on a machine with no Docker, and only when
+ *           CODE_RUNNER_ALLOW_UNSANDBOXED=true. Student code runs with the
+ *           API's own permissions. Never with real participants.
+ * ─────────────────────────────────────────────────────────────────────
+ */
+type ExecutionMode = 'lambda' | 'docker' | 'host' | 'disabled';
+
 @Injectable()
 export class CodeRunnerService implements OnModuleInit {
   private readonly logger = new Logger(CodeRunnerService.name);
   private dockerAvailable = false;
+  private mode: ExecutionMode = 'disabled';
+  private lambda?: LambdaClient;
 
   // Host-JDK resolution for the unsandboxed dev path. A machine with several
   // Java installs can put `javac` and `java` on different major versions
@@ -34,27 +61,98 @@ export class CodeRunnerService implements OnModuleInit {
   private releaseFlag = '';
 
   async onModuleInit() {
+    // Lambda wins when it is configured, whatever else is available. A
+    // deployed environment that also happens to have a Docker socket must not
+    // silently prefer it.
+    const functionName = process.env.CODE_RUNNER_LAMBDA_FUNCTION;
+    if (functionName) {
+      this.lambda = new LambdaClient({});
+      this.mode = 'lambda';
+      this.logger.log(`Sandboxed execution via AWS Lambda (${functionName})`);
+      return;
+    }
+
     try {
       await execAsync('docker version --format "{{.Server.Version}}"', { timeout: 10000 });
       this.dockerAvailable = true;
+      this.mode = 'docker';
       this.logger.log(`Sandboxed execution enabled (image: ${SANDBOX_IMAGE})`);
       return;
     } catch {
       this.dockerAvailable = false;
       if (process.env.CODE_RUNNER_ALLOW_UNSANDBOXED === 'true') {
+        this.mode = 'host';
         this.logger.warn(
           'Docker unavailable — running UNSANDBOXED because CODE_RUNNER_ALLOW_UNSANDBOXED=true. ' +
             'Never use this mode with real participants (L10 ethical blocker).',
         );
       } else {
+        this.mode = 'disabled';
         this.logger.error(
-          'Docker unavailable. Code execution is DISABLED. ' +
-            'Install Docker, or set CODE_RUNNER_ALLOW_UNSANDBOXED=true for local dev only.',
+          'No execution backend. Code execution is DISABLED. Set ' +
+            'CODE_RUNNER_LAMBDA_FUNCTION for a deployed environment, install ' +
+            'Docker for local sandboxing, or set ' +
+            'CODE_RUNNER_ALLOW_UNSANDBOXED=true for local dev only.',
         );
         return;
       }
     }
     await this.resolveHostJdk();
+  }
+
+  /**
+   * Send the source to the code-runner Lambda and return its verdict.
+   *
+   * The response shape is identical to the local paths' - {success, stdout,
+   * stderr, compileError} - so nothing downstream knows which backend ran.
+   */
+  private async runOnLambda(className: string, code: string) {
+    const functionName = process.env.CODE_RUNNER_LAMBDA_FUNCTION!;
+
+    try {
+      const response = await this.lambda!.send(
+        new InvokeCommand({
+          FunctionName: functionName,
+          // RequestResponse, not Event: the student is waiting for output.
+          InvocationType: 'RequestResponse',
+          Payload: Buffer.from(JSON.stringify({ className, code })),
+        }),
+      );
+
+      // A Lambda that throws still returns HTTP 200 with FunctionError set.
+      // Without this check a crashed function reads as a successful run whose
+      // output happens to be a stack trace.
+      if (response.FunctionError) {
+        this.logger.error(
+          `Code runner Lambda failed (${response.FunctionError}): ` +
+            `${Buffer.from(response.Payload ?? []).toString('utf-8').slice(0, 500)}`,
+        );
+        return {
+          success: false,
+          stdout: '',
+          stderr: 'Code execution is temporarily unavailable.',
+          compileError: null,
+        };
+      }
+
+      const payload = JSON.parse(Buffer.from(response.Payload ?? []).toString('utf-8'));
+      return {
+        success: Boolean(payload.success),
+        stdout: this.truncateOutput(payload.stdout || ''),
+        stderr: this.truncateOutput(payload.stderr || ''),
+        compileError: payload.compileError ? this.truncateOutput(payload.compileError) : null,
+      };
+    } catch (error: any) {
+      // Throttling, a missing function, a denied invoke. None of these are the
+      // student's fault and none should read as a compile error.
+      this.logger.error(`Could not invoke the code runner Lambda: ${error?.message}`);
+      return {
+        success: false,
+        stdout: '',
+        stderr: 'Code execution is temporarily unavailable.',
+        compileError: null,
+      };
+    }
   }
 
   private async resolveHostJdk() {
@@ -137,13 +235,20 @@ export class CodeRunnerService implements OnModuleInit {
       }
     }
 
-    if (!this.dockerAvailable && process.env.CODE_RUNNER_ALLOW_UNSANDBOXED !== 'true') {
+    if (this.mode === 'disabled') {
       return {
         success: false,
         stdout: '',
         stderr: 'Code execution is temporarily unavailable (sandbox not running).',
         compileError: null,
       };
+    }
+
+    // Everything above - length limits, the class-name regex, the blocked-API
+    // scan - applies to every backend. Only the execution differs, so a change
+    // to the rules cannot apply to one mode and not another.
+    if (this.mode === 'lambda') {
+      return this.runOnLambda(className, code);
     }
 
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pairpath-'));
