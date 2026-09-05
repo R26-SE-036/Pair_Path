@@ -21,6 +21,9 @@
     "prisma:studio": "prisma studio",
     "corpus:load": "ts-node --transpile-only -P prisma/tsconfig.json prisma/load-simulated-corpus.ts"
   },
+  "engines": {
+    "node": "22.x"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -62,4 +65,4 @@
     "jest": "^30.3.0",
     "prisma": "^5.22.0"
   }
-}
+}
