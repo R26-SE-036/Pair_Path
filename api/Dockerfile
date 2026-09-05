@@ -34,6 +34,18 @@ RUN npm run build
 # ── runtime ──
 FROM node:22-alpine
 
+# Prisma probes the system's OpenSSL to decide which query engine to load. With
+# no openssl present it gives up, warns "failed to detect the libssl/openssl
+# version to use", and falls back to the 1.1 engine - which then cannot load
+# on Alpine, because Alpine ships OpenSSL 3:
+#
+#   Error loading shared library libssl.so.1.1: No such file or directory
+#
+# Listing linux-musl-openssl-3.0.x in schema.prisma puts the right engine in
+# the image; this is what makes Prisma actually pick it. Both halves are
+# needed, and having only one looks exactly like having neither.
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 ENV NODE_ENV=production
 

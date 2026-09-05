@@ -63,6 +63,24 @@
     "@nestjs/testing": "^11.1.19",
     "@types/jest": "^30.0.0",
     "jest": "^30.3.0",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "ts-jest": "^29.4.12"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node"
   }
 }

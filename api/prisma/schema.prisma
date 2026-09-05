@@ -3,6 +3,19 @@
 
 generator client {
   provider = "prisma-client-js"
+
+  // "native" alone builds an engine for whoever ran `prisma generate`. That is
+  // the developer's machine, so the Alpine image got a client it could not
+  // load and the API crash-looped on boot with:
+  //
+  //   Unable to require(.prisma/client/libquery_engine-linux-musl.so.node)
+  //   Error loading shared library libssl.so.1.1: No such file or directory
+  //
+  // The plain `linux-musl` target links against OpenSSL 1.1, which Alpine
+  // dropped; node:22-alpine ships OpenSSL 3. The -openssl-3.0.x target is the
+  // one that matches, and both are listed so `npm run start` on a laptop and
+  // the container image keep working from the same generate.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

@@ -58,10 +58,31 @@ export function mlServiceUrl(): string {
       'because the previous one, http://localhost:8000, is Code Coach.',
   );
 
-  if (/:8000(\/|$)/.test(url)) {
+  /*
+   * The guard is about the HOST as well as the port, not the port alone.
+   *
+   * It originally rejected :8000 anywhere, which was right on a developer's
+   * machine - everything shares localhost there, so :8000 unambiguously meant
+   * Code Coach. It is wrong the moment services have their own hostnames: in
+   * the compose stack `pairpath-ml` listens on 8000 inside its own container,
+   * which collides with nothing, and the API refused to start with
+   * "port 8000 belongs to Code Coach" about a URL that has nothing to do with
+   * Code Coach.
+   *
+   * So: only local addresses. A named host on 8000 is somebody else's 8000.
+   */
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`ML_SERVICE_URL is not a valid URL: ${url}`);
+  }
+
+  const isLocal = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(parsed.hostname);
+  if (isLocal && parsed.port === '8000') {
     throw new Error(
-      `ML_SERVICE_URL is ${url}, and port 8000 belongs to Code Coach. ` +
-        'PairPath\'s ml-service runs on 8020.',
+      `ML_SERVICE_URL is ${url}, and port 8000 on this machine is Code Coach. ` +
+        "PairPath's ml-service runs on 8020 locally.",
     );
   }
 
