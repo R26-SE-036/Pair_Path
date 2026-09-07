@@ -50,7 +50,24 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+#
+# --ignore-scripts, because the only postinstall that matters here is
+# @prisma/engines downloading the query engines - and the two lines below
+# overwrite node_modules/@prisma with the build stage's copy immediately
+# afterwards. So the download was several hundred megabytes of work whose
+# result is discarded, and it put a network call on the critical path of
+# every image build:
+#
+#   npm error path /app/node_modules/@prisma/engines
+#   Error: aborted ... code: 'ECONNRESET'
+#
+# after five minutes. Nothing else in the runtime dependency set has a
+# postinstall it needs - bcryptjs is pure JavaScript, and there is no
+# native module in the tree.
+#
+# The BUILD stage deliberately keeps its scripts: `npx prisma generate`
+# there does need the engines.
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
 # The generated Prisma client is copied from the build stage rather than
 # regenerated: `npm ci --omit=dev` does not install the CLI that generates it,

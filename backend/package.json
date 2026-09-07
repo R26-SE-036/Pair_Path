@@ -18,7 +18,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "corpus:load": "ts-node --transpile-only -P prisma/tsconfig.json prisma/load-simulated-corpus.ts",
-    "test:integration": "jest --config ./test/jest-integration.json --runInBand"
+    "test:integration": "jest --config ./test/jest-integration.json --runInBand",
+    "lock": "docker run --rm -v \"%cd%\":/app -w //app node:22-alpine npm install --package-lock-only --no-audit --no-fund"
   },
   "engines": {
     "node": "22.x"
