@@ -158,6 +158,32 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       return;
     }
 
+    /*
+     * And only while it is still running.
+     *
+     * join_room writes a JOIN event and opens the socket to code_change,
+     * run_code and discussion_note - all of which append to the behavioural
+     * record. Nothing stopped a student reopening /pair/:id for a session
+     * that ended days ago and adding events after endedAt, which makes the
+     * session's own timeline incoherent and puts edits in a window the model
+     * would read as activity.
+     *
+     * This is the reason watch_session exists as a separate message: the
+     * results page needs the room without being session activity. The rule it
+     * implies was never enforced on join_room itself.
+     */
+    const session = await this.prisma.pairSession.findUnique({
+      where: { id: sessionId },
+      select: { status: true },
+    });
+    if (session?.status !== 'ACTIVE') {
+      client.emit('session_closed', {
+        sessionId,
+        message: 'This session has finished. Its record is read-only.',
+      });
+      return;
+    }
+
     // Join the Socket.IO room
     client.join(sessionId);
 

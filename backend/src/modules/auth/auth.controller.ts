@@ -4,6 +4,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { Public } from '../../common/public.decorator';
 
 /**
  * Ten requests a minute on everything here.
@@ -14,15 +15,17 @@ import { JwtAuthGuard } from './jwt-auth.guard';
  * one endpoint that writes an account per request.
  */
 @Controller('auth')
-@Throttle({ strict: { ttl: 60000, limit: 10 } })
+@Throttle({ default: { ttl: 60000, limit: 10 } })
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
+  @Public()
   @Post('login')
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
@@ -34,11 +37,13 @@ export class AuthController {
    * this on arrival. See AuthService.exchange for why PairPath issues its own
    * token rather than adopting Code Coach's.
    */
+  @Public()
   @Post('exchange')
   async exchange(@Body('codeCoachAccessToken') codeCoachAccessToken: string) {
     return this.authService.exchange(codeCoachAccessToken);
   }
 
+  @Public()
   @Post('refresh')
   async refresh(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshToken(refreshToken);

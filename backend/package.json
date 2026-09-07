@@ -17,7 +17,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "corpus:load": "ts-node --transpile-only -P prisma/tsconfig.json prisma/load-simulated-corpus.ts"
+    "corpus:load": "ts-node --transpile-only -P prisma/tsconfig.json prisma/load-simulated-corpus.ts",
+    "test:integration": "jest --config ./test/jest-integration.json --runInBand"
   },
   "engines": {
     "node": "22.x"
@@ -59,6 +60,7 @@
     "jest": "^30.3.0",
     "nodemon": "^3.1.14",
     "prisma": "^5.22.0",
+    "socket.io-client": "^4.8.3",
     "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"

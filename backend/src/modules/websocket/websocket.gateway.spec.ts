@@ -53,6 +53,7 @@ function fakeServer() {
 }
 
 interface Harness {
+  state: { memberQueries: number; sessionStatus: string };
   gateway: WebsocketGateway;
   server: ReturnType<typeof fakeServer>;
   events: Array<{ eventType: string; userId: string; role: string; metadata: string }>;
@@ -72,7 +73,7 @@ function harness(members: Array<{ userId: string; role: string }>): Harness {
   const memberRows = members.map((m, i) => ({ id: `m${i}`, ...m }));
   const events: Harness['events'] = [];
   const roleUpdates: Harness['roleUpdates'] = [];
-  const state = { memberQueries: 0 };
+  const state = { memberQueries: 0, sessionStatus: 'ACTIVE' };
 
   const prisma = {
     pairSessionMember: {
@@ -97,7 +98,8 @@ function harness(members: Array<{ userId: string; role: string }>): Harness {
       findMany: async () => [],
       findFirst: async () => null,
     },
-    pairSession: { findUnique: async () => null },
+    // ACTIVE by default; tests that need a finished session override it.
+    pairSession: { findUnique: async () => ({ status: state.sessionStatus }) },
     intervention: { create: async (a: any) => a.data, update: async () => ({}) },
     featureWindow: { create: () => ({}) },
     pairStatePrediction: { create: () => ({}) },
@@ -116,6 +118,7 @@ function harness(members: Array<{ userId: string; role: string }>): Harness {
   gateway.server = server as any;
 
   return {
+    state,
     gateway,
     server,
     events,
@@ -147,6 +150,23 @@ describe('joining', () => {
     // Without this the client cannot know whether to make the editor
     // read-only, and a navigator would type into a server that discards it.
     expect(roomState?.payload.roles).toEqual({ driver: 'DRIVER', nav: 'NAVIGATOR' });
+  });
+
+  it('refuses to reopen a session that has finished', async () => {
+    const h = harness(DRIVER_NAV);
+    h.state.sessionStatus = 'COMPLETED';
+    const driver = fakeSocket('sock-d', 'driver');
+
+    await join(h, driver);
+
+    // join_room writes a JOIN event and opens the socket to code_change and
+    // run_code, so reopening a finished session appends to the behavioural
+    // record after endedAt. watch_session exists precisely so the results page
+    // can listen without being session activity - the rule that implies was
+    // never enforced here.
+    expect(driver.joinedRoom).toBeNull();
+    expect(h.events).toHaveLength(0);
+    expect(driver.emitted.map((e) => e.event)).toContain('session_closed');
   });
 
   it('refuses a socket that is not a member of the session', async () => {

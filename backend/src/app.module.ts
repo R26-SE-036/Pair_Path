@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { TopicsModule } from './modules/topics/topics.module';
@@ -14,6 +14,8 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { InterventionsModule } from './modules/interventions/interventions.module';
 
 import { CommonModule } from './common/common.module';
+import { UserThrottlerGuard } from './common/user-throttler.guard';
+import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -26,19 +28,32 @@ import { CommonModule } from './common/common.module';
      *
      * ThrottlerModule was configured here and the guard was never registered,
      * so none of it did anything: `forRoot` only supplies the options, and
-     * without an APP_GUARD entry (or a @UseGuards somewhere) nothing consults
-     * them. The configuration read as protection for as long as nobody tested
-     * it, which is the worst state for a security control to be in.
+     * without an APP_GUARD entry nothing consults them. The configuration read
+     * as protection for as long as nobody tested it, which is the worst state
+     * for a security control to be in.
      *
-     * Two buckets. The default is generous because a live pair session is
-     * chatty over REST as well as the socket. `strict` is for the endpoints
-     * where the request itself is the attack - credential guessing on
-     * /auth/login, and compiling arbitrary Java on /code-runner.
+     * ============ ONE BUCKET, NOT TWO ============
+     * There were briefly two named buckets here, `default` at 100/min and
+     * `strict` at 10/min, on the assumption that a route only counts against
+     * the bucket it names. It counts against ALL of them: every named
+     * throttler applies to every route unless explicitly skipped, so adding a
+     * strict bucket for /auth and /code-runner capped the ENTIRE API at ten
+     * requests a minute. A live workspace would have started returning 429
+     * within seconds of a session opening.
+     *
+     * Nothing reported it. Both limits were configured plausibly, both were
+     * being enforced, and the interaction between them is the bug. The
+     * integration suite found it by making more than ten requests in a row -
+     * which is what any real client does.
+     *
+     * So: one bucket, and the endpoints that need a tighter limit override it
+     * by name with @Throttle({ default: ... }).
+     * =============================================
+     *
+     * Counted PER STUDENT rather than per address - see
+     * common/user-throttler.guard.ts.
      */
-    ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60000, limit: 100 },
-      { name: 'strict', ttl: 60000, limit: 10 },
-    ]),
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60000, limit: 100 }]),
     AuthModule,
     UsersModule,
     TopicsModule,
@@ -51,8 +66,19 @@ import { CommonModule } from './common/common.module';
     InterventionsModule,
   ],
   providers: [
-    // The line that makes the configuration above mean something.
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    /*
+     * Order matters and is the whole point.
+     *
+     * Nest runs global guards in registration order, and all of them before
+     * any route-level guard. The throttler reads `req.user` to bucket per
+     * student; if the auth guard has not run yet there is no user, and it
+     * silently falls back to bucketing a whole shared network as one client.
+     *
+     * Auth first also makes every route protected by default - see
+     * common/public.decorator.ts.
+     */
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: UserThrottlerGuard },
   ],
 })
 export class AppModule {}

@@ -164,7 +164,19 @@ describe('rate limiting is actually wired up', () => {
     // as nobody tested it.
     const source = read('app.module.ts');
     expect(source).toContain('APP_GUARD');
-    expect(source).toContain('ThrottlerGuard');
+    expect(source).toContain('UserThrottlerGuard');
+  });
+
+  it('counts per student, not per address', () => {
+    // Bucketing by IP puts a whole lab behind one limit: twenty students on
+    // one institutional address get five requests a minute each, and a live
+    // pair session spends more than that opening a workspace.
+    const source = read('common/user-throttler.guard.ts');
+    expect(source).toContain('getTracker');
+    expect(source).toContain('req?.user?.userId');
+    // Anonymous routes must still bucket by address - /auth/login has no user
+    // yet, and there the address is the identity worth limiting.
+    expect(source).toContain('req?.ip');
   });
 
   it('puts the endpoints where the request is the attack on a tighter bucket', () => {

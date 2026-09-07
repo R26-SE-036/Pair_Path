@@ -1,0 +1,9 @@
+{
+  "//": "Separate from the unit suite on purpose: these talk to running services, and `npm test` must stay hermetic.",
+  "rootDir": "..",
+  "testMatch": ["<rootDir>/test/integration/**/*.integration.spec.ts"],
+  "transform": { "^.+[.](t|j)s$": "ts-jest" },
+  "globalSetup": "<rootDir>/test/integration/setup.ts",
+  "testEnvironment": "node",
+  "maxWorkers": 1
+}

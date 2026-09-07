@@ -10,7 +10,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
  * unsandboxed development mode it runs with the API's own permissions.
  */
 @Controller('code-runner')
-@Throttle({ strict: { ttl: 60000, limit: 10 } })
+@Throttle({ default: { ttl: 60000, limit: 10 } })
 @UseGuards(JwtAuthGuard)
 export class CodeRunnerController {
   constructor(private readonly codeRunnerService: CodeRunnerService) {}
