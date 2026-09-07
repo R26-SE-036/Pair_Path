@@ -80,8 +80,22 @@ model Question {
   difficulty        String
   starterCode       String   @default("")
   referenceSolution String
-  reviewQuestions   Json   // Array of review questions
-  conceptTags       Json   // Array of concept tags
+  // [{ prompt, expected }] - `expected` is the answer a pair who did the
+  // exercise well would give, and it is not always true. Older rows hold a
+  // plain array of strings and are read as expecting true; see
+  // src/content/question-bank.ts.
+  reviewQuestions   Json
+  // Platform concept tags, from code-coach/knowledge_base/code_coach_errors.json.
+  conceptTags       Json
+
+  // Superseded, but not deleted.
+  //
+  // A question a pair has worked on cannot be removed - PairSession.questionId
+  // has no cascade, and those sessions with their events and predictions are
+  // the research record. Archiving stops it being offered for new sessions
+  // while every existing session still resolves the exercise it was about.
+  archived          Boolean @default(false)
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

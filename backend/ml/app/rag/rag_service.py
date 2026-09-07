@@ -4,6 +4,7 @@ from .schemas import RAGHintRequest, RAGHintResponse
 from .knowledge_loader import KnowledgeLoader
 from .retriever import KeywordRetriever
 from .hint_generator import HintGenerator
+from .concept_tags import expand_concept_tags
 
 # Which kind of hint each state calls for. Keyed only on states that exist -
 # see app/label_mapping.py, the single source of truth for the five.
@@ -41,10 +42,16 @@ class RAGService:
         if not intervention_type or intervention_type == "UNKNOWN":
             intervention_type = STATE_TO_INTERVENTION.get(state, "CONCEPT_HINT")
 
+        # Platform concept tags are expanded into the corpus vocabulary. A
+        # question tagged `loop_boundaries` matches no corpus entry on its own -
+        # the corpus indexes the same ground as `loops`, `boundaries`,
+        # `off-by-one`. See concept_tags.py for why the two vocabularies are
+        # deliberately different.
+        search_tags = expand_concept_tags(request.questionConceptTags or [])
+
         # Collaboration states are not about the exercise, so retrieval on the
         # question's concept tags alone would return Java content for a problem
         # that is about how the pair is working.
-        search_tags = list(request.questionConceptTags) if request.questionConceptTags else []
         if state in COLLABORATION_STATES:
             search_tags.extend(["pair programming", "collaboration", "role"])
 

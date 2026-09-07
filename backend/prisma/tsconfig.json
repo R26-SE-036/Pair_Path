@@ -6,7 +6,14 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "rootDir": "..",
-    "noEmit": true
+    "noEmit": true,
+    // Node's globals - fs, path, process, __dirname - are used by every script
+    // in this folder. `typeRoots` is resolved relative to THIS file, so it
+    // looks in prisma/node_modules/@types, which does not exist, and the
+    // scripts failed to typecheck with "Cannot find name 'process'" while
+    // running perfectly under ts-node. Naming the package resolves it through
+    // normal module lookup instead.
+    "types": ["node"]
   },
   "include": ["./**/*.ts"],
   // `exclude` has to be restated, not inherited. The parent config excludes

@@ -24,7 +24,8 @@ interface Session {
   id: string;
   status: string;
   members: Array<{ userId: string }>;
-  reviews: Array<{ userId: string; score: number }>;
+  reviews: Array<{ userId: string; score: number; answers?: boolean[] }>;
+  question?: { title?: string; description?: string; reviewQuestions?: unknown };
 }
 
 function fakePrisma(sessions: Session[], interventions: any[] = []) {
@@ -133,6 +134,153 @@ describe('submitting a review', () => {
     await expect(
       reviews([running]).submitReview('s1', { answers: [true] } as any, 'me'),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+/**
+ * The instrument itself.
+ *
+ * Three things were wrong at once, and together they meant every peer review
+ * in the database is a score of 0 recorded against no answers:
+ *
+ *   - GET /reviews/:sessionId returned a PairSession, while the client reads
+ *     `{ questions, alreadySubmitted }`. Neither exists on a session, so the
+ *     page rendered an empty form.
+ *   - the client sent free text from textareas; the API validates booleans. A
+ *     filled-in review was rejected with a 400 and an empty one was accepted.
+ *   - the score was the count of `true` answers against prompts all phrased so
+ *     that yes was the good answer, which measures agreeableness.
+ */
+describe('the review instrument', () => {
+  const PROMPTS = [
+    { prompt: 'Did the loop stop before numbers.length?', expected: true },
+    { prompt: 'Did we hit an out-of-bounds error?', expected: false },
+    { prompt: 'Did we test the empty case?', expected: true },
+  ];
+
+  const withPrompts = (overrides: Partial<Session> = {}): Session => ({
+    id: 's1',
+    status: 'COMPLETED',
+    members: [{ userId: 'me' }, { userId: 'partner' }],
+    reviews: [],
+    question: { title: 'Sum', description: 'Add them up', reviewQuestions: PROMPTS },
+    ...overrides,
+  });
+
+  it('sends the prompts in the shape the client reads', async () => {
+    const result: any = await reviews([withPrompts()]).getReview('s1', 'me');
+
+    expect(result.questions).toEqual(PROMPTS.map((p) => p.prompt));
+    expect(result.alreadySubmitted).toBe(false);
+  });
+
+  it('never sends the expected answers', async () => {
+    const result: any = await reviews([withPrompts()]).getReview('s1', 'me');
+
+    // Same reason the question is sent without referenceSolution: a form that
+    // ships its own answer key is not an instrument.
+    expect(JSON.stringify(result)).not.toContain('expected');
+    expect(result.questions.every((q: unknown) => typeof q === 'string')).toBe(true);
+  });
+
+  it('reports that this student has already answered', async () => {
+    const session = withPrompts({
+      reviews: [{ userId: 'me', score: 2, answers: [true, false, true] }],
+    });
+
+    const result: any = await reviews([session]).getReview('s1', 'me');
+
+    // Without this the page offers the form again and submitting is refused
+    // with an error that reads like a fault rather than a fact.
+    expect(result.alreadySubmitted).toBe(true);
+    expect(result.partnerSubmitted).toBe(false);
+  });
+
+  it('scores agreement with what the exercise expected', async () => {
+    const session = withPrompts();
+    await reviews([session]).submitReview(
+      's1',
+      { answers: [true, false, true] } as any,
+      'me',
+    );
+
+    expect(session.reviews[0].score).toBe(3);
+  });
+
+  it('does not reward answering yes to everything', async () => {
+    const session = withPrompts();
+    await reviews([session]).submitReview('s1', { answers: [true, true, true] } as any, 'me');
+
+    // The middle prompt expects `no`. Under the old scoring this was 3/3.
+    expect(session.reviews[0].score).toBe(2);
+  });
+
+  it('refuses a submission that does not answer every prompt', async () => {
+    // A short array used to score as if the unanswered prompts were wrong,
+    // which is what an empty one from the broken form did.
+    await expect(
+      reviews([withPrompts()]).submitReview('s1', { answers: [true] } as any, 'me'),
+    ).rejects.toThrow('3 prompts; 1 answers were sent');
+  });
+
+  it('refuses an empty submission', async () => {
+    await expect(
+      reviews([withPrompts()]).submitReview('s1', { answers: [] } as any, 'me'),
+    ).rejects.toThrow('3 prompts; 0 answers were sent');
+  });
+
+  it('still scores a question seeded before expected answers existed', async () => {
+    // Older rows store reviewQuestions as a plain array of strings. Treating
+    // those as expecting `true` is exactly the old behaviour, so an existing
+    // row keeps the score it always had rather than silently changing.
+    const legacy = withPrompts({
+      question: { reviewQuestions: ['Did we test it?', 'Did we name things well?'] },
+    });
+
+    await reviews([legacy]).submitReview('s1', { answers: [true, false] } as any, 'me');
+
+    expect(legacy.reviews[0].score).toBe(1);
+  });
+
+  it('reports how far the two partners agreed with each other', async () => {
+    const session = withPrompts({
+      reviews: [
+        { userId: 'me', score: 3, answers: [true, false, true] },
+        { userId: 'partner', score: 2, answers: [true, true, true] },
+      ],
+    });
+
+    const result: any = await reviews([session]).getResult('s1', 'me');
+
+    // Two partners who agree with the exercise equally often but disagree with
+    // EACH OTHER on every prompt used to look identical to two who agreed on
+    // everything - and the comparison is the point of answering separately.
+    expect(result.agreement).toEqual({ matched: 2, outOf: 3 });
+    expect(result.outOf).toBe(3);
+  });
+
+  it('has no agreement figure until both have answered', async () => {
+    const session = withPrompts({
+      reviews: [{ userId: 'me', score: 3, answers: [true, false, true] }],
+    });
+
+    const result: any = await reviews([session]).getResult('s1', 'me');
+
+    // It is a property of the pair, not of a submission.
+    expect(result.agreement).toBeNull();
+  });
+
+  it('advises proportionally rather than against an assumed ten prompts', async () => {
+    const session = withPrompts({
+      reviews: [{ userId: 'me', score: 3, answers: [true, false, true] }],
+    });
+
+    const result: any = await reviews([session]).getResult('s1', 'me');
+
+    // 3 of 3 is a perfect score. The old thresholds were absolute numbers, so
+    // a question with six prompts could not reach "excellent" however well the
+    // pair did.
+    expect(result.recommendations[0]).toMatch(/line up/i);
   });
 });
 

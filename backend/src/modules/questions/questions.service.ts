@@ -20,13 +20,19 @@ import { PUBLIC_QUESTION_WITH_TOPIC } from '../../common/public-select';
 export class QuestionsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Archived questions are excluded from every list a student picks from.
+  // findById is NOT filtered: a session already on an archived question still
+  // has to be able to resolve it, or the workspace loses its exercise.
   async findAll() {
-    return this.prisma.question.findMany({ select: PUBLIC_QUESTION_WITH_TOPIC });
+    return this.prisma.question.findMany({
+      where: { archived: false },
+      select: PUBLIC_QUESTION_WITH_TOPIC,
+    });
   }
 
   async findByTopic(topicId: string) {
     return this.prisma.question.findMany({
-      where: { topicId },
+      where: { topicId, archived: false },
       select: PUBLIC_QUESTION_WITH_TOPIC,
     });
   }

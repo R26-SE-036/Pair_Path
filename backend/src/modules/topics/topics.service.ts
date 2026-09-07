@@ -12,13 +12,13 @@ export class TopicsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll() {
-    return this.prisma.topic.findMany({ include: { questions: PUBLIC_QUESTION } });
+    return this.prisma.topic.findMany({ include: { questions: { ...PUBLIC_QUESTION, where: { archived: false } } } });
   }
 
   async findById(id: string) {
     return this.prisma.topic.findUnique({
       where: { id },
-      include: { questions: PUBLIC_QUESTION },
+      include: { questions: { ...PUBLIC_QUESTION, where: { archived: false } } },
     });
   }
 }

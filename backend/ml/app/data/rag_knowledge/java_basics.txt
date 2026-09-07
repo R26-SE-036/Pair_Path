@@ -21,3 +21,9 @@ Keywords: string, text, equals, concatenate, compare, char
 Content: Strings in Java are objects, not simple values, so comparing them with the equality operator asks whether they are the same object rather than whether they contain the same characters. Two strings can look identical on screen and still fail that comparison.
 Example: Count the characters in each string, including spaces at either end, and compare the two counts.
 Question: Are you checking whether these two strings are the same object, or whether they hold the same text?
+---
+Tags: strings, immutable, return value, text
+Keywords: trim, touppercase, tolowercase, replace, substring, concat, unchanged, discarded
+Content: A string in Java can never be changed once it exists, so every string method leaves the original alone and hands back a new string instead. Calling one of them on its own therefore does nothing you can see: the new text is created and immediately thrown away, while the variable still holds exactly what it held before.
+Example: Look at the line that calls the string method and check whether its result is stored anywhere - assigned back to the variable, put in a new one, or passed straight into something else.
+Question: Where does the string this method returned actually go?
