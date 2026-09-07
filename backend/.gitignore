@@ -38,3 +38,8 @@ lerna-debug.log*
 .env.test
 .env.development
 .env.production
+
+# ts-node emits alongside the source when a script in prisma/ is compiled
+# without --transpile-only. Two of these were committed by accident.
+/prisma/**/*.js
+/prisma/**/*.d.ts
