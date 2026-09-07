@@ -1,0 +1,278 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+
+  // "native" alone builds an engine for whoever ran `prisma generate`. That is
+  // the developer's machine, so the Alpine image got a client it could not
+  // load and the API crash-looped on boot with:
+  //
+  //   Unable to require(.prisma/client/libquery_engine-linux-musl.so.node)
+  //   Error loading shared library libssl.so.1.1: No such file or directory
+  //
+  // The plain `linux-musl` target links against OpenSSL 1.1, which Alpine
+  // dropped; node:22-alpine ships OpenSSL 3. The -openssl-3.0.x target is the
+  // one that matches, and both are listed so `npm run start` on a laptop and
+  // the container image keep working from the same generate.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+
+  // DATABASE_URL only, because that is the variable every existing .env in the
+  // team already has. Requiring a new one here broke `prisma migrate` and the
+  // runtime outright for anyone who pulled the code and kept their own .env:
+  //
+  //     error: Environment variable not found: DATABASE_URL_POOLED
+  //
+  // Migrations should use the DIRECT connection anyway - Neon's pooler runs in
+  // transaction mode and cannot hold the session-level advisory locks Prisma
+  // Migrate needs - so this is also the correct URL for this line.
+  //
+  // Connection pooling is applied at runtime instead, in common/prisma.service.ts,
+  // where DATABASE_URL_POOLED is used if it is set and ignored if it is not.
+  url = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Links this account to its identity in the shared Code Coach backend.
+  // Null for accounts that only ever logged in locally. Everything else in
+  // this schema keys on `id`, so a Code Coach user still gets a local row —
+  // that is what keeps the foreign keys on sessions and events intact.
+  codeCoachUserId String? @unique
+
+  // Relations
+  sessionMemberships PairSessionMember[]
+  sessionEvents      SessionEvent[]
+  reviewSubmissions  ReviewSubmission[]
+
+  @@map("users")
+}
+
+model Topic {
+  id          String @id @default(cuid())
+  name        String @unique
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  questions Question[]
+
+  @@map("topics")
+}
+
+model Question {
+  id                String @id @default(cuid())
+  topicId           String
+  title             String
+  description       String
+  difficulty        String
+  starterCode       String   @default("")
+  referenceSolution String
+  reviewQuestions   Json   // Array of review questions
+  conceptTags       Json   // Array of concept tags
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  topic   Topic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  sessions PairSession[]
+
+  @@map("questions")
+}
+
+model PairSession {
+  id           String    @id @default(cuid())
+  joinCode     String    @unique
+  questionId   String
+  status       String    @default("ACTIVE") // ACTIVE, COMPLETED
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
+  finalCode    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  question    Question            @relation(fields: [questionId], references: [id])
+  members     PairSessionMember[]
+  events      SessionEvent[]
+  snapshots   CodeSnapshot[]
+  windows     FeatureWindow[]
+  predictions PairStatePrediction[]
+  interventions Intervention[]
+  reviews     ReviewSubmission[]
+
+  @@map("pair_sessions")
+}
+
+model PairSessionMember {
+  id       String @id @default(cuid())
+  sessionId String
+  userId    String
+  role      String // DRIVER, NAVIGATOR
+  joinedAt  DateTime @default(now())
+
+  // Relations
+  session PairSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@map("pair_session_members")
+}
+
+model SessionEvent {
+  id        String   @id @default(cuid())
+  sessionId String
+  userId    String
+  role      String
+  // The types the gateway actually writes. CODE_DELETE, RUN_ATTEMPT,
+  // RUN_SUCCESS, RUN_FAILURE and IDLE_PERIOD were listed here and never
+  // emitted by anything - and the feature extractor keys on CODE_RUN_RESULT,
+  // so a reader following this comment would have looked for a run outcome
+  // under three names that do not exist.
+  eventType String // JOIN, CODE_EDIT, CODE_RUN, CODE_RUN_RESULT, DISCUSSION_NOTE, ROLE_SWITCH, INTERVENTION_RESPONSE
+  timestamp DateTime @default(now())
+  metadata  Json     // Event-specific data
+
+  // Relations
+  session PairSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session_events")
+}
+
+model CodeSnapshot {
+  id        String   @id @default(cuid())
+  sessionId String
+  code      String
+  timestamp DateTime @default(now())
+
+  // Relations
+  session PairSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("code_snapshots")
+}
+
+model FeatureWindow {
+  id          String   @id @default(cuid())
+  sessionId   String
+  windowStart DateTime
+  windowEnd   DateTime
+  features    Json     // Extracted features
+  createdAt   DateTime @default(now())
+
+  // Relations
+  session PairSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("feature_windows")
+}
+
+model PairStatePrediction {
+  id           String   @id @default(cuid())
+  sessionId    String
+  windowStart  DateTime
+  windowEnd    DateTime
+  predictedState String
+  confidence   Float
+  modelVersion String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  session PairSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("pair_state_predictions")
+}
+
+model Intervention {
+  id        String   @id @default(cuid())
+  sessionId String
+  state     String
+  action    String
+  uiTarget  String
+  uiEffect  String
+  message   String
+  shownAt   DateTime @default(now())
+  accepted  Boolean?
+  createdAt DateTime @default(now())
+
+  // Relations
+  session PairSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("interventions")
+}
+
+model ReviewSubmission {
+  id         String   @id @default(cuid())
+  sessionId  String
+  userId     String
+  answers    Json     // Array of True/False answers
+  score      Int
+  completedAt DateTime @default(now())
+
+  // Relations
+  session PairSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@map("review_submissions")
+}
+
+model SimulatedSession {
+  id          String   @id // e.g. "demo_productive_00" — self-identifying
+  label       String   // the collaboration state this session was generated to represent
+  labelSource String   @default("simulated")
+  rater       String   @default("generator")
+  createdAt   DateTime @default(now())
+
+  events  SimulatedEvent[]
+  windows SimulatedWindow[]
+
+  @@index([label])
+  @@map("simulated_sessions")
+}
+
+model SimulatedEvent {
+  id        String   @id @default(cuid())
+  sessionId String
+  userId    String // "U1" / "U2" — generated participants, not real users
+  eventType String
+  timestamp DateTime
+  metadata  Json
+
+  session SimulatedSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, timestamp])
+  @@index([eventType])
+  @@map("simulated_events")
+}
+
+// One row per sliding window: the 15 feature values the model actually sees,
+// plus the label. This is literally the training set, row for row.
+model SimulatedWindow {
+  id          String   @id @default(cuid())
+  sessionId   String
+  windowStart Float // epoch seconds
+  windowEnd   Float
+  features    Json // the 15 canonical features
+  label       String
+  labelSource String   @default("simulated")
+  rater       String   @default("generator")
+  createdAt   DateTime @default(now())
+
+  session SimulatedSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([label])
+  @@map("simulated_windows")
+}

@@ -1,0 +1,16 @@
+# Kept out of the build context: the image installs its own dependencies, and
+# shipping a host-built node_modules would mix native binaries from a different
+# platform into an Alpine image.
+node_modules
+dist
+.git
+.env
+.env.*
+npm-debug.log*
+*.tsbuildinfo
+
+# The Python service lives at backend/ml and builds from its own Dockerfile
+# with its own context. Nothing here copies it, but leaving it in the build
+# context ships the model artefacts and a ~500MB virtualenv to the daemon on
+# every build of this image.
+ml

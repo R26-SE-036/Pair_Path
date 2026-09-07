@@ -1,0 +1,790 @@
+<title>Pair State Runbook</title>
+<style>
+  @font-face {
+    /* system stacks only — no CDN fonts under CSP; declared for clarity, not used as a src */
+  }
+
+  :root {
+    --bg: #F2F3EF;
+    --surface: #FBFBF9;
+    --surface-2: #EAEBE5;
+    --border: #D7D9D0;
+    --text: #1B1F1B;
+    --text-muted: #5C6158;
+    --text-faint: #888D83;
+    --accent: #9C6B28;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #EADFC9;
+    --status-done: #3F7A55;
+    --status-done-soft: #DEEBE1;
+    --status-progress: #9C6B28;
+    --status-progress-soft: #EADFC9;
+    --status-pending: #83887E;
+    --status-pending-soft: #E7E8E2;
+    --shadow: 0 1px 2px rgba(27,31,27,0.06), 0 1px 1px rgba(27,31,27,0.04);
+    --font-mono: ui-monospace, "JetBrains Mono", "IBM Plex Mono", "Berkeley Mono", Menlo, Consolas, "Roboto Mono", monospace;
+    --font-serif: "Iowan Old Style", Charter, "Georgia Pro", Georgia, "Noto Serif", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12140F;
+      --surface: #191C15;
+      --surface-2: #21251B;
+      --border: #34382C;
+      --text: #E9EAE2;
+      --text-muted: #A4A99B;
+      --text-faint: #767B6E;
+      --accent: #D6A25E;
+      --accent-ink: #1B1408;
+      --accent-soft: #382C16;
+      --status-done: #7FBB93;
+      --status-done-soft: #1E2E22;
+      --status-progress: #D6A25E;
+      --status-progress-soft: #382C16;
+      --status-pending: #8B9084;
+      --status-pending-soft: #23261C;
+      --shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #12140F;
+    --surface: #191C15;
+    --surface-2: #21251B;
+    --border: #34382C;
+    --text: #E9EAE2;
+    --text-muted: #A4A99B;
+    --text-faint: #767B6E;
+    --accent: #D6A25E;
+    --accent-ink: #1B1408;
+    --accent-soft: #382C16;
+    --status-done: #7FBB93;
+    --status-done-soft: #1E2E22;
+    --status-progress: #D6A25E;
+    --status-progress-soft: #382C16;
+    --status-pending: #8B9084;
+    --status-pending-soft: #23261C;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-serif);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 6rem;
+  }
+
+  a { color: var(--accent); }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 0 0 0.6rem;
+  }
+
+  h1 {
+    font-family: var(--font-mono);
+    font-size: clamp(1.7rem, 4vw, 2.15rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.85rem;
+    text-wrap: balance;
+  }
+
+  .lede {
+    color: var(--text-muted);
+    font-size: 1.02rem;
+    max-width: 62ch;
+    margin: 0 0 2rem;
+  }
+
+  .lede strong { color: var(--text); font-weight: 600; }
+
+  /* ---- progress summary ---- */
+  .progress-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.1rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 2.75rem;
+  }
+
+  .progress-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .progress-label {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .progress-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.92rem;
+    color: var(--text-muted);
+  }
+
+  .progress-count b { color: var(--text); font-weight: 600; }
+
+  .bar-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 999px;
+    width: 0%;
+    transition: width 0.35s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bar-fill { transition: none; }
+  }
+
+  /* ---- phase sections ---- */
+  .phase {
+    border-top: 1px solid var(--border);
+    padding: 2.1rem 0;
+  }
+  .phase:last-of-type { border-bottom: 1px solid var(--border); }
+
+  .phase-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .phase-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+  }
+
+  .phase-num {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .phase-title {
+    font-family: var(--font-mono);
+    font-size: 1.12rem;
+    font-weight: 600;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .status-pill {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.22rem 0.55rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .status-pill[data-status="done"] { background: var(--status-done-soft); color: var(--status-done); }
+  .status-pill[data-status="progress"] { background: var(--status-progress-soft); color: var(--status-progress); }
+  .status-pill[data-status="pending"] { background: var(--status-pending-soft); color: var(--status-pending); }
+
+  .phase-why {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    max-width: 60ch;
+    margin: 0.3rem 0 1.1rem;
+  }
+
+  .checklist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 6px;
+  }
+  .item:hover { background: var(--surface-2); }
+
+  .item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.05rem;
+    height: 1.05rem;
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    cursor: pointer;
+    position: relative;
+  }
+  .item input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .item input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: -1px;
+    width: 5px;
+    height: 9px;
+    border: solid var(--accent-ink);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .item input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .item label {
+    font-size: 0.98rem;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .item input[type="checkbox"]:checked ~ label {
+    color: var(--text-faint);
+    text-decoration: line-through;
+    text-decoration-color: var(--border);
+  }
+
+  .item .sub {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+    text-decoration: none;
+  }
+
+  code, .code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--surface-2);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+
+  /* ---- reference table ---- */
+  .reference {
+    padding-top: 2.5rem;
+  }
+
+  .reference h2 {
+    font-family: var(--font-mono);
+    font-size: 1.12rem;
+    font-weight: 600;
+    margin: 0 0 0.3rem;
+  }
+
+  .reference .phase-why { margin-bottom: 1.4rem; }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    min-width: 560px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.85rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  thead th {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    font-weight: 600;
+    background: var(--surface-2);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td.feat { font-family: var(--font-mono); font-size: 0.82rem; white-space: nowrap; }
+  td.state {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  td.state[data-s="upgrade"] { color: var(--status-progress); }
+  td.state[data-s="new"] { color: var(--text-muted); }
+
+  .deferred {
+    margin-top: 1.1rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+  }
+  .deferred b { color: var(--text); }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-faint);
+  }
+</style>
+
+<div class="page">
+  <p class="eyebrow">PairPath — ml-service</p>
+  <h1>Pair State Runbook</h1>
+  <p class="lede">
+    Reordered to match your research proposal's own priority: <strong>ethical blockers first</strong>
+    (L9/L10 gate all participant data collection), then pipeline fixes, then re-annotation,
+    then the classroom study. Phase labels use your proposal's own L-numbers (Table 8) where
+    they apply. <strong>PREP reflects work already done.</strong> Check items off as you go;
+    progress is saved in this browser.
+  </p>
+
+  <div class="progress-card">
+    <div class="progress-row">
+      <span class="progress-label">Overall progress</span>
+      <span class="progress-count" id="overall-count"><b>0</b> / 0 steps</span>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="overall-bar"></div></div>
+  </div>
+
+  <main id="phases">
+
+    <section class="phase" data-phase="prep">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">PREP</span>
+          <h2 class="phase-title">Cleanup completed</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Supports L1 (label circularity) and L3 (duplicate rows) — the fabricated and circular-labeled data no longer sits in the live pipeline.</p>
+      <ul class="checklist">
+        <li class="item">
+          <input type="checkbox" id="prep-1" checked><label for="prep-1">Removed dead code
+            <span class="sub"><code>model_loader.py</code>, <code>rag_retriever.py</code>, <code>schemas/hints.py</code> deleted; broken import in <code>main.py</code> fixed.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="prep-2" checked><label for="prep-2">Archived invalid data and model
+            <span class="sub">Fabricated labels, mock sessions, the circular-labeled Mongo export, and the model trained on it — moved to repo-root <code>archive/</code> with a README explaining why.</span>
+          </label>
+        </li>
+        <li class="item">
+          <input type="checkbox" id="prep-3" checked><label for="prep-3">Stopped the circular-labeling export
+            <span class="sub"><code>export_mongo_to_csv.py</code> no longer writes <code>label = prediction.predictedState</code>; exports unlabeled feature vectors only.</span>
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l9">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L9</span>
+          <h2 class="phase-title">Gateway authentication</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Ethical blocker. Your proposal states no student data collection until this is fixed — it gates everything downstream, including Phase L6.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l9-1" checked><label for="l9-1">JWT verification in the Socket.IO handshake</label></li>
+        <li class="item"><input type="checkbox" id="l9-2" checked><label for="l9-2">Session-membership validation on every socket event handler</label></li>
+        <li class="item"><input type="checkbox" id="l9-3" checked><label for="l9-3">Auth guards on the two currently-unauthenticated analytics endpoints</label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l10">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L10</span>
+          <h2 class="phase-title">Sandboxed code execution</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Second ethical blocker. Code currently runs via a regex blocklist directly on the API host, not real isolation.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l10-1" checked><label for="l10-1">Replace the regex blocklist with real containerized execution</label></li>
+        <li class="item"><input type="checkbox" id="l10-2" checked><label for="l10-2">Enforce resource, filesystem, and network limits on the container</label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l5">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L5</span>
+          <h2 class="phase-title">Real sliding-window extraction</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">The extractor currently aggregates once per whole session — no windowing at all, despite the <code>_1m</code>/<code>_3m</code> column names. That's a real train/serve mismatch, and it's what RQ2 (minimum reliable observation window) depends on.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l5-1" checked><label for="l5-1">Build a true overlapping sliding-window extractor, not a whole-session aggregate</label></li>
+        <li class="item"><input type="checkbox" id="l5-2"><label for="l5-2">Run a window-length ablation (e.g. 60s / 90s / 120s / 180s) and report it honestly
+          <span class="sub">Don't assume 120s from the earlier stale v3 attempt — that result predates the current codebase and was never reproduced in it.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="l5-3" checked><label for="l5-3">Keep the gateway's live extractor and the training extractor as one shared implementation
+          <span class="sub">Implement the real ~19-feature middle ground (see Reference below) rather than the full 33 or the current thin, partly-hardcoded 8.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l2l3">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L2 / L3</span>
+          <h2 class="phase-title">Session-level split, no duplication</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l2-1" checked><label for="l2-1">Grouped split by <code>session_id</code>, stratified by label</label></li>
+        <li class="item"><input type="checkbox" id="l2-2" checked><label for="l2-2">Group k-fold cross-validation for tuning, not one fixed split</label></li>
+        <li class="item"><input type="checkbox" id="l3-1" checked><label for="l3-1">Dedupe within-session exact repeats
+          <span class="sub">Keep cross-session identical vectors — those are independent observations, not leakage.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="l3-2" checked><label for="l3-2">Handle class imbalance with <code>sample_weight</code>, never row replication
+          <span class="sub">Retire the 9x-copy replication script the audit found.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l7l12">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L7 / L12</span>
+          <h2 class="phase-title">Reconcile taxonomy and mappings</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">L7 is already decided in your proposal — this is implementation, not an open question.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l7-1" checked><label for="l7-1">Reconcile to 5 states; defer <code>LOW_QUALITY_REVIEW</code> as documented future work
+          <span class="sub">Not a live class for this study — don't re-litigate this.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="l12-1" checked><label for="l12-1">Consolidate the two drifted copies of the intervention-mapping table into one source of truth</label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l13">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L13</span>
+          <h2 class="phase-title">Resolve the manual_window_labels.csv conflict</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Your proposal treats these 48 windows as a positive finding — a ready seed/calibration set for Phase 2 annotation. When this runbook's PREP phase examined the actual file, all 8 sessions had the identical 6-label sequence at exactly 1-minute intervals — that reads as a template, not real annotation. This needs resolving before the paper cites it either way.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l13-1"><label for="l13-1">Re-verify against your own records of how this file was produced</label></li>
+        <li class="item"><input type="checkbox" id="l13-2"><label for="l13-2">If it's a template: drop it as a claimed seed set from Table 8 / Appendix D. If it's real: document how it was produced</label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l6">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L6</span>
+          <h2 class="phase-title">Classroom study — the real data source</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">40-80 students / 20-40 pairs, first-year Java module. Gated on L9/L10 and ethical clearance (WP 4.4) — this cannot start earlier.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l6-1"><label for="l6-1">Ethical clearance (WP 4.4) before any recruitment</label></li>
+        <li class="item"><input type="checkbox" id="l6-2"><label for="l6-2">Random assignment stratified by pre-test score; students blinded to condition</label></li>
+        <li class="item"><input type="checkbox" id="l6-3"><label for="l6-3">Control = identical system with the inference path disabled
+          <span class="sub">Not a different tool — clean confound elimination via the existing graceful-degradation design. Control-arm behavioral data still counts as an unintervened comparison + extra annotation corpus.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="l6-4"><label for="l6-4">Collect across all DVs
+          <span class="sub">Performance, comprehension, participation balance, communication, role dynamics, engagement, debugging behavior, intervention efficacy/fatigue — all from the same SessionEvent census table.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l1">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L1</span>
+          <h2 class="phase-title">Human annotation only</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Cannot start until L5/L2/L3 are done — annotation windows must come from the corrected extractor, not the old one.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l1-1"><label for="l1-1">Write the labeling rubric/codebook
+          <span class="sub">Concrete, observable criteria per state. This becomes Appendix D.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="l1-2"><label for="l1-2">Label the sessions yourself</label></li>
+        <li class="item"><input type="checkbox" id="l1-3"><label for="l1-3">Second rater on an overlap subset; compute Cohen's kappa</label></li>
+        <li class="item"><input type="checkbox" id="l1-4"><label for="l1-4">Revise the rubric if kappa is low, before training on it</label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l4">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L4</span>
+          <h2 class="phase-title">Honest re-evaluation</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">RQ1 specifically asks for accuracy vs. the existing rule-based baseline under session-level partitioning — not a standalone number.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l4-1"><label for="l4-1">Evaluate on held-out real labeled sessions only</label></li>
+        <li class="item"><input type="checkbox" id="l4-2"><label for="l4-2">Report against the existing rule-based fallback as the RQ1 baseline</label></li>
+        <li class="item"><input type="checkbox" id="l4-3"><label for="l4-3">Confusion matrix + per-class precision/recall/F1; compare against the L1 kappa ceiling</label></li>
+        <li class="item"><input type="checkbox" id="l4-4"><label for="l4-4">Persist metrics + a model card
+          <span class="sub">What data, what split, what date — so this can't happen again silently.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l8l11">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L8 / L11</span>
+          <h2 class="phase-title">Wire the intervention cooldown</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Designed in Redis already — never actually injected into the intervention path.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l8-1" checked><label for="l8-1">Inject the existing Redis cooldown into the intervention path</label></li>
+        <li class="item"><input type="checkbox" id="l8-2" checked><label for="l8-2">Per-session cooldown window so interventions don't fire back-to-back</label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l14">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L14</span>
+          <h2 class="phase-title">RAG-lite — document, then compare</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <p class="phase-why">Current retrieval is keyword/tag scoring, not the embeddings the dependency list implies. Your proposal frames this as an architectural guarantee — no corpus document contains a solution — not a lesser version of real RAG.</p>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l14-1" checked><label for="l14-1">Document the current system explicitly as RAG-lite in <code>ml-service/README.md</code></label></li>
+        <li class="item"><input type="checkbox" id="l14-2"><label for="l14-2">Phase 3: populate the reserved <code>RAGChunk.embedding</code> column and evaluate embeddings as a scored comparison against this baseline
+          <span class="sub">Not a silent swap — the output contract (conceptReminder/exampleIdea/reflectiveQuestion) stays fixed either way.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="l15">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">L15</span>
+          <h2 class="phase-title">Pin and containerize ml-service</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="l15-1" checked><label for="l15-1">Pin all dependency versions in <code>requirements.txt</code></label></li>
+        <li class="item"><input type="checkbox" id="l15-2" checked><label for="l15-2">Containerize the ml-service deployment</label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="deploy">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">DEPLOY</span>
+          <h2 class="phase-title">Ship the validated model</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="deploy-1"><label for="deploy-1">Drop the validated model into <code>ml-service/models/</code>
+          <span class="sub">Currently empty — service is running on the rule-based fallback.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="deploy-2"><label for="deploy-2">Sanity-test load and predictions via <code>dev_tools/test_model.py</code></label></li>
+        <li class="item"><input type="checkbox" id="deploy-3" checked><label for="deploy-3">Fix the hardcoded <code>modelVersion</code> string in <code>main.py</code>
+          <span class="sub">Always returns <code>"pair_state_xgboost_v1"</code> regardless of what's actually loaded.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="monitor">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">MONITOR</span>
+          <h2 class="phase-title">Keep it honest in production</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="monitor-1"><label for="monitor-1">Track prediction distribution over time for drift</label></li>
+        <li class="item"><input type="checkbox" id="monitor-2"><label for="monitor-2">Use <code>Intervention.accepted</code> as weak supplementary signal only — never a label substitute</label></li>
+        <li class="item"><input type="checkbox" id="monitor-3"><label for="monitor-3">Set an active-learning retrain cadence
+          <span class="sub">Low-confidence production predictions → hand-labeled → folded into training.</span>
+        </label></li>
+      </ul>
+    </section>
+
+    <section class="phase" data-phase="paper">
+      <div class="phase-head">
+        <div class="phase-heading">
+          <span class="phase-num">PAPER</span>
+          <h2 class="phase-title">Write it up</h2>
+        </div>
+        <span class="status-pill" data-status="pending">Not started</span>
+      </div>
+      <ul class="checklist">
+        <li class="item"><input type="checkbox" id="paper-1"><label for="paper-1">Appendix G is already drafted
+          <span class="sub">The system-anatomy audit produced earlier is a ready first draft, not a from-scratch job.</span>
+        </label></li>
+        <li class="item"><input type="checkbox" id="paper-2"><label for="paper-2">Appendix D (annotation codebook) comes directly from the L1 rubric</label></li>
+        <li class="item"><input type="checkbox" id="paper-3"><label for="paper-3">State limitations honestly
+          <span class="sub">Sample size, state ambiguity, collection timeframe — a small honest dataset is a normal, defensible capstone result.</span>
+        </label></li>
+      </ul>
+    </section>
+
+  </main>
+
+  <section class="reference">
+    <h2>Reference — the ~19-feature set for L5</h2>
+    <p class="phase-why">The middle ground between the current thin 8 (two of which are hardcoded constants) and the full 33 (six of which need instrumentation you don't have yet). Window length itself (1m/3m here) is an assumption to test in L5's ablation, not a given.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Feature</th><th>Computed from</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="feat">user1_edit_count_1m / user2_edit_count_1m</td><td>CODE_EDIT events by userId, 1-min window</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">edit_balance_ratio_1m</td><td>Derived from the above</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">avg_edit_balance_3m</td><td>CODE_EDIT by userId, 3-min window</td><td class="state" data-s="upgrade">Upgrade</td></tr>
+          <tr><td class="feat">run_attempts_1m / total_run_attempts_3m</td><td>CODE_RUN events</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">run_success_rate_1m</td><td>CODE_RUN_RESULT.success, 1-min</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">consecutive_failure_count_1m/3m</td><td>CODE_RUN_RESULT.success sequence</td><td class="state" data-s="upgrade">Upgrade</td></tr>
+          <tr><td class="feat">idle_ratio_1m / avg_idle_ratio_3m</td><td>Real timestamp-gap analysis</td><td class="state" data-s="upgrade">Upgrade</td></tr>
+          <tr><td class="feat">discussion_note_count_1m</td><td>DISCUSSION_NOTE events, 1-min</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">time_since_role_switch</td><td>Latest ROLE_SWITCH timestamp</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">role_switch_count_3m</td><td>ROLE_SWITCH events, 3-min</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">driver_edit_count_3m / navigator_edit_count_3m</td><td>CODE_EDIT + PairSessionMember.role</td><td class="state" data-s="new">New</td></tr>
+          <tr><td class="feat">active_user_dominance_1m/3m</td><td>Edit + role data, formula to be defined</td><td class="state" data-s="new">New</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="deferred">
+      <b>Deferred — needs new instrumentation, not just more code:</b>
+      <code>backtracking_ratio_1m/3m</code> and <code>progress_trend_1m/3m</code> need real code-diffing
+      (only <code>codeLength</code> is logged today, not the code itself); <code>prompt_count_1m/3m</code>
+      needs a new "hint requested" event type that doesn't exist yet. Build these only if you commit to the underlying product work.
+    </div>
+  </section>
+
+  <footer>Generated from the PairPath ml-service audit · archive/pair-state-runbook.html</footer>
+</div>
+
+<script>
+  (function () {
+    var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.item input[type="checkbox"]'));
+    var STORAGE_PREFIX = 'pairstate-runbook:';
+
+    function loadState() {
+      checkboxes.forEach(function (cb) {
+        var saved = localStorage.getItem(STORAGE_PREFIX + cb.id);
+        if (saved !== null) cb.checked = saved === '1';
+      });
+    }
+
+    function saveState(cb) {
+      localStorage.setItem(STORAGE_PREFIX + cb.id, cb.checked ? '1' : '0');
+    }
+
+    function updatePhaseStatus(section) {
+      var boxes = Array.prototype.slice.call(section.querySelectorAll('.item input[type="checkbox"]'));
+      var checked = boxes.filter(function (b) { return b.checked; }).length;
+      var pill = section.querySelector('.status-pill');
+      if (checked === 0) {
+        pill.dataset.status = 'pending';
+        pill.textContent = 'Not started';
+      } else if (checked === boxes.length) {
+        pill.dataset.status = 'done';
+        pill.textContent = 'Done';
+      } else {
+        pill.dataset.status = 'progress';
+        pill.textContent = checked + ' / ' + boxes.length;
+      }
+    }
+
+    function updateOverall() {
+      var total = checkboxes.length;
+      var checked = checkboxes.filter(function (b) { return b.checked; }).length;
+      document.getElementById('overall-count').innerHTML = '<b>' + checked + '</b> / ' + total + ' steps';
+      var pct = total ? Math.round((checked / total) * 100) : 0;
+      document.getElementById('overall-bar').style.width = pct + '%';
+    }
+
+    function refreshAll() {
+      document.querySelectorAll('.phase').forEach(updatePhaseStatus);
+      updateOverall();
+    }
+
+    loadState();
+    checkboxes.forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        saveState(cb);
+        refreshAll();
+      });
+    });
+    refreshAll();
+  })();
+</script>

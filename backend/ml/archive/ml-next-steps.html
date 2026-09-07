@@ -1,0 +1,1061 @@
+<title>What's Left On My Model</title>
+<style>
+  :root {
+    --bg: #F4F6F7;
+    --surface: #FFFFFF;
+    --surface-2: #EAEFF1;
+    --border: #DCE3E5;
+    --border-strong: #C3CFD3;
+    --text: #16232B;
+    --text-muted: #55666F;
+    --text-faint: #8496A0;
+    --accent: #0E7C86;
+    --accent-soft: #DCEDEF;
+    --flag: #A65D14;
+    --flag-soft: #F7E9D8;
+    --urgent: #A5271F;
+    --urgent-soft: #F8DFDC;
+    --done: #2F7D53;
+    --done-soft: #DEEEE4;
+    --shadow: 0 1px 2px rgba(22,35,43,0.05), 0 2px 8px rgba(22,35,43,0.04);
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --serif: "Iowan Old Style", Charter, "Georgia Pro", Georgia, "Noto Serif", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E1518;
+      --surface: #172126;
+      --surface-2: #1E2A30;
+      --border: #2B3A40;
+      --border-strong: #3B4C54;
+      --text: #E4EBED;
+      --text-muted: #9BACB4;
+      --text-faint: #74868F;
+      --accent: #4FC3CE;
+      --accent-soft: #12333A;
+      --flag: #E0A050;
+      --flag-soft: #33270F;
+      --urgent: #F0897E;
+      --urgent-soft: #3A1613;
+      --done: #6FBF8E;
+      --done-soft: #14301F;
+      --shadow: 0 1px 3px rgba(0,0,0,0.45);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0E1518;
+    --surface: #172126;
+    --surface-2: #1E2A30;
+    --border: #2B3A40;
+    --border-strong: #3B4C54;
+    --text: #E4EBED;
+    --text-muted: #9BACB4;
+    --text-faint: #74868F;
+    --accent: #4FC3CE;
+    --accent-soft: #12333A;
+    --flag: #E0A050;
+    --flag-soft: #33270F;
+    --urgent: #F0897E;
+    --urgent-soft: #3A1613;
+    --done: #6FBF8E;
+    --done-soft: #14301F;
+    --shadow: 0 1px 3px rgba(0,0,0,0.45);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 730px;
+    margin: 0 auto;
+    padding: 3rem 1.25rem 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  header { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .kicker {
+    font-size: 0.7rem;
+    font-weight: 650;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 5vw, 2.3rem);
+    font-weight: 700;
+    letter-spacing: -0.021em;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 1.06rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+    max-width: 60ch;
+  }
+  .standfirst strong { color: var(--text); font-weight: 600; }
+
+  .progress {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    box-shadow: var(--shadow);
+  }
+
+  .progress-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .progress-label {
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .progress-count {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-count b { color: var(--text); font-weight: 700; }
+
+  .track { height: 7px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+  .fill { height: 100%; width: 0%; background: var(--accent); border-radius: 99px; transition: width 0.35s ease; }
+  @media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+
+  .group { display: flex; flex-direction: column; gap: 0.85rem; }
+
+  .group-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.15rem;
+    border-bottom: 2px solid var(--border-strong);
+  }
+  .group.urgent .group-head { border-bottom-color: var(--urgent); }
+  .group.first .group-head { border-bottom-color: var(--flag); }
+  .group.finished .group-head { border-bottom-color: var(--done); }
+
+  .group-title { margin: 0; font-size: 1.02rem; font-weight: 700; letter-spacing: -0.008em; }
+  .group-meta { font-size: 0.78rem; color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .group-note {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 0.94rem;
+    color: var(--text-muted);
+    max-width: 62ch;
+  }
+
+  .task {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 0.95rem 1.05rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 0.8rem;
+    box-shadow: var(--shadow);
+  }
+  .task.is-urgent { border-color: var(--urgent); background: var(--urgent-soft); }
+  .task.is-first { border-color: var(--flag); background: var(--flag-soft); }
+  .task.is-done { border-color: var(--done); background: var(--done-soft); }
+
+  .task input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.2rem;
+    height: 1.2rem;
+    margin: 0.15rem 0 0;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 5px;
+    background: var(--surface);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .task input[type="checkbox"]:checked { background: var(--done); border-color: var(--done); }
+  .task input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 6px; top: 1px;
+    width: 5px; height: 10px;
+    border: solid #fff;
+    border-width: 0 2.5px 2.5px 0;
+    transform: rotate(45deg);
+  }
+  .task input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .task-title {
+    grid-column: 2;
+    font-size: 1rem;
+    font-weight: 650;
+    line-height: 1.35;
+    cursor: pointer;
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .task input:checked ~ .task-title { color: var(--text-faint); text-decoration: line-through; }
+  .task input:checked ~ .body { opacity: 0.5; }
+
+  .tag {
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.16rem 0.44rem;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .tag.me { background: var(--accent-soft); color: var(--accent); }
+  .tag.you { background: var(--surface-2); color: var(--text-muted); }
+  .tag.first { background: var(--flag); color: #fff; }
+  .tag.urgent { background: var(--urgent); color: #fff; }
+  .tag.done { background: var(--done); color: #fff; }
+
+  .body {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-family: var(--serif);
+    font-size: 0.94rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+  .body p { margin: 0; }
+  .body b { color: var(--text); font-weight: 600; }
+
+  .lead {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    display: block;
+    margin-bottom: 0.1rem;
+  }
+
+  .callout {
+    background: var(--surface-2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 7px 7px 0;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.89rem;
+  }
+  .callout .num { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
+
+  .correction {
+    background: var(--surface-2);
+    border-left: 3px solid var(--flag);
+    border-radius: 0 7px 7px 0;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.89rem;
+  }
+
+  .example {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 0.55rem 0.7rem;
+    color: var(--text);
+    overflow-x: auto;
+    white-space: pre-wrap;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 1.25rem;
+    font-size: 0.84rem;
+    color: var(--text-faint);
+    font-family: var(--serif);
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="kicker">PairPath · plain-English plan · updated 26 Aug</p>
+    <h1>What's Left On My Model</h1>
+    <p class="standfirst">
+      Your model now has a <strong>real, tested result</strong>, a live model that matches it,
+      and <strong>all five situations written down</strong>. What it still lacks is real students —
+      everything so far proves the pipeline works, not that the tool works on people.
+      Tick things off as you go; this page remembers.
+    </p>
+  </header>
+
+  <div class="progress">
+    <div class="progress-top">
+      <span class="progress-label">Your progress</span>
+      <span class="progress-count" id="count"><b>0</b> of 0 done</span>
+    </div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+  </div>
+
+  <!-- ===================== DONE ===================== -->
+  <section class="group finished" data-group>
+    <div class="group-head">
+      <h2 class="group-title">Already done</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+    <p class="group-note">Finished since this list was first written. Left here so you can see the ground you've gained.</p>
+
+    <div class="task is-done">
+      <input type="checkbox" id="d-eval" checked>
+      <label class="task-title" for="d-eval">
+        Tested the model properly
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <p>
+          A full, rigorous evaluation now exists and re-runs to the same numbers every time:
+          split by whole sessions, settings chosen on a validation set, held-out test touched
+          once, compared against simple rules.
+        </p>
+        <p>
+          <b>Result: 89% accurate, 0.879 macro-F1, beating simple rules by +0.277.</b>
+          Runs in 1.5 milliseconds. Remember this is on <b>made-up sessions</b> — it shows the
+          pipeline works, not that the tool works on students.
+        </p>
+      </div>
+    </div>
+
+    <div class="task is-done">
+      <input type="checkbox" id="d-taxonomy" checked>
+      <label class="task-title" for="d-taxonomy">
+        Fixed the two look-alike situations
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <div class="correction">
+          <b>Correction to the old version of this card.</b> It said the fix was to give the
+          model a longer memory of role-swapping. That would <b>not</b> have worked — in those
+          sessions neither pair swapped, so there was nothing to remember.
+        </div>
+        <p>
+          <span class="lead">What actually fixed it — your idea</span>
+          The two states had been described as the same behaviour. Separating them properly:
+        </p>
+        <p>
+          <b>Driver dominance</b> = the navigator is talking and engaged, but never gets the keyboard.<br>
+          <b>Passive navigator</b> = the navigator isn't talking at all.
+        </p>
+        <p>
+          Driver dominance went from 0.52 to 0.69, passive navigator from 0.78 to 0.91, and the
+          confusion between them dropped by about two-thirds. <b>Put this in your paper</b> — a
+          definition problem you found and fixed is a stronger contribution than a tuning tweak.
+        </p>
+      </div>
+    </div>
+
+    <div class="task is-done">
+      <input type="checkbox" id="d-rulebug" checked>
+      <label class="task-title" for="d-rulebug">
+        Fixed a real bug in the backup rules
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <p>
+          Your app has simple backup rules that run whenever the model fails to load. They were
+          still using the old, wrong definition of driver dominance, and they also relied on who
+          did the most typing — which can never work, because your navigator physically can't type.
+          Both fixed.
+        </p>
+      </div>
+    </div>
+
+    <div class="task is-done">
+      <input type="checkbox" id="d-rolesbug" checked>
+      <label class="task-title" for="d-rolesbug">
+        Found and fixed a serious data bug
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">What was wrong</span>
+          The tool that turns sessions into training data only worked out who was driving
+          <b>after</b> it saw a role swap. But driver-dominance sessions <i>never swap</i> — that's
+          the whole point of them. So for exactly those sessions, every role-based number was
+          silently recorded as zero.
+        </p>
+        <p>
+          The raw logs showed the navigator writing <b>199 messages</b> in those sessions. The
+          training data recorded <b>zero</b>.
+        </p>
+        <p>
+          <span class="lead">Why it mattered</span>
+          Your key insight — that a <i>talking</i> navigator is what separates dominance from
+          passivity — was being thrown away before the model ever saw it. Now dominance shows
+          1.29 navigator messages and passive shows 0.07. The difference is finally in the data.
+        </p>
+        <p>
+          <span class="lead">Also fixed</span>
+          The model sanity-check script had rotted the same way as the slider page and was
+          reporting the same answer for every input. Rewritten to drive the real code path;
+          it now passes all five situations.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== RESOLVED URGENT ===================== -->
+  <section class="group finished" data-group>
+    <div class="group-head">
+      <h2 class="group-title">Was urgent — now resolved</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+
+    <div class="task is-done">
+      <input type="checkbox" id="u-retrain" checked>
+      <label class="task-title" for="u-retrain">
+        Retrain and redeploy the live model
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">The problem</span>
+          The model running in your app was trained on <b>16 August</b>. You changed the state
+          definitions on <b>24 August</b>. So the live model still believes driver dominance
+          means a <b>silent</b> navigator — the definition you replaced.
+        </p>
+        <p>
+          It will label real sessions wrongly, and it doesn't have the improved settings the
+          evaluation found either.
+        </p>
+        <p>
+          <span class="lead">Resolved</span>
+          Retrained on the corrected definitions with settings chosen by search rather than by
+          hand, then redeployed and verified. The live model now matches the one you evaluated.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== THE RUBRIC ===================== -->
+  <section class="group finished" data-group>
+    <div class="group-head">
+      <h2 class="group-title">Your rubric — the 5 situations</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+    <p class="group-note">Written. Keep this open while labelling; it also becomes an appendix in your paper.</p>
+
+    <div class="task is-done">
+      <input type="checkbox" id="r-rubric" checked>
+      <label class="task-title" for="r-rubric">
+        All five situations are defined
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">Productive</span>
+          Both students are working on the same problem together. The driver is typing, the
+          navigator is actively contributing out loud, and they hand the keyboard back and forth.
+          <i>Usually:</i> steady editing, navigator sending real messages, roles swapping every
+          few minutes, runs mostly passing.
+          <b>But:</b> quiet doesn't mean unproductive — a pair thinking through something hard
+          may go silent while still working together. And fast, successful runs with
+          <i>no</i> discussion often means one person racing ahead alone: that's dominance.
+        </p>
+        <p>
+          <span class="lead">Driver dominance</span>
+          One student has held the keyboard for a long stretch while the other stays verbally
+          engaged. Because either can take the driver role at any time, this is a
+          <b>shared failure to rotate</b>, not one person blocking the other.
+          <i>Usually:</i> no role switch for a long stretch, while the navigator keeps sending
+          real messages.
+          <b>But:</b> early on nobody has swapped yet — that's normal. Judge against how long
+          they've been working: no swap at minute 6 is nothing, at minute 25 it's the whole story.
+        </p>
+        <p>
+          <span class="lead">Passive navigator</span>
+          The navigator isn't contributing at all. Not suggesting, not questioning, not thinking
+          aloud. The driver works alone.
+          <i>Usually:</i> no messages from the navigator while the driver works steadily.
+          <b>But:</b> read what they wrote, not how much. Five messages of "ok", "yeah", "sure"
+          is passive despite the count. One message of "wait — that loop starts at 1, should it?"
+          is real contribution. Judge content, not number.
+        </p>
+        <p>
+          <span class="lead">Logic struggle</span>
+          Both are working and talking, but stuck — repeated attempts, no progress.
+          <i>Usually:</i> several failed runs in a row, discussion continuing, edits happening
+          but the code not getting closer.
+          <b>But:</b> failing a lot isn't the same as being stuck. Systematic debugging — change
+          one thing, test, narrow down — is productive even with many failures. Struggle looks
+          like repeating the same fix, or chat showing confusion rather than ideas.
+        </p>
+        <p>
+          <span class="lead">Disengaged</span>
+          Neither student is really working on the problem any more. Long gaps, little typing,
+          little talk.
+          <i>Usually:</i> very few actions in the window, almost no discussion.
+          <b>But:</b> quiet-and-working looks the same on counts as quiet-and-gone — if the code
+          is steadily improving through the silence, that's focus. And separate it from struggle:
+          a stuck pair is still trying; a disengaged pair has stopped.
+        </p>
+      </div>
+    </div>
+
+    <div class="task is-done">
+      <input type="checkbox" id="r-order" checked>
+      <label class="task-title" for="r-order">
+        The two rules that make the rubric work
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">Check them in this order</span>
+        </p>
+        <div class="example">Disengaged  ->  Logic struggle  ->  Passive navigator
+        ->  Driver dominance  ->  otherwise Productive</div>
+        <p>
+          A window can genuinely look like two things. The order settles it. Struggle beats
+          dominance because a hint helps more than a role nudge; passive beats dominance because
+          a silent navigator is the more specific problem. <b>Without a fixed order, two people
+          can follow the same rules and still disagree.</b>
+        </p>
+        <p>
+          <span class="lead">When you can't tell, skip it</span>
+          The labelling tool has a skip key. An honest skip costs one window; a forced wrong
+          label teaches the model something false.
+        </p>
+      </div>
+    </div>
+
+    <div class="task is-first">
+      <input type="checkbox" id="r-tighten">
+      <label class="task-title" for="r-tighten">
+        Tighten the vague numbers after your first 20 windows
+        <span class="tag first">After labelling starts</span>
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          Phrases like "a long stretch" and "several" are deliberately loose right now — you
+          can't pick real thresholds before seeing real sessions.
+        </p>
+        <p>
+          Label about <b>20 windows</b>, check whether the wording matched what you actually saw,
+          adjust, then continue. <b>Write down that you did this</b> — revising a rubric against
+          early data is normal methodology and worth a sentence in your paper, not something
+          to hide.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CODE FIXES ===================== -->
+  <section class="group" data-group>
+    <div class="group-head">
+      <h2 class="group-title">Code fixes — no data needed</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+    <p class="group-note">I can do all of these. They don't depend on anything else.</p>
+
+    <div class="task">
+      <input type="checkbox" id="c-tuning" checked>
+      <label class="task-title" for="c-tuning">
+        Make the real trainer choose its own settings
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">The problem</span>
+          Only my evaluation script searches for good settings. The trainer your system
+          actually uses still has them typed in by hand.
+        </p>
+        <p>
+          So if a reviewer asks "were your settings chosen from data?", the honest answer is
+          <b>only for the experiment, not for the shipped system</b>. Worth closing that gap.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="c-sandbox">
+      <label class="task-title" for="c-sandbox">
+        Fix the broken slider page
+        <span class="tag me">I can do this</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">The problem</span>
+          Your demo page with sliders is broken — it still sends the old input names, so the
+          model hears nothing and gives the same answer wherever you drag them.
+        </p>
+        <p>
+          <span class="lead">Good news</span>
+          I checked your other two dashboards (analytics and session history) and <b>they're
+          fine</b>. This is the only broken page.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="c-nag">
+      <label class="task-title" for="c-nag">
+        Stop the app nagging students
+        <span class="tag me">I can do this</span>
+      </label>
+      <div class="body">
+        <p>
+          Right now one guess triggers a popup. Wait until the model says the <b>same thing
+          twice in a row</b>. Your research plan already asks for this, and it matters more
+          now — see the next card.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="c-rolememory" checked>
+      <label class="task-title" for="c-rolememory">
+        Give the model a longer memory of role-swapping
+        <span class="tag done">Done</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">The problem it solved</span>
+          The model couldn't tell "hasn't swapped in 3 minutes" from "hasn't swapped in
+          20 minutes" — it stopped counting at 3. So a healthy pair mid-stride looked identical
+          to a pair that had never rotated at all.
+        </p>
+        <p>
+          <span class="lead">Measured result</span>
+          Productive pairs misread as dominance dropped from <b>21 windows to 9</b>. Dominance
+          precision rose from 0.49 to 0.67. In the data, dominance windows now average
+          <b>450 seconds</b> since a swap against <b>206</b> for productive ones — a gap the
+          model previously could not see.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="c-messier">
+      <label class="task-title" for="c-messier">
+        Make the practice sessions messier
+        <span class="tag me">I can do this</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">Why</span>
+          "Disengaged" scores a perfect 1.000. Nothing is perfect on real data — it means the
+          made-up sessions are too tidy, and a reviewer will spot it.
+        </p>
+        <p>
+          <span class="lead">What to do</span>
+          Add noise and sessions that <b>drift</b> between states mid-way, which is what real
+          pairs do. This will <b>lower</b> your scores — that's the point. A believable 0.85
+          is worth more than a suspicious 0.89.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="c-java">
+      <label class="task-title" for="c-java">
+        Fix your Java setup
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          Your compiler is Java 25 but your runtime is Java 8, so student code compiled fine
+          and then refused to run. We worked around it by compiling everything down to Java 8,
+          but setting <b>JAVA_HOME</b> to one Java version would remove the workaround properly.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BLOCKERS ===================== -->
+  <section class="group" data-group>
+    <div class="group-head">
+      <h2 class="group-title">Must happen before any real student uses it</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+    <p class="group-note">These two gate everything in the next section. Neither is optional.</p>
+
+    <div class="task">
+      <input type="checkbox" id="b-docker">
+      <label class="task-title" for="b-docker">
+        Turn Docker back on (safe code running)
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">The problem</span>
+          Student code is meant to run inside a sealed box with no internet and limited memory.
+          Docker isn't running on your machine, so we switched on an override to keep working —
+          which means code currently runs <b>directly on your computer</b>.
+        </p>
+        <p>
+          Fine for you testing alone. <b>Not acceptable once real students are involved</b> —
+          your own research plan lists this as a requirement before collecting data.
+        </p>
+        <p>
+          <span class="lead">What to do</span>
+          Start Docker Desktop before any real session, and remove the override.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="b-ethics">
+      <label class="task-title" for="b-ethics">
+        Apply for ethics approval
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          Needed before collecting data from real students, and it usually takes weeks to come
+          through. It blocks everything after it, so <b>start it early</b> — the application can
+          be written while you're still fixing code.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== NEEDS REAL STUDENTS ===================== -->
+  <section class="group" data-group>
+    <div class="group-head">
+      <h2 class="group-title">Needs real students</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+    <p class="group-note">The real gap. Everything above improves a simulation; only this proves the tool works.</p>
+
+    <div class="task">
+      <input type="checkbox" id="s-run">
+      <label class="task-title" for="s-run">
+        Run real pair programming sessions
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          You and a partner, using your app, actually coding. <b>10–15 minutes each</b>, aiming
+          for <b>10–15 sessions</b>. Swap partners if you can.
+        </p>
+        <p>
+          Vary them deliberately: work well together; let one person take over while the other
+          keeps talking; let one go silent; get genuinely stuck on a hard bug; drift off. Sessions
+          that <b>change</b> partway through are the most valuable of all.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="s-label">
+      <label class="task-title" for="s-label">
+        Go through your sessions and label them
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          Using your written rules, mark what was happening minute by minute. The tool is
+          <b>already built</b> — it shows you what happened and you press a number key. Do it
+          the same evening, while you remember.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="s-kappa">
+      <label class="task-title" for="s-kappa">
+        Get a second person to label some of the same ones
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">Why it matters</span>
+          If you and a friend <b>agree</b>, your rules are clear. If you disagree a lot, the
+          rules were vague — fix them and re-label before training.
+        </p>
+        <p>
+          It also proves your labels aren't just arithmetic. And it's the honest ceiling on your
+          model: if two people only agree 75% of the time, no model can really beat that. One
+          command in the tool gives you the number.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="s-window">
+      <label class="task-title" for="s-window">
+        Test different time windows
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          The model looks at the last <b>3 minutes</b> to decide what's happening. That number
+          was picked, not measured. Try a few lengths and report the best — one of your research
+          questions asks exactly this.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="s-retest">
+      <label class="task-title" for="s-retest">
+        Re-run the full test on real data
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          The evaluation is already written and runs with one command — point it at your real
+          labelled sessions instead of the made-up ones. <b>These are the numbers that would let
+          you claim the tool works.</b>
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="s-confidence">
+      <label class="task-title" for="s-confidence">
+        Fix the "how sure is it?" cut-off
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          The app only shows a message when the model is at least <b>60% sure</b>. That number
+          was made up.
+        </p>
+        <div class="callout">
+          On the test data: at <span class="num">90%+</span> sure it was right
+          <span class="num">94%</span> of the time. At <span class="num">50–70%</span> sure,
+          right only <span class="num">39%</span> of the time.
+          <b>Your cut-off sits at 60% — inside the unreliable zone.</b>
+        </div>
+        <p>With real data, find where confidence can actually be trusted and set it there.</p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="s-importance">
+      <label class="task-title" for="s-importance">
+        Find out which behaviours matter most
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          Does idle time predict disengagement better than chat count? Made-up data can't answer
+          this honestly — real data can, and it's part of your research questions.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PAPER ===================== -->
+  <section class="group" data-group>
+    <div class="group-head">
+      <h2 class="group-title">For the paper</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+    <p class="group-note">You now have real material for a results section — that wasn't true a week ago.</p>
+
+    <div class="task">
+      <input type="checkbox" id="p-results">
+      <label class="task-title" for="p-results">
+        Write the results section
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          The numbers, the table, and the caveats are all written and ready to drop in.
+        </p>
+        <p>
+          <span class="lead">One rule</span>
+          Say <b>"we validated our pipeline on made-up sessions"</b>, never <b>"our classifier
+          is 89% accurate"</b>. The second version is what gets torn apart at review, and it
+          isn't what you measured.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="p-appendixd">
+      <label class="task-title" for="p-appendixd">
+        Appendix D — your state definitions
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>This is just the rules from "Start here", tidied up. Write them once, use them twice.</p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="p-appendixg">
+      <label class="task-title" for="p-appendixg">
+        Appendix G — the audit trail
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          Mostly written already, from the earlier audit of what was wrong with the old model
+          and data. Being open about what you found and fixed is part of your contribution,
+          not an admission of failure.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="p-oldfile">
+      <label class="task-title" for="p-oldfile">
+        Check that old label file
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          There's a file in your archive folder that your proposal describes as real
+          hand-labelled data. When I opened it, every session had identical labels in identical
+          order — which looks like a template, not real work. Find out which it was, and if it
+          was never real, take the claim out of your proposal before anyone checks.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== LATER ===================== -->
+  <section class="group" data-group>
+    <div class="group-head">
+      <h2 class="group-title">Later</h2>
+      <span class="group-meta" data-meta></span>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="l-requestswitch">
+      <label class="task-title" for="l-requestswitch">
+        Add a "can I drive?" button for the navigator
+        <span class="tag me">I can do this</span>
+      </label>
+      <div class="body">
+        <p>
+          <span class="lead">Why this is clever</span>
+          It creates a signal that doesn't exist today, and cleanly separates your two hardest
+          states:
+        </p>
+        <p>
+          Navigator <b>asks</b> and nothing happens → <b>driver dominance</b>.<br>
+          Navigator <b>never asks</b> → <b>passive navigator</b>.
+        </p>
+        <p>
+          Small feature, real new data, and a strong "future work" paragraph showing you
+          understood <i>why</i> the confusion happened.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="l-study">
+      <label class="task-title" for="l-study">
+        Run the big classroom study
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          40–80 students. Half get the helpful messages, half get the same app with messages
+          switched off, so you can compare. Needs ethics approval and a model you trust first.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="l-monitor">
+      <label class="task-title" for="l-monitor">
+        Watch the model while it's being used
+        <span class="tag you">You</span>
+      </label>
+      <div class="body">
+        <p>
+          Check whether its predictions drift oddly over time. And when students
+          <b>dismiss</b> a message, that's a real clue it wasn't helpful — worth tracking.
+        </p>
+      </div>
+    </div>
+
+    <div class="task">
+      <input type="checkbox" id="l-hints">
+      <label class="task-title" for="l-hints">
+        Optional: upgrade the hint system
+        <span class="tag you">Optional</span>
+      </label>
+      <div class="body">
+        <p>
+          Your hint system finds help by matching keywords. There's a smarter method available.
+          If you try it, <b>measure it against the current one</b> and report both — don't
+          quietly swap it.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    The code work is largely done and your definitions are written. What's left that matters is
+    no longer code — it's real students. Docker and ethics approval gate that, and ethics takes
+    weeks, so start it while you finish the smaller fixes.
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var KEY = 'pairpath-next-steps-v2:';
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('.task input[type="checkbox"]'));
+
+    boxes.forEach(function (b) {
+      var saved = localStorage.getItem(KEY + b.id);
+      if (saved !== null) b.checked = saved === '1';
+      b.addEventListener('change', function () {
+        localStorage.setItem(KEY + b.id, b.checked ? '1' : '0');
+        refresh();
+      });
+    });
+
+    function refresh() {
+      var total = boxes.length;
+      var done = boxes.filter(function (b) { return b.checked; }).length;
+      document.getElementById('count').innerHTML = '<b>' + done + '</b> of ' + total + ' done';
+      document.getElementById('fill').style.width = (total ? (done / total) * 100 : 0) + '%';
+
+      document.querySelectorAll('[data-group]').forEach(function (g) {
+        var gb = Array.prototype.slice.call(g.querySelectorAll('input[type="checkbox"]'));
+        var gd = gb.filter(function (b) { return b.checked; }).length;
+        g.querySelector('[data-meta]').textContent = gd + ' / ' + gb.length;
+      });
+    }
+
+    refresh();
+  })();
+</script>

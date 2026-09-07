@@ -1,0 +1,301 @@
+{
+  "_comment": "Labelled retrieval cases. 'expect' is the file-level id prefix the top result should start with; several entries within a file are all acceptable. Where a concept genuinely spans two files, 'expect' is a list and any of them counts as correct — that reflects real ambiguity rather than a loosened standard. null means a fallback is the correct outcome. Running with --show-failures reports which cases miss.",
+  "cases": [
+    {
+      "id": "A01",
+      "tags": [
+        "arrays",
+        "indexing",
+        "bounds"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "java_arrays",
+      "note": "well-tagged array question"
+    },
+    {
+      "id": "A02",
+      "tags": [
+        "loops",
+        "iteration"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "java_loops",
+      "note": "well-tagged loop question"
+    },
+    {
+      "id": "A03",
+      "tags": [
+        "modulo"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "java_operators",
+      "note": "modulo lives in operators"
+    },
+    {
+      "id": "A04",
+      "tags": [
+        "conditions",
+        "logic"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "java_conditions",
+      "note": "conditional question"
+    },
+    {
+      "id": "A05",
+      "tags": [
+        "methods"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "java_methods",
+      "note": "method question"
+    },
+    {
+      "id": "A06",
+      "tags": [
+        "basics",
+        "types"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "java_basics",
+      "note": "types question"
+    },
+    {
+      "id": "A07",
+      "tags": [
+        "bounds"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "java_arrays",
+      "note": "bounds previously matched nothing"
+    },
+    {
+      "id": "A08",
+      "tags": [
+        "iteration"
+      ],
+      "error": "",
+      "code": "",
+      "expect": [
+        "java_loops",
+        "java_arrays"
+      ],
+      "note": "iteration spans loop structure and array traversal"
+    },
+    {
+      "id": "B01",
+      "tags": [],
+      "error": "java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5",
+      "code": "",
+      "expect": "java_arrays",
+      "note": "error alone, no tags"
+    },
+    {
+      "id": "B02",
+      "tags": [],
+      "error": "java.lang.NullPointerException: Cannot invoke method because value is null",
+      "code": "",
+      "expect": [
+        "java_methods",
+        "java_runtime_errors"
+      ],
+      "note": "null pointer"
+    },
+    {
+      "id": "B03",
+      "tags": [],
+      "error": "Main.java:7: error: ';' expected",
+      "code": "",
+      "expect": [
+        "debugging_guidance",
+        "java_compile_errors"
+      ],
+      "note": "compile error guidance"
+    },
+    {
+      "id": "B04",
+      "tags": [],
+      "error": "java.lang.ArithmeticException: / by zero",
+      "code": "",
+      "expect": [
+        "java_operators",
+        "java_runtime_errors"
+      ],
+      "note": "division error"
+    },
+    {
+      "id": "B05",
+      "tags": [],
+      "error": "error: cannot find symbol variable total",
+      "code": "",
+      "expect": [
+        "java_basics",
+        "java_compile_errors"
+      ],
+      "note": "scope or declaration"
+    },
+    {
+      "id": "B06",
+      "tags": [],
+      "error": "incompatible types: possible lossy conversion from double to int",
+      "code": "",
+      "expect": [
+        "java_basics",
+        "java_compile_errors"
+      ],
+      "note": "type conversion"
+    },
+    {
+      "id": "C01",
+      "tags": [
+        "modulo"
+      ],
+      "error": "java.lang.ArrayIndexOutOfBoundsException: Index 5 out of bounds for length 5",
+      "code": "for (int i = 0; i <= numbers.length; i++)",
+      "expect": "java_arrays",
+      "note": "error must beat a mismatched tag"
+    },
+    {
+      "id": "C02",
+      "tags": [
+        "conditions"
+      ],
+      "error": "java.lang.NullPointerException",
+      "code": "String s = null; s.length();",
+      "expect": [
+        "java_methods",
+        "java_runtime_errors"
+      ],
+      "note": "error beats unrelated tag"
+    },
+    {
+      "id": "C03",
+      "tags": [
+        "arrays"
+      ],
+      "error": "java.lang.ArrayIndexOutOfBoundsException: Index 3 out of bounds for length 3",
+      "code": "int[] n = new int[3];",
+      "expect": "java_arrays",
+      "note": "tag and error agree"
+    },
+    {
+      "id": "C04",
+      "tags": [
+        "loops"
+      ],
+      "error": "",
+      "code": "while (count < limit) { System.out.println(count); }",
+      "expect": "java_loops",
+      "note": "no error, code suggests infinite loop"
+    },
+    {
+      "id": "D01",
+      "tags": [
+        "pair programming",
+        "collaboration",
+        "role"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "pair_programming_guidance",
+      "note": "passive navigator injection"
+    },
+    {
+      "id": "D02",
+      "tags": [
+        "peer review",
+        "feedback",
+        "quality"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "peer_review_guidance",
+      "note": "review quality injection"
+    },
+    {
+      "id": "E01",
+      "tags": [
+        "debugging"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "debugging_guidance",
+      "note": "debugging guidance"
+    },
+    {
+      "id": "E02",
+      "tags": [
+        "logic"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "common_logic_mistakes",
+      "note": "wrong output, no exception"
+    },
+    {
+      "id": "E03",
+      "tags": [
+        "off-by-one"
+      ],
+      "error": "",
+      "code": "",
+      "expect": [
+        "common_logic_mistakes",
+        "java_loops"
+      ],
+      "note": "off-by-one is both a loop boundary and a logic mistake"
+    },
+    {
+      "id": "E04",
+      "tags": [
+        "operators",
+        "boolean"
+      ],
+      "error": "",
+      "code": "",
+      "expect": "java_operators",
+      "note": "boolean logic"
+    },
+    {
+      "id": "F01",
+      "tags": [
+        "quantum physics"
+      ],
+      "error": "",
+      "code": "",
+      "expect": null,
+      "note": "nothing should match — fallback expected"
+    },
+    {
+      "id": "F02",
+      "tags": [],
+      "error": "",
+      "code": "",
+      "expect": null,
+      "note": "no input at all — fallback expected"
+    },
+    {
+      "id": "D03",
+      "note": "unrelated library error, must abstain",
+      "tags": [],
+      "error": "org.hibernate.LazyInitializationException: could not initialize proxy",
+      "code": "",
+      "expect": null
+    },
+    {
+      "id": "D04",
+      "note": "prose with no concept, must abstain",
+      "tags": [],
+      "error": "it just does not work properly",
+      "code": "",
+      "expect": null
+    }
+  ]
+}
