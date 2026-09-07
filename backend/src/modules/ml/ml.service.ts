@@ -18,11 +18,27 @@ export class MlService {
   private readonly logger = new Logger(MlService.name);
   private readonly mlServiceUrl: string;
 
+  /**
+   * Shared secret for the ML service, when one is configured.
+   *
+   * Optional on both sides, and it has to be: requiring it would break every
+   * existing local setup for a service that is only reachable from localhost
+   * there anyway. Where the two run as containers on a shared network it is
+   * the difference between "the API may ask for predictions" and "anything on
+   * that network may".
+   */
+  private readonly serviceToken = (process.env.ML_SERVICE_TOKEN ?? '').trim();
+
   constructor(private readonly httpService: HttpService) {
     // No fallback. The old default was http://localhost:8000 - Code Coach's
     // port - so an unset variable sent feature vectors to the identity
     // provider and silently used the hardcoded PRODUCTIVE fallback below.
     this.mlServiceUrl = mlServiceUrl();
+  }
+
+  /** Sent on every request; the ML service ignores it when it has no secret. */
+  private get headers() {
+    return this.serviceToken ? { 'X-ML-Service-Token': this.serviceToken } : undefined;
   }
 
   /**
@@ -43,7 +59,7 @@ export class MlService {
           lastRoleSwitchAt: request.lastRoleSwitchAt ?? null,
           sessionStartAt: request.sessionStartAt ?? null,
           features: request.features ?? null,
-        })
+        }, { headers: this.headers })
         .toPromise();
 
       return response.data;
@@ -89,7 +105,7 @@ export class MlService {
           sessionId,
           predictedState,
           confidence,
-        })
+        }, { headers: this.headers })
         .toPromise();
 
       return response.data;
@@ -121,7 +137,7 @@ export class MlService {
           questionConceptTags: dto.questionConceptTags || [],
           recentErrorContext: dto.recentErrorContext || '',
           recentCodeSnippet: dto.recentCodeSnippet || '',
-        })
+        }, { headers: this.headers })
         .toPromise();
 
       return response.data;

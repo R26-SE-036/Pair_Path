@@ -1,7 +1,13 @@
-import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { SubmitReviewDto } from './dto/submit-review.dto';
 import { WebsocketGateway } from '../websocket/websocket.gateway';
+import { PUBLIC_QUESTION, PUBLIC_USER } from '../../common/public-select';
 
 @Injectable()
 export class ReviewsService {
@@ -10,14 +16,37 @@ export class ReviewsService {
     private readonly websocketGateway: WebsocketGateway,
   ) {}
 
-  async getReview(sessionId: string) {
+  /**
+   * Refuse unless this student is in this session.
+   *
+   * getReview and getResult had no check at all: any signed-in student could
+   * read another pair's review answers and scores by changing the id. And
+   * because `include: { user: true }` returns every scalar on the users row,
+   * the response carried both students' bcrypt hashes with them.
+   *
+   * NotFound rather than Forbidden - "you may not see this one" confirms the
+   * session exists, which is the one thing a stranger could learn from it.
+   */
+  private async requireMembership(sessionId: string, userId: string) {
+    const membership = await this.prisma.pairSessionMember.findFirst({
+      where: { sessionId, userId },
+      select: { id: true },
+    });
+    if (!membership) {
+      throw new NotFoundException('Session not found');
+    }
+  }
+
+  async getReview(sessionId: string, userId: string) {
+    await this.requireMembership(sessionId, userId);
+
     const session = await this.prisma.pairSession.findUnique({
       where: { id: sessionId },
       include: {
-        question: true,
+        question: PUBLIC_QUESTION,
         reviews: {
           include: {
-            user: true,
+            user: { select: PUBLIC_USER },
           },
         },
       },
@@ -70,7 +99,7 @@ export class ReviewsService {
         score,
       },
       include: {
-        user: true,
+        user: { select: PUBLIC_USER },
       },
     });
 
@@ -81,11 +110,13 @@ export class ReviewsService {
     return review;
   }
 
-  async getResult(sessionId: string) {
+  async getResult(sessionId: string, userId: string) {
+    await this.requireMembership(sessionId, userId);
+
     const reviews = await this.prisma.reviewSubmission.findMany({
       where: { sessionId },
       include: {
-        user: true,
+        user: { select: PUBLIC_USER },
       },
     });
 

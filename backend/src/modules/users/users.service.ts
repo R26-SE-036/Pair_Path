@@ -48,16 +48,4 @@ export class UsersService {
       data: { codeCoachUserId },
     });
   }
-
-  async findAll() {
-    return this.prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        createdAt: true,
-      },
-    });
-  }
 }

@@ -2,7 +2,6 @@ import { Controller, Get, Post, Param, Body, UseGuards, Req } from '@nestjs/comm
 import { ReviewsService } from './reviews.service';
 import { SubmitReviewDto } from './dto/submit-review.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Request } from 'express';
 
 @Controller('reviews')
 @UseGuards(JwtAuthGuard)
@@ -10,8 +9,8 @@ export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
   @Get(':sessionId')
-  async getReview(@Param('sessionId') sessionId: string) {
-    return this.reviewsService.getReview(sessionId);
+  async getReview(@Param('sessionId') sessionId: string, @Req() req: any) {
+    return this.reviewsService.getReview(sessionId, req.user.userId);
   }
 
   @Post(':sessionId/submit')
@@ -24,7 +23,7 @@ export class ReviewsController {
   }
 
   @Get(':sessionId/result')
-  async getResult(@Param('sessionId') sessionId: string) {
-    return this.reviewsService.getResult(sessionId);
+  async getResult(@Param('sessionId') sessionId: string, @Req() req: any) {
+    return this.reviewsService.getResult(sessionId, req.user.userId);
   }
 }

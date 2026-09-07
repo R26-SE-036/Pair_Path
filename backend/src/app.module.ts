@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { TopicsModule } from './modules/topics/topics.module';
@@ -20,11 +21,23 @@ import { CommonModule } from './common/common.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    /*
+     * Rate limiting.
+     *
+     * ThrottlerModule was configured here and the guard was never registered,
+     * so none of it did anything: `forRoot` only supplies the options, and
+     * without an APP_GUARD entry (or a @UseGuards somewhere) nothing consults
+     * them. The configuration read as protection for as long as nobody tested
+     * it, which is the worst state for a security control to be in.
+     *
+     * Two buckets. The default is generous because a live pair session is
+     * chatty over REST as well as the socket. `strict` is for the endpoints
+     * where the request itself is the attack - credential guessing on
+     * /auth/login, and compiling arbitrary Java on /code-runner.
+     */
     ThrottlerModule.forRoot([
-      {
-        ttl: 60000, // 1 minute
-        limit: 100, // 100 requests per minute
-      },
+      { name: 'default', ttl: 60000, limit: 100 },
+      { name: 'strict', ttl: 60000, limit: 10 },
     ]),
     AuthModule,
     UsersModule,
@@ -36,6 +49,10 @@ import { CommonModule } from './common/common.module';
     MlModule,
     ReviewsModule,
     InterventionsModule,
+  ],
+  providers: [
+    // The line that makes the configuration above mean something.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

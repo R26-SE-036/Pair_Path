@@ -12,6 +12,7 @@ import { CodeCoachService } from './code-coach.service';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { jwtSecret } from '../../common/env';
+import { ACCESS_TOKEN, REFRESH_TOKEN, isRefreshToken } from '../../common/tokens';
 
 @Injectable()
 export class AuthService {
@@ -230,6 +231,13 @@ export class AuthService {
         secret: jwtSecret(),
       });
 
+      // Explicitly a refresh token, or nothing. An access token used to be
+      // accepted here and traded for a fresh pair, so a leaked one could be
+      // renewed forever and its one-hour expiry never actually arrived.
+      if (!isRefreshToken(payload)) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
       const user = await this.usersService.findById(payload.sub);
       if (!user) {
         throw new UnauthorizedException('Invalid refresh token');
@@ -256,20 +264,24 @@ export class AuthService {
     };
   }
 
+  /**
+   * The two tokens carry `typ`, so they can be told apart.
+   *
+   * They used to be byte-for-byte the same payload with different expiries,
+   * which made the seven-day refresh token a valid API key for seven days -
+   * see common/tokens.ts.
+   */
   private async generateTokens(userId: string) {
-    const payload = { sub: userId };
+    const accessToken = this.jwtService.sign(
+      { sub: userId, typ: ACCESS_TOKEN },
+      { expiresIn: '1h' },
+    );
 
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: '1h',
-    });
+    const refreshToken = this.jwtService.sign(
+      { sub: userId, typ: REFRESH_TOKEN },
+      { expiresIn: '7d' },
+    );
 
-    const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: '7d',
-    });
-
-    return {
-      accessToken,
-      refreshToken,
-    };
+    return { accessToken, refreshToken };
   }
 }

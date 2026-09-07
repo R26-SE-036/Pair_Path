@@ -1,28 +1,32 @@
-import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, Req } from '@nestjs/common';
 import { InterventionsService } from './interventions.service';
-import { CreateInterventionDto } from './dto/create-intervention.dto';
+import { RespondToInterventionDto } from './dto/respond-to-intervention.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+/**
+ * Both routes are scoped by session, and both check membership.
+ *
+ * `POST /interventions` is gone - see InterventionsService. `respond` moved
+ * under the session it belongs to, so the id in the path can be checked
+ * against something rather than trusted on its own.
+ */
 @Controller('interventions')
 @UseGuards(JwtAuthGuard)
 export class InterventionsController {
   constructor(private readonly interventionsService: InterventionsService) {}
 
-  @Post()
-  create(@Body() createInterventionDto: CreateInterventionDto) {
-    return this.interventionsService.create(createInterventionDto);
-  }
-
   @Get('session/:sessionId')
-  findBySession(@Param('sessionId') sessionId: string) {
-    return this.interventionsService.findBySession(sessionId);
+  findBySession(@Param('sessionId') sessionId: string, @Req() req: any) {
+    return this.interventionsService.findBySession(sessionId, req.user.userId);
   }
 
-  @Post(':id/respond')
+  @Post('session/:sessionId/:id/respond')
   respond(
+    @Param('sessionId') sessionId: string,
     @Param('id') id: string,
-    @Body() body: { accepted: boolean },
+    @Body() body: RespondToInterventionDto,
+    @Req() req: any,
   ) {
-    return this.interventionsService.respond(id, body.accepted);
+    return this.interventionsService.respond(sessionId, id, body.accepted, req.user.userId);
   }
 }

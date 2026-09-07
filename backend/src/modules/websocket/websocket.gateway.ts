@@ -15,6 +15,7 @@ import { PrismaService } from '../../common/prisma.service';
 import { MlService } from '../ml/ml.service';
 import { RedisService } from '../../common/redis.service';
 import { corsOriginCallback } from '../../common/env';
+import { isAccessToken } from '../../common/tokens';
 
 @WebSocketGateway({
   cors: {
@@ -83,6 +84,14 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       client.handshake.headers?.authorization?.replace(/^Bearer /, '');
     try {
       const payload = this.jwtService.verify(token);
+
+      // The same rule as the REST layer. A gateway that accepted a token the
+      // API refuses would be the more useful of the two doors to an attacker:
+      // it carries the whole live session.
+      if (!isAccessToken(payload)) {
+        throw new Error('not an access token');
+      }
+
       client.data.userId = payload.sub;
       console.log(`Client connected: ${client.id} (user ${payload.sub})`);
     } catch {
@@ -406,18 +415,45 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     @MessageBody() data: { sessionId: string; interventionId: string; accepted: boolean },
     @ConnectedSocket() client: Socket,
   ) {
-    const { sessionId, interventionId, accepted } = data;
+    const { sessionId, interventionId } = data;
     if (!this.isInRoom(client, sessionId)) return;
 
-    // Update intervention in DB if it exists
+    /*
+     * `accepted` is the only evidence anyone has about whether these
+     * interventions land, which is the research question this component
+     * exists to answer. It arrived straight from the client as `any` - the
+     * inline `{ accepted: boolean }` above is a TypeScript annotation, erased
+     * at runtime, and this handler is a socket message so no ValidationPipe
+     * ever sees it.
+     */
+    if (typeof data?.accepted !== 'boolean') return;
+    const accepted = data.accepted;
+
     if (interventionId) {
-      try {
-        await this.prisma.intervention.update({
-          where: { id: interventionId },
-          data: { accepted },
-        });
-      } catch {
-        // Intervention may not exist in DB yet
+      /*
+       * Scoped by session, not by id alone.
+       *
+       * `update({ where: { id } })` let a student in one session write the
+       * outcome of an intervention in another - for a nudge they never saw.
+       * updateMany with both keys simply matches nothing in that case.
+       *
+       * The failure is reported rather than swallowed. The old catch was
+       * commented "intervention may not exist in DB yet", which is true of a
+       * race with the write in triggerMlPrediction - but it also swallowed a
+       * mismatched session, a type error and a dead connection identically,
+       * so a systematically failing write would have looked like students
+       * simply not responding.
+       */
+      const { count } = await this.prisma.intervention.updateMany({
+        where: { id: interventionId, sessionId },
+        data: { accepted },
+      });
+
+      if (count === 0) {
+        console.warn(
+          `Intervention ${interventionId} is not in session ${sessionId}; response discarded.`,
+        );
+        return;
       }
     }
 
@@ -670,9 +706,13 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
 
           // If LOGIC_STRUGGLE, also retrieve RAG hint
           if (prediction.predictedState === 'LOGIC_STRUGGLE') {
+            // Only the tags. This one is server-side - the hint is built here
+            // and only the hint is emitted - but selecting the whole row would
+            // pull referenceSolution into a code path that emits to clients,
+            // which is one refactor away from being a leak.
             const session = await this.prisma.pairSession.findUnique({
               where: { id: sessionId },
-              include: { question: true },
+              select: { question: { select: { conceptTags: true } } },
             });
 
             if (session?.question) {

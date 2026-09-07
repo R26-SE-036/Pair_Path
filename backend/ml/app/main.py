@@ -4,8 +4,8 @@ import sys
 # Add the parent directory to sys.path so 'python app/main.py' works directly
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from app.schemas.predictions import PredictPairStateRequest, PredictPairStateResponse
 from app.schemas.interventions import RecommendInterventionRequest, RecommendInterventionResponse
 from app.models.predictor import PairStatePredictor
@@ -20,14 +20,44 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Enable CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# ─────────────────────────── Who may call this ───────────────────────────
+#
+# Nothing in a browser. This service is called by the NestJS API, server to
+# server; the API is what students authenticate against, and it is what holds
+# the session membership checks. There is no CORS middleware here on purpose:
+#
+#   - it was allow_origins=["*"] WITH allow_credentials=True, a combination
+#     browsers reject outright, so it never did what it looked like it did.
+#   - permitting any origin advertised the service as browser-reachable, which
+#     is exactly what the old model sandbox then did - calling it straight from
+#     the client, past the API's JWT guard, at a URL baked into the bundle.
+#
+# The shared secret below is defence in depth for a deployment where the two
+# containers share a network. It is optional so that local development does not
+# need it, and loud when absent so that "optional" does not quietly become
+# "never configured".
+SERVICE_TOKEN = os.getenv("ML_SERVICE_TOKEN", "").strip()
+SERVICE_TOKEN_HEADER = "X-ML-Service-Token"
+
+# Health is exempt: a load balancer probing it has no secret to send, and the
+# answer reveals nothing.
+UNAUTHENTICATED_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+
+if not SERVICE_TOKEN:
+    print(
+        "[WARNING] ML_SERVICE_TOKEN is not set. Anything that can reach this "
+        "port can ask it for predictions. Set it here and on the API for any "
+        "environment where that is more than your own machine."
+    )
+
+
+@app.middleware("http")
+async def require_service_token(request: Request, call_next):
+    """Reject callers that cannot present the shared secret, when one is set."""
+    if SERVICE_TOKEN and request.url.path not in UNAUTHENTICATED_PATHS:
+        if request.headers.get(SERVICE_TOKEN_HEADER, "") != SERVICE_TOKEN:
+            return JSONResponse(status_code=401, content={"detail": "Not authorised."})
+    return await call_next(request)
 
 # Initialize components
 predictor = PairStatePredictor()

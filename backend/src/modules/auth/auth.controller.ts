@@ -2,10 +2,19 @@ import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { Request } from 'express';
 
+/**
+ * Ten requests a minute on everything here.
+ *
+ * /auth/login verifies a password, and /auth/exchange and /auth/refresh both
+ * trade one credential for another - so an unlimited request rate is an
+ * unlimited number of guesses. /auth/register is included because it is the
+ * one endpoint that writes an account per request.
+ */
 @Controller('auth')
+@Throttle({ strict: { ttl: 60000, limit: 10 } })
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

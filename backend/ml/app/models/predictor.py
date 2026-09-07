@@ -48,14 +48,24 @@ class PairStatePredictor:
         """Predict pair state based on extracted features."""
         if self.model is None:
             return self._fallback_prediction(features)
-        
+
+        # A vector the model was not fitted on is not something to guess at.
+        missing = self._missing_columns(features)
+        if missing:
+            print(
+                f"[WARNING] {len(missing)} of {len(self.feature_columns)} features "
+                f"are missing: {', '.join(sorted(missing))}. Using the rule-based "
+                f"fallback instead of predicting on substituted zeros."
+            )
+            return self._fallback_prediction(features)
+
         try:
             feature_vector = self._prepare_features(features)
             prediction_proba = self.model.predict_proba(feature_vector.reshape(1, -1))[0]
             predicted_class_idx = np.argmax(prediction_proba)
             confidence = float(prediction_proba[predicted_class_idx])
             predicted_state = self.label_encoder.inverse_transform([predicted_class_idx])[0]
-            
+
             return {
                 "state": predicted_state,
                 "confidence": confidence
@@ -64,12 +74,39 @@ class PairStatePredictor:
             print(f"[WARNING] Prediction error: {e}")
             return self._fallback_prediction(features)
 
+    def _missing_columns(self, features: Dict[str, Any]) -> list:
+        """Which of the model's columns the caller did not supply.
+
+        =================== WHY THIS IS CHECKED AT ALL ===================
+        _prepare_features substitutes 0.0 for anything absent, which is the
+        obvious way to write it and is silent in exactly the wrong situation.
+        Both callers are supposed to supply all fifteen - the live path from
+        the canonical extractor, the sandbox from its own sliders - so a
+        missing column never means "this feature happens to be zero". It means
+        a rename, a schema drift, or a caller using an older feature scheme.
+
+        That has happened here before. The sandbox once sent a retired naming
+        scheme, every value resolved to zero, and the model returned the same
+        confident answer whatever the sliders said - which looks like a working
+        page and a broken model rather than a mismatched contract.
+
+        Zeros are not neutral to a tree ensemble either. idle_ratio 0.0 is
+        "constant activity" and run_success_rate 0.0 is "everything failed", so
+        a substituted vector does not produce an uncertain prediction; it
+        produces a confident description of a session nobody had.
+        ==================================================================
+        """
+        if not self.feature_columns:
+            return []
+        return [col for col in self.feature_columns if col not in features]
+
     def _prepare_features(self, features: Dict[str, Any]) -> np.ndarray:
-        """Prepare features in the correct order for the model."""
-        feature_vector = []
-        for col in self.feature_columns:
-            feature_vector.append(float(features.get(col, 0.0)))
-        return np.array(feature_vector)
+        """Prepare features in the correct order for the model.
+
+        Order is load-bearing: the model reads a positional array, so a vector
+        assembled in a different order is silently a different set of features.
+        """
+        return np.array([float(features[col]) for col in self.feature_columns])
 
     def _fallback_prediction(self, features: Dict[str, Any]) -> Dict[str, Any]:
         """Rule-based fallback when the trained model is not available.

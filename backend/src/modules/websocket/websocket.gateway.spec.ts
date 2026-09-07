@@ -353,6 +353,66 @@ describe('discussion notes', () => {
   });
 });
 
+describe('responding to an intervention over the socket', () => {
+  function withInterventions(rows: any[]) {
+    const h = harness(DRIVER_NAV);
+    (h.gateway as any).prisma.intervention.updateMany = async ({ where, data }: any) => {
+      const matched = rows.filter((r) => r.id === where.id && r.sessionId === where.sessionId);
+      matched.forEach((r) => Object.assign(r, data));
+      return { count: matched.length };
+    };
+    return h;
+  }
+
+  it('records a response on an intervention from this session', async () => {
+    const rows = [{ id: 'i1', sessionId: 's1', accepted: null }];
+    const h = withInterventions(rows);
+    const driver = fakeSocket('sock-d', 'driver');
+    await join(h, driver);
+
+    await h.gateway.handleInterventionResponse(
+      { sessionId: 's1', interventionId: 'i1', accepted: true },
+      driver as any,
+    );
+
+    expect(rows[0].accepted).toBe(true);
+    expect(h.events.some((e) => e.eventType === 'INTERVENTION_RESPONSE')).toBe(true);
+  });
+
+  it("will not write the outcome of another session's intervention", async () => {
+    const rows = [{ id: 'other', sessionId: 's-other', accepted: null }];
+    const h = withInterventions(rows);
+    const driver = fakeSocket('sock-d', 'driver');
+    await join(h, driver);
+
+    await h.gateway.handleInterventionResponse(
+      { sessionId: 's1', interventionId: 'other', accepted: true },
+      driver as any,
+    );
+
+    // `accepted` is the only outcome measure this component has. Updating on
+    // the id alone let a student in one session answer for a nudge in another.
+    expect(rows[0].accepted).toBeNull();
+    expect(h.events.some((e) => e.eventType === 'INTERVENTION_RESPONSE')).toBe(false);
+  });
+
+  it('ignores a non-boolean answer', async () => {
+    const rows = [{ id: 'i1', sessionId: 's1', accepted: null }];
+    const h = withInterventions(rows);
+    const driver = fakeSocket('sock-d', 'driver');
+    await join(h, driver);
+
+    // A socket message never passes a ValidationPipe, and the inline
+    // `{ accepted: boolean }` on the handler is erased at runtime.
+    await h.gateway.handleInterventionResponse(
+      { sessionId: 's1', interventionId: 'i1', accepted: 'yes' } as any,
+      driver as any,
+    );
+
+    expect(rows[0].accepted).toBeNull();
+  });
+});
+
 describe('ending a session', () => {
   it('tells the room and releases the session working state', async () => {
     const h = harness(DRIVER_NAV);
