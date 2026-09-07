@@ -12,6 +12,7 @@ import { CodeRunnerModule } from './modules/code-runner/code-runner.module';
 import { MlModule } from './modules/ml/ml.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { InterventionsModule } from './modules/interventions/interventions.module';
+import { HealthModule } from './modules/health/health.module';
 
 import { CommonModule } from './common/common.module';
 import { UserThrottlerGuard } from './common/user-throttler.guard';
@@ -64,6 +65,7 @@ import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
     MlModule,
     ReviewsModule,
     InterventionsModule,
+    HealthModule,
   ],
   providers: [
     /*
