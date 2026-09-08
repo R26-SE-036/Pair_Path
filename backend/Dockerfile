@@ -46,6 +46,32 @@ FROM node:22-alpine
 # needed, and having only one looks exactly like having neither.
 RUN apk add --no-cache openssl
 
+# ================== A JDK, ONLY WHEN ASKED FOR ==================
+# Off by default, and the default is the one that ships.
+#
+# In a deployed environment student code runs in the code-runner Lambda, so
+# this image needs no Java at all - putting a compiler in it would be several
+# hundred megabytes of attack surface for a capability nothing here uses.
+#
+# The local compose stack is the exception, and not by choice: a container has
+# no Docker daemon, so the `docker` execution mode is impossible inside one,
+# and there is no Lambda on a laptop. That leaves running code in this
+# container, which needs javac present - without it the service reported
+# "Sandboxed execution" mode and then failed every single Run with
+# "javac: not found", which is how this was missed.
+#
+# 17 to match the Lambda's Corretto 17 and the eclipse-temurin:17 sandbox
+# image, so a program that compiles in one compiles in the others.
+#
+# The stack that sets this to true also sets NODE_ENV to development, because
+# unsandboxed execution is refused outright in production - see
+# assertRequiredEnv in src/common/env.ts.
+# ================================================================
+ARG INCLUDE_JDK=false
+RUN if [ "$INCLUDE_JDK" = "true" ]; then \
+      apk add --no-cache openjdk17-jdk && javac -version && java -version; \
+    fi
+
 WORKDIR /app
 ENV NODE_ENV=production
 
