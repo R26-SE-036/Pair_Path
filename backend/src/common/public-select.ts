@@ -53,10 +53,20 @@ export const PUBLIC_MEMBERS = Object.freeze({
 /**
  * A question as a student may see it.
  *
- * Everything except `referenceSolution`. `starterCode` is included and should
- * be - it is the scaffold the pair begins from. `reviewQuestions` is included
- * because the peer-review page needs it, and `conceptTags` because retrieval
- * and the platform taxonomy key on it.
+ * An allowlist, not a denylist: a field added to the schema is invisible here
+ * until somebody names it, which is the right default for a table holding two
+ * different answers to the exercise.
+ *
+ * Excluded: `referenceSolution`, and `expectedOutput` for the same reason -
+ * for "print 10 down to 1" or "print the grade for 74", the expected output
+ * IS the answer, and a pair could read it out of the payload that told them
+ * they were wrong. The server compares against it and sends back a verdict
+ * only.
+ *
+ * `starterCode` is included and should be - it is the scaffold the pair
+ * begins from. `reviewQuestions` is included because the peer-review page
+ * needs it, and `conceptTags` because retrieval and the platform taxonomy key
+ * on it.
  */
 export const PUBLIC_QUESTION_FIELDS = Object.freeze({
   id: true,

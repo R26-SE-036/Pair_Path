@@ -80,6 +80,11 @@ model Question {
   difficulty        String
   starterCode       String   @default("")
   referenceSolution String
+  // Exactly what referenceSolution prints. Null means this exercise has no
+  // single right output, and a run is then reported as "ran" with no verdict
+  // rather than as wrong. Never sent to a client: for most of these the
+  // expected output IS the answer - see common/public-select.ts.
+  expectedOutput    String?
   // [{ prompt, expected }] - `expected` is the answer a pair who did the
   // exercise well would give, and it is not always true. Older rows hold a
   // plain array of strings and are read as expecting true; see

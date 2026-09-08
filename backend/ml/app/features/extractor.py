@@ -126,6 +126,29 @@ class WindowFeatureExtractor:
         edit_balance = (max(edits_by_user.values()) / total_edits) if total_edits else 0.5
 
         # ── Runs ──
+        #
+        # ============ `success` MEANS "RAN", NOT "IS RIGHT" ============
+        # It is true whenever the program compiled and exited without throwing.
+        # A program that runs cleanly and prints the wrong answer - or nothing
+        # at all, which is what
+        #
+        #     for (int i = 10; i <= 0; i++)
+        #
+        # does - counts here as a success, so a pair stuck on exactly the bug
+        # these exercises are built around produces a perfect run_success_rate
+        # while getting nowhere.
+        #
+        # CODE_RUN_RESULT now also carries `correct`: the run's output compared
+        # with the exercise's expected output (null when the exercise has none,
+        # or when the program did not run). That is the signal this feature
+        # wanted all along, and it is deliberately NOT read yet - the model in
+        # models/ was trained with `success`, and swapping the meaning of an
+        # input under a model trained on the other one is train/serve skew.
+        #
+        # Switch this to `correct`, falling back to `success` where `correct`
+        # is null, as part of the next training run - not before it. The
+        # gateway's run_code handler is the other half of this note.
+        # ==============================================================
         run_results = [bool(_metadata(e).get("success")) for _, e in runs]
         run_success_rate = (sum(run_results) / len(run_results)) if run_results else 0.5
         max_fail_streak = streak = 0

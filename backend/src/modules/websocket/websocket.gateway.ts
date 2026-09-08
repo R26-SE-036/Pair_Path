@@ -21,6 +21,36 @@ import { isAccessToken } from '../../common/tokens';
 const RUN_LIMIT = 10;
 const RUN_WINDOW_MS = 60_000;
 
+/**
+ * Compare a run's output with what the exercise expects.
+ *
+ * ==================== WHAT COUNTS AS THE SAME ====================
+ * Forgiving about whitespace, strict about everything else.
+ *
+ * Trailing spaces and the final newline are invisible on screen, so a pair
+ * whose program is right cannot be told it is wrong for something they have no
+ * way to see. Line endings are normalised for the same reason - it is the
+ * platform's, not the student's.
+ *
+ * Case is NOT normalised. "B" and "b" are different grades, "true" and "True"
+ * are different in Java, and an exercise about printing a specific string is
+ * about printing that string. Blank lines in the middle are kept too: a
+ * program that prints the right numbers with a stray gap between them is not
+ * printing the right thing.
+ * ================================================================
+ */
+export function outputMatches(expected: string, actual: string): boolean {
+  const normalise = (text: string) =>
+    text
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .map((line) => line.replace(/\s+$/, ''))
+      .join('\n')
+      .replace(/\n+$/, '');
+
+  return normalise(expected) === normalise(actual);
+}
+
 @WebSocketGateway({
   cors: {
     // A callback, not a value. This decorator is evaluated when the module is
@@ -55,6 +85,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   // Roles change in exactly two places (a member joining, and a swap), so both
   // write here and nothing else can drift.
   private sessionRoles = new Map<string, Record<string, string>>(); // sessionId -> userId -> role
+  private sessionExpected = new Map<string, string | null>(); // sessionId -> expected output
 
   /*
    * ============ WHY RUNNING CODE IS RATE LIMITED HERE ============
@@ -137,6 +168,28 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     return this.rooms.get(sessionId)?.has(client.id) ?? false;
   }
 
+  /**
+   * The output this session's exercise is supposed to produce, or null when it
+   * has none. Cached per session because it cannot change while the session
+   * runs - the question is fixed at creation.
+   *
+   * `undefined` in the map means "not looked up yet"; `null` means "looked up,
+   * this exercise has no single right answer". Without that distinction an
+   * exercise with no expected output would hit the database on every run.
+   */
+  private async expectedFor(sessionId: string): Promise<string | null> {
+    const cached = this.sessionExpected.get(sessionId);
+    if (cached !== undefined) return cached;
+
+    const session = await this.prisma.pairSession.findUnique({
+      where: { id: sessionId },
+      select: { question: { select: { expectedOutput: true } } },
+    });
+    const expected = session?.question?.expectedOutput ?? null;
+    this.sessionExpected.set(sessionId, expected);
+    return expected;
+  }
+
   /** Read the roles from the database and refresh the cache. */
   private async loadRoles(sessionId: string): Promise<Record<string, string>> {
     const members = await this.prisma.pairSessionMember.findMany({ where: { sessionId } });
@@ -167,6 +220,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       if (members.size === 0) {
         this.rooms.delete(sessionId);
         this.sessionRoles.delete(sessionId);
+        this.sessionExpected.delete(sessionId);
         this.runsInFlight.delete(sessionId);
       }
     });
@@ -503,8 +557,33 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       // Actually compile and run the Java code
       const result = await this.codeRunnerService.runJava({ code });
 
+      /*
+       * ============== DID IT PRODUCE THE RIGHT ANSWER? ==============
+       * `result.success` means the program compiled and exited without
+       * throwing. It does not mean the program is right, and the difference
+       * is the whole exercise: the Countdown starter code is
+       *
+       *     for (int i = 10; i <= 0; i++)
+       *
+       * which compiles, runs, prints nothing, and reports success - because
+       * 10 <= 0 is false on the first check. A pair could sit on that for the
+       * whole session with every run coming back green.
+       *
+       * `correct` is null, not false, when the exercise has no expected
+       * output. The UI shows a verdict only when there is one to show, rather
+       * than telling a pair their working program is wrong because nobody
+       * wrote down what it should print.
+       *
+       * The expected text itself never leaves the server - see
+       * common/public-select.ts. Only this verdict does.
+       * ==============================================================
+       */
+      const expected = await this.expectedFor(sessionId);
+      const correct =
+        expected === null || !result.success ? null : outputMatches(expected, result.stdout);
+
       // Broadcast result to everyone in room
-      this.server.to(sessionId).emit('code_result', result);
+      this.server.to(sessionId).emit('code_result', { ...result, correct });
 
       // Keep the failure text for hint retrieval; clear it on success so a hint
       // never cites an error the pair has already fixed.
@@ -514,14 +593,34 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         this.lastError.set(sessionId, result.compileError || result.stderr || '');
       }
 
-      // Log the result
+      /*
+       * `correct` is recorded alongside `success`, not instead of it.
+       *
+       * run_success_rate - one of the model's fifteen features - is computed
+       * from `success`, and the model in models/ was trained against that
+       * meaning. Redefining the field under a model trained on the old one is
+       * exactly the train/serve skew this component has been bitten by
+       * before, so the feature keeps its meaning and the better signal is
+       * recorded next to it, ready for the retrain. See the note in
+       * ml/app/features/extractor.py.
+       */
       await this.logEvent(sessionId, userId, 'CODE_RUN_RESULT', {
         success: result.success,
         hasError: !!result.compileError || !!result.stderr,
+        correct,
       });
 
-      // If failed, trigger ML prediction for possible LOGIC_STRUGGLE
-      if (!result.success) {
+      /*
+       * Ask the model when the run did not solve the exercise - which now
+       * includes a program that ran cleanly and printed the wrong thing.
+       *
+       * That case used to be silent. A pair going round in circles on a loop
+       * that compiles every time produced an unbroken run of successes and
+       * never once triggered a prediction, which is the state
+       * LOGIC_STRUGGLE describes: "active but stuck due to repeated failures
+       * or logic confusion".
+       */
+      if (!result.success || correct === false) {
         this.triggerMlPrediction(sessionId);
       }
     } catch (error) {
@@ -634,6 +733,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     this.lastCode.delete(sessionId);
     this.activeWorkCounters.delete(sessionId);
     this.sessionRoles.delete(sessionId);
+    this.sessionExpected.delete(sessionId);
     this.runsInFlight.delete(sessionId);
 
     this.server?.to(sessionId).emit('session_ended', { sessionId });

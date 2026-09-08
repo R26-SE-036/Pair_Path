@@ -50,6 +50,11 @@ export async function seedDatabase(client: PrismaClient = prisma) {
         difficulty: row.difficulty,
         starterCode: row.starterCode,
         referenceSolution: row.referenceSolution,
+        // Listed here as well as in `create`, which spreads the whole row. The
+        // update branch names every column, so a field added to the bank and
+        // not added here reaches new databases and silently never reaches the
+        // one that already has these sixteen questions.
+        expectedOutput: row.expectedOutput,
         conceptTags: row.conceptTags,
         // Prisma types a Json column as InputJsonValue, which an interface
         // does not satisfy - a TypeScript interface has no index signature, so

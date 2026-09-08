@@ -63,6 +63,14 @@ describe('what leaves the API', () => {
     expect(PUBLIC_QUESTION.select).not.toHaveProperty('referenceSolution');
     expect(Object.isFrozen(PUBLIC_QUESTION_FIELDS)).toBe(true);
 
+    // The other answer to the exercise. For "print 10 down to 1" or "print
+    // the grade for 74" the expected output IS the solution, so shipping it
+    // to the client that is being told it got the answer wrong would hand
+    // over the answer with the verdict. The server compares and sends a
+    // boolean.
+    expect(PUBLIC_QUESTION_FIELDS).not.toHaveProperty('expectedOutput');
+    expect(PUBLIC_QUESTION.select).not.toHaveProperty('expectedOutput');
+
     // The things a question DOES need to carry, so a future trim does not
     // quietly break the workspace or the peer review.
     for (const field of ['title', 'description', 'starterCode', 'reviewQuestions', 'conceptTags']) {

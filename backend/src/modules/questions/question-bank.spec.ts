@@ -120,6 +120,48 @@ describe('every question is well formed', () => {
   it('has a difficulty the UI can display', each((q) => {
     expect(['BEGINNER', 'INTERMEDIATE', 'ADVANCED']).toContain(q.difficulty);
   }));
+
+  it('says what the exercise is supposed to print', each((q) => {
+    // Without this a run can be reported as successful for a program that
+    // prints nothing at all - which is exactly what the Countdown starter
+    // does, because `for (int i = 10; i <= 0; i++)` is false on the first
+    // check. A question with no expected output can never tell a pair they
+    // have finished.
+    expect(typeof q.expectedOutput).toBe('string');
+    expect(q.expectedOutput.trim().length).toBeGreaterThan(0);
+  }));
+
+  it('does not hand the whole answer to the pair in the starter code', each((q) => {
+    /*
+     * The scaffold must not contain the finished output as a block a pair
+     * could copy out.
+     *
+     * Deliberately NOT a per-line check. "Classify a Number" expects
+     * "negative / zero / positive" and its TODO reads `return "negative",
+     * "zero" or "positive"`; "In Range" expects `false` and its TODO says
+     * "print true ... false otherwise". Naming the vocabulary is how those
+     * exercises are stated - the work is deciding WHICH one for which input,
+     * and a test that forbade the words would be demanding worse questions.
+     *
+     * The consequence, worth stating plainly: for the two single-token
+     * boolean exercises, output matching alone can be passed by printing a
+     * constant. It is a completion signal, not an assessment - the peer
+     * review is what carries the assessment.
+     */
+    const expected = q.expectedOutput.trim();
+
+    // Single-line outputs are exempt, and every one of them in this bank is
+    // named by its own TODO: "print A, B, C or F", `print "weekend" or
+    // "weekday"`, "print true ... false otherwise". That is the exercise
+    // being stated, not the answer being given away - which one applies to
+    // the input is the work.
+    //
+    // So this catches the case that is unambiguous: a multi-line expected
+    // output sitting in the scaffold as a block the pair could copy.
+    if (!expected.includes('\n')) return;
+
+    expect(q.starterCode).not.toContain(expected);
+  }));
 });
 
 describe('review prompts', () => {

@@ -15,7 +15,7 @@
  * model was trained on, and nothing reports it.
  */
 
-import { WebsocketGateway } from './websocket.gateway';
+import { WebsocketGateway, outputMatches } from './websocket.gateway';
 
 /** A socket that records what it was told, without a network. */
 function fakeSocket(id: string, userId: string) {
@@ -53,7 +53,7 @@ function fakeServer() {
 }
 
 interface Harness {
-  state: { memberQueries: number; sessionStatus: string };
+  state: { memberQueries: number; sessionStatus: string; expectedOutput: string | null };
   gateway: WebsocketGateway;
   server: ReturnType<typeof fakeServer>;
   events: Array<{ eventType: string; userId: string; role: string; metadata: string }>;
@@ -83,7 +83,7 @@ function harness(
   const memberRows = members.map((m, i) => ({ id: `m${i}`, ...m }));
   const events: Harness['events'] = [];
   const roleUpdates: Harness['roleUpdates'] = [];
-  const state = { memberQueries: 0, sessionStatus: 'ACTIVE' };
+  const state = { memberQueries: 0, sessionStatus: 'ACTIVE', expectedOutput: null as string | null };
 
   const prisma = {
     pairSessionMember: {
@@ -109,7 +109,17 @@ function harness(
       findFirst: async () => null,
     },
     // ACTIVE by default; tests that need a finished session override it.
-    pairSession: { findUnique: async () => ({ status: state.sessionStatus }) },
+    //
+    // Carries the question too, because the gateway reads the exercise's
+    // expected output through this same row. Null by default, which is the
+    // "this exercise has no single right answer" case - so a test that says
+    // nothing about output gets no verdict rather than a wrong one.
+    pairSession: {
+      findUnique: async () => ({
+        status: state.sessionStatus,
+        question: { expectedOutput: state.expectedOutput },
+      }),
+    },
     intervention: { create: async (a: any) => a.data, update: async () => ({}) },
     featureWindow: { create: () => ({}) },
     pairStatePrediction: { create: () => ({}) },
@@ -616,5 +626,157 @@ describe('running code', () => {
     await h.gateway.handleRunCode({ sessionId: 's1' } as any, driver as any);
 
     expect(calls).toBe(0);
+  });
+});
+
+describe('comparing what ran against what the exercise wants', () => {
+  const ran = (stdout: string) => async () => ({
+    success: true,
+    stdout,
+    stderr: '',
+    compileError: null,
+  });
+
+  const last = <T,>(rows: T[]): T => rows[rows.length - 1];
+
+  /** The verdict the room was told about, from the broadcast code_result. */
+  const results = (h: ReturnType<typeof harness>) =>
+    h.server.sent.filter((s) => s.event === 'code_result');
+  const verdict = (h: ReturnType<typeof harness>) => last(results(h)).payload.correct;
+
+  /** What CODE_RUN_RESULT recorded, as the model will later read it. */
+  const recorded = (h: ReturnType<typeof harness>) =>
+    JSON.parse(last(h.events.filter((e) => e.eventType === 'CODE_RUN_RESULT')).metadata);
+
+  it('calls a run correct when the output matches', async () => {
+    const h = harness(DRIVER_NAV, ran('10\n9\n8\n'));
+    h.state.expectedOutput = '10\n9\n8\n';
+
+    const driver = fakeSocket('sd', 'driver');
+    await join(h, driver);
+    await h.gateway.handleRunCode({ sessionId: 's1', code: 'x' }, driver as any);
+
+    expect(verdict(h)).toBe(true);
+    expect(recorded(h).correct).toBe(true);
+  });
+
+  it('calls a run wrong when a clean program prints nothing', async () => {
+    /*
+     * The bug the whole feature exists for. `for (int i = 10; i <= 0; i++)`
+     * compiles, runs, exits 0 and prints nothing - so `success` is true and
+     * the pair used to be shown "(no output)" with no indication that it was
+     * not the answer.
+     */
+    const h = harness(DRIVER_NAV, ran(''));
+    h.state.expectedOutput = '10\n9\n8\n';
+
+    const driver = fakeSocket('sd', 'driver');
+    await join(h, driver);
+    await h.gateway.handleRunCode({ sessionId: 's1', code: 'x' }, driver as any);
+
+    const sent = last(results(h)).payload;
+    expect(sent.success).toBe(true);
+    expect(sent.correct).toBe(false);
+    expect(recorded(h).success).toBe(true);
+    expect(recorded(h).correct).toBe(false);
+  });
+
+  it('gives no verdict when the exercise has no expected output', async () => {
+    // Null, not false. The three archived questions still referenced by old
+    // sessions have no recorded output, and their pairs must not be told
+    // their working program is wrong.
+    const h = harness(DRIVER_NAV, ran('anything'));
+    h.state.expectedOutput = null;
+
+    const driver = fakeSocket('sd', 'driver');
+    await join(h, driver);
+    await h.gateway.handleRunCode({ sessionId: 's1', code: 'x' }, driver as any);
+
+    expect(verdict(h)).toBeNull();
+    expect(recorded(h).correct).toBeNull();
+  });
+
+  it('gives no verdict when the program did not run', async () => {
+    const h = harness(DRIVER_NAV, async () => ({
+      success: false,
+      stdout: '',
+      stderr: '',
+      compileError: 'Countdown.java:3: error: ; expected',
+    }));
+    h.state.expectedOutput = '10\n';
+
+    const driver = fakeSocket('sd', 'driver');
+    await join(h, driver);
+    await h.gateway.handleRunCode({ sessionId: 's1', code: 'x' }, driver as any);
+
+    // A compile error is already reported as itself. Calling it "not the
+    // expected output" as well would be two messages for one problem.
+    expect(verdict(h)).toBeNull();
+  });
+
+  it('never sends the expected output to the room', async () => {
+    // For most of these exercises the expected output IS the answer, so it
+    // must not travel with the verdict that says the pair got it wrong.
+    const h = harness(DRIVER_NAV, ran('wrong'));
+    h.state.expectedOutput = 'THE-SECRET-ANSWER';
+
+    const driver = fakeSocket('sd', 'driver');
+    await join(h, driver);
+    await h.gateway.handleRunCode({ sessionId: 's1', code: 'x' }, driver as any);
+
+    expect(JSON.stringify(h.server.sent)).not.toContain('THE-SECRET-ANSWER');
+    expect(JSON.stringify(h.events)).not.toContain('THE-SECRET-ANSWER');
+  });
+
+  it('reads the expected output once, not on every run', async () => {
+    // Fixed at session creation, so re-reading it per run is a database round
+    // trip on the hot path for a value that cannot change.
+    let reads = 0;
+    const h = harness(DRIVER_NAV, ran('x'));
+    h.state.expectedOutput = 'x';
+    const realFindUnique = (h.gateway as any).prisma.pairSession.findUnique;
+    (h.gateway as any).prisma.pairSession.findUnique = async (args: any) => {
+      if (args?.select?.question) reads += 1;
+      return realFindUnique(args);
+    };
+
+    const driver = fakeSocket('sd', 'driver');
+    await join(h, driver);
+    await h.gateway.handleRunCode({ sessionId: 's1', code: 'x' }, driver as any);
+    await h.gateway.handleRunCode({ sessionId: 's1', code: 'x' }, driver as any);
+    await h.gateway.handleRunCode({ sessionId: 's1', code: 'x' }, driver as any);
+
+    expect(reads).toBe(1);
+  });
+});
+
+describe('what counts as the same output', () => {
+  it('ignores a trailing newline and trailing spaces', () => {
+    // Invisible on screen. A pair cannot fix what they cannot see.
+    expect(outputMatches('10\n9\n', '10\n9')).toBe(true);
+    expect(outputMatches('10\n9\n', '10   \n9\n\n')).toBe(true);
+    expect(outputMatches('done', 'done\r\n')).toBe(true);
+  });
+
+  it('does not ignore case', () => {
+    // "B" and "b" are different grades; "true" and "True" are different in
+    // Java. An exercise about printing a particular string is about that
+    // string.
+    expect(outputMatches('B', 'b')).toBe(false);
+    expect(outputMatches('true', 'True')).toBe(false);
+  });
+
+  it('does not ignore a blank line in the middle', () => {
+    expect(outputMatches('10\n9', '10\n\n9')).toBe(false);
+  });
+
+  it('does not ignore missing or extra lines', () => {
+    expect(outputMatches('10\n9\n8', '10\n9')).toBe(false);
+    expect(outputMatches('10\n9', '10\n9\n8')).toBe(false);
+  });
+
+  it('treats an empty result as different from real output', () => {
+    // The Countdown case, at the level of the comparison itself.
+    expect(outputMatches('10\n9\n8', '')).toBe(false);
   });
 });

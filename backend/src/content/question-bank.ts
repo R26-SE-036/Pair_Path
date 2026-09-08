@@ -51,6 +51,18 @@ export interface BankQuestion {
   invitesErrors: string[];
   starterCode: string;
   referenceSolution: string;
+  /**
+   * Exactly what `referenceSolution` prints, byte for byte.
+   *
+   * Not hand-written: every value here was captured by running the reference
+   * solution through the code runner, and a test re-runs all sixteen and
+   * fails if any of them stops matching. A hand-typed expected output is a
+   * second implementation of the exercise, and the one nobody runs.
+   *
+   * Withheld from the API for the same reason as referenceSolution - for
+   * "print 10 down to 1" the expected output IS the answer.
+   */
+  expectedOutput: string;
   reviewQuestions: ReviewPrompt[];
 }
 
@@ -146,6 +158,7 @@ export const QUESTIONS: BankQuestion[] = [
         System.out.println("Sum: " + sum);
     }
 }`,
+    expectedOutput: "Sum: 108\n",
     reviewQuestions: [
       { prompt: 'Did the loop stop before numbers.length rather than at it?', expected: true },
       { prompt: 'Did we run the program and check the total by hand?', expected: true },
@@ -177,6 +190,7 @@ export const QUESTIONS: BankQuestion[] = [
         }
     }
 }`,
+    expectedOutput: "10\n9\n8\n7\n6\n5\n4\n3\n2\n1\n",
     reviewQuestions: [
       { prompt: 'Does the counter move towards the value the condition tests against?', expected: true },
       { prompt: 'Did our first attempt run forever, or not run at all?', expected: false },
@@ -223,6 +237,7 @@ export const QUESTIONS: BankQuestion[] = [
         }
     }
 }`,
+    expectedOutput: "Average: 8.0\n",
     reviewQuestions: [
       { prompt: 'Did we handle the case where no value is positive?', expected: true },
       { prompt: 'Did we divide before checking that the count was not zero?', expected: false },
@@ -259,6 +274,7 @@ export const QUESTIONS: BankQuestion[] = [
         }
     }
 }`,
+    expectedOutput: "64\n32\n16\n8\n4\n2\n1\n",
     reviewQuestions: [
       { prompt: 'Does the variable in the while condition change inside the loop?', expected: true },
       { prompt: 'Did the program have to be stopped by hand at any point?', expected: false },
@@ -294,6 +310,7 @@ export const QUESTIONS: BankQuestion[] = [
         System.out.println("Last: " + names[names.length - 1]);
     }
 }`,
+    expectedOutput: "First: Ada\nLast: Katherine\n",
     reviewQuestions: [
       { prompt: 'Did we use names.length - 1 rather than names.length for the last element?', expected: true },
       { prompt: 'Did we write the number 3 anywhere instead of deriving it?', expected: false },
@@ -329,6 +346,7 @@ export const QUESTIONS: BankQuestion[] = [
         }
     }
 }`,
+    expectedOutput: "5\n4\n3\n2\n1\n",
     reviewQuestions: [
       { prompt: 'Does the loop start at numbers.length - 1?', expected: true },
       { prompt: 'Does it stop at 0 rather than at 1?', expected: true },
@@ -375,6 +393,7 @@ export const QUESTIONS: BankQuestion[] = [
         System.out.println(indexOf(values, 99));
     }
 }`,
+    expectedOutput: "2\n-1\n",
     reviewQuestions: [
       { prompt: 'Does the method return -1 when the target is absent?', expected: true },
       { prompt: 'Is there any statement after a return that can never run?', expected: false },
@@ -418,6 +437,7 @@ export const QUESTIONS: BankQuestion[] = [
         }
     }
 }`,
+    expectedOutput: "B\n",
     reviewQuestions: [
       { prompt: 'Is every branch reachable for some score?', expected: true },
       { prompt: 'Does the same condition appear twice in the chain?', expected: false },
@@ -452,6 +472,7 @@ export const QUESTIONS: BankQuestion[] = [
         System.out.println(inRange);
     }
 }`,
+    expectedOutput: "false\n",
     reviewQuestions: [
       { prompt: 'Did we use && rather than || to join the two comparisons?', expected: true },
       { prompt: 'Is there a value of the variable that makes the condition false?', expected: true },
@@ -498,6 +519,7 @@ export const QUESTIONS: BankQuestion[] = [
         System.out.println(classify(7));
     }
 }`,
+    expectedOutput: "negative\nzero\npositive\n",
     reviewQuestions: [
       { prompt: 'Does every path through the method return a value?', expected: true },
       { prompt: 'Is there code after a return that can never be reached?', expected: false },
@@ -538,6 +560,7 @@ export const QUESTIONS: BankQuestion[] = [
         }
     }
 }`,
+    expectedOutput: "weekend\n",
     reviewQuestions: [
       { prompt: 'Does each case that produces output end with a break?', expected: true },
       { prompt: 'Did our first version print two lines for one day?', expected: false },
@@ -575,6 +598,7 @@ export const QUESTIONS: BankQuestion[] = [
         System.out.println(expected.equals(given));
     }
 }`,
+    expectedOutput: "true\n",
     reviewQuestions: [
       { prompt: 'Did we compare the strings with .equals rather than ==?', expected: true },
       { prompt: 'Did our first attempt print false even though the text matched?', expected: false },
@@ -610,6 +634,7 @@ export const QUESTIONS: BankQuestion[] = [
         System.out.println("[" + input + "]");
     }
 }`,
+    expectedOutput: "[ADA LOVELACE]\n",
     reviewQuestions: [
       { prompt: 'Did we assign the result of trim() back to a variable?', expected: true },
       { prompt: 'Did calling input.trim() on its own change input?', expected: false },
@@ -651,6 +676,7 @@ export const QUESTIONS: BankQuestion[] = [
         System.out.println("a = " + a + ", b = " + b);
     }
 }`,
+    expectedOutput: "a = 8, b = 3\n",
     reviewQuestions: [
       { prompt: 'Did we keep the first value somewhere before overwriting it?', expected: true },
       { prompt: 'Did either variable end up assigned to itself?', expected: false },
@@ -689,6 +715,7 @@ export const QUESTIONS: BankQuestion[] = [
         }
     }
 }`,
+    expectedOutput: "Each pays: 18.75\n",
     reviewQuestions: [
       { prompt: 'Did we check for zero people before dividing?', expected: true },
       { prompt: 'Did we get an ArithmeticException while testing?', expected: false },
@@ -709,8 +736,11 @@ export const QUESTIONS: BankQuestion[] = [
     invitesErrors: ['EMPTY_CONDITIONAL_BODY'],
     starterCode: `public class OnlyWhenLarge {
     public static void main(String[] args) {
-        int value = 42;
+        check(42);
+        check(150);
+    }
 
+    static void check(int value) {
         // TODO: print "Too large" only when value is above 100
 
         System.out.println("Checked " + value);
@@ -718,8 +748,11 @@ export const QUESTIONS: BankQuestion[] = [
 }`,
     referenceSolution: `public class OnlyWhenLarge {
     public static void main(String[] args) {
-        int value = 42;
+        check(42);
+        check(150);
+    }
 
+    static void check(int value) {
         if (value > 100) {
             System.out.println("Too large");
         }
@@ -727,6 +760,7 @@ export const QUESTIONS: BankQuestion[] = [
         System.out.println("Checked " + value);
     }
 }`,
+    expectedOutput: "Checked 42\nToo large\nChecked 150\n",
     reviewQuestions: [
       { prompt: 'Is there a semicolon immediately after the if condition?', expected: false },
       { prompt: 'Did we test a value above 100 and one below?', expected: true },
