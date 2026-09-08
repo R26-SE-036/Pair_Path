@@ -222,17 +222,35 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
           include: { members: { select: { userId: true } } },
         });
 
+        /*
+         * These four strings are shown to a student, verbatim, on the pairing
+         * page - so they say what happened and what to do about it. They read
+         * as log lines before ("Invalid join code", "Session is full"), which
+         * is fine for a log and not an explanation for someone holding a code
+         * their partner just read out to them.
+         *
+         * The status stays 400 in every case: nothing here is a fault, and a
+         * join that cannot proceed is not a server error.
+         */
         if (!session) {
-          throw new BadRequestException('Invalid join code');
+          throw new BadRequestException(
+            'No session has that code. Check it with your partner - codes are six characters.',
+          );
         }
         if (session.status !== 'ACTIVE') {
-          throw new BadRequestException('Session is not active');
+          throw new BadRequestException(
+            'That session has already finished. Start a new one to work together again.',
+          );
         }
         if (session.members.some((m) => m.userId === userId)) {
-          throw new BadRequestException('Already a member of this session');
+          throw new BadRequestException(
+            'You are already in this session - reopen it from the list below rather than joining again.',
+          );
         }
         if (session.members.length >= MAX_MEMBERS) {
-          throw new BadRequestException('Session is full');
+          throw new BadRequestException(
+            `That session already has ${MAX_MEMBERS} people in it. Pairing is for two - ask them to start another, or start one yourself.`,
+          );
         }
 
         return tx.pairSession.update({

@@ -210,7 +210,7 @@ describe('joining', () => {
     const rows = [{ ...OWNED, members: [...OWNED.members] }];
     const { service } = make(rows);
 
-    await expect(service.join({ joinCode: 'ABC123' }, 'third')).rejects.toThrow('Session is full');
+    await expect(service.join({ joinCode: 'ABC123' }, 'third')).rejects.toThrow(/already has 2 people/);
     expect(rows[0].members).toHaveLength(2);
   });
 
@@ -225,7 +225,44 @@ describe('joining', () => {
 
   it('refuses an unknown code', async () => {
     const { service } = make([OWNED]);
-    await expect(service.join({ joinCode: 'NOPE00' }, 'me')).rejects.toThrow('Invalid join code');
+    await expect(service.join({ joinCode: 'NOPE00' }, 'me')).rejects.toThrow(/No session has that code/);
+  });
+
+  it('explains every refusal in words a student can act on', async () => {
+    /*
+     * These four strings are rendered verbatim on the pairing page, so they
+     * are interface, not log output. They read "Session is full" and "Invalid
+     * join code" before - true, and no help to somebody holding a code their
+     * partner just read out.
+     *
+     * Asserted as a shape rather than as exact prose: the wording should be
+     * free to improve, but never back to two words and a full stop.
+     */
+    const finished = { ...OWNED, status: 'COMPLETED' };
+    const cases: Array<[string, ReturnType<typeof make>, string]> = [
+      ['unknown code', make([OWNED]), 'NOPE00'],
+      ['already full', make([{ ...OWNED, members: [...OWNED.members] }]), 'ABC123'],
+      ['finished', make([finished]), 'ABC123'],
+    ];
+
+    for (const [label, { service }, joinCode] of cases) {
+      const error = await service.join({ joinCode }, 'third').catch((e: Error) => e);
+      const message = (error as Error).message;
+
+      expect(message.length).toBeGreaterThan(30);
+      expect(message).toMatch(/[.!]$/);
+      // Not a bare HTTP phrase, which is what the browser fell back to when
+      // the real one was dropped - see errorMessage in codeguru-web/lib/api.ts.
+      expect(message).not.toBe('Bad Request');
+      expect(label).toBeTruthy();
+    }
+  });
+
+  it('tells a student already in the session where to go instead', async () => {
+    const { service } = make([OWNED]);
+    await expect(service.join({ joinCode: 'ABC123' }, 'me')).rejects.toThrow(
+      /already in this session/,
+    );
   });
 });
 
