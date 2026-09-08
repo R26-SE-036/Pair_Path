@@ -1,9 +1,9 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { TopicsService } from './topics.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 /**
- * Read-only.
+ * One route: the list the topic picker fills itself from.
  *
  * `POST /topics` was open to any signed-in student, because PairPath has no
  * roles: there is no difference between a student and an instructor in this
@@ -12,8 +12,12 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
  * and a review instrument of their choosing, then pair on it - which makes the
  * session record unusable as evidence of anything.
  *
- * Nothing called it. Content comes from prisma/seeds.ts. It comes back when
- * there is a role to gate it on.
+ * Nothing called it. Content comes from src/content/question-bank.ts. It comes
+ * back when there is a role to gate it on.
+ *
+ * `GET /topics/:id` is gone because nothing called it either: the picker lists
+ * topics and then asks for that topic's questions, and never needs one topic
+ * on its own.
  */
 @Controller('topics')
 @UseGuards(JwtAuthGuard)
@@ -23,10 +27,5 @@ export class TopicsController {
   @Get()
   findAll() {
     return this.topicsService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.topicsService.findById(id);
   }
 }

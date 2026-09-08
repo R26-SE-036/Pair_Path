@@ -1,9 +1,8 @@
-import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard } from './jwt-auth.guard';
 import { Public } from '../../common/public.decorator';
 
 /**
@@ -47,11 +46,5 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshToken(refreshToken);
-  }
-
-  @Get('profile')
-  @UseGuards(JwtAuthGuard)
-  getProfile(@Req() req: any) {
-    return this.authService.getProfile(req.user.userId);
   }
 }

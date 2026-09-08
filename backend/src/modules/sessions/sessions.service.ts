@@ -4,6 +4,8 @@ import {
   ForbiddenException,
   NotFoundException,
   Logger,
+  OnModuleInit,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
@@ -20,14 +22,118 @@ const JOIN_CODE_ATTEMPTS = 5;
 /** A pair is two people. */
 const MAX_MEMBERS = 2;
 
+/**
+ * ==================== WHY SESSIONS EXPIRE ====================
+ * A session became COMPLETED only when somebody pressed End. Closing the tab,
+ * losing wifi, or simply walking away left the row ACTIVE forever - so the
+ * pairing page filled up with sessions offering "Rejoin", every one of them a
+ * dead workspace with nobody in it and no way to reach the review step, which
+ * requires a completed session.
+ *
+ * They also poisoned the record: `/pair/analytics` reports duration from
+ * startedAt, and an abandoned session accumulates it indefinitely. One in the
+ * list had run for 64 hours and 31 minutes.
+ *
+ * EXPIRED, not COMPLETED, because the difference is the point. A pair that
+ * finished and reviewed each other produced evidence; a pair that wandered off
+ * produced an abandoned attempt, and a research record that cannot tell them
+ * apart is one that quietly counts the second as the first.
+ * =============================================================
+ */
+const SESSION_IDLE_MS = 30 * 60 * 1000;
+const EXPIRY_SWEEP_MS = 5 * 60 * 1000;
+
 @Injectable()
-export class SessionsService {
+export class SessionsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SessionsService.name);
+  private expirySweep?: NodeJS.Timeout;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly websocketGateway: WebsocketGateway,
   ) {}
+
+  onModuleInit() {
+    // Once at startup as well as on the interval: the sessions most in need of
+    // this are the ones abandoned before the last restart, and waiting five
+    // minutes to notice them serves nobody.
+    void this.expireIdleSessions();
+
+    this.expirySweep = setInterval(() => {
+      void this.expireIdleSessions();
+    }, EXPIRY_SWEEP_MS);
+
+    // Node keeps the process alive for a pending timer. Nothing here is worth
+    // delaying a shutdown for.
+    this.expirySweep.unref?.();
+  }
+
+  onModuleDestroy() {
+    if (this.expirySweep) clearInterval(this.expirySweep);
+  }
+
+  /**
+   * Close ACTIVE sessions that nobody has touched for SESSION_IDLE_MS.
+   *
+   * Idleness is measured from the last recorded event rather than from
+   * startedAt, so a long session that is genuinely being worked on is never
+   * closed underneath the pair - every keystroke, note and run writes an
+   * event. A session with no events at all falls back to when it started,
+   * which covers the common case here: a session created, never joined by a
+   * partner, and abandoned at the workspace.
+   *
+   * Sessions with somebody still connected are skipped even if they have gone
+   * quiet, so a pair reading code in silence keeps their workspace. That check
+   * only sees this process's own sockets; behind more than one API instance a
+   * session held open on another instance would have to fall back to its event
+   * recency, which is why the timeout is generous rather than tight.
+   */
+  async expireIdleSessions(): Promise<number> {
+    const cutoff = new Date(Date.now() - SESSION_IDLE_MS);
+
+    const candidates = await this.prisma.pairSession.findMany({
+      where: { status: 'ACTIVE', startedAt: { lt: cutoff } },
+      select: {
+        id: true,
+        startedAt: true,
+        events: {
+          select: { timestamp: true },
+          orderBy: { timestamp: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    const stale = candidates.filter((session) => {
+      if (this.websocketGateway.hasLiveMembers(session.id)) return false;
+      const lastSeen = session.events[0]?.timestamp ?? session.startedAt;
+      return lastSeen < cutoff;
+    });
+
+    if (stale.length === 0) return 0;
+
+    const ids = stale.map((s) => s.id);
+
+    // updateMany filtered on ACTIVE, so a session that somebody ended in the
+    // gap between the read and this write is left alone rather than having its
+    // COMPLETED overwritten with EXPIRED.
+    const { count } = await this.prisma.pairSession.updateMany({
+      where: { id: { in: ids }, status: 'ACTIVE' },
+      data: { status: 'EXPIRED', endedAt: new Date() },
+    });
+
+    if (count > 0) {
+      this.logger.log(
+        `Expired ${count} session${count === 1 ? '' : 's'} idle for over ` +
+          `${SESSION_IDLE_MS / 60000} minutes.`,
+      );
+      // Anyone still holding a socket on one of these is told, so a forgotten
+      // tab stops behaving as though it were live.
+      for (const id of ids) this.websocketGateway.notifySessionEnded(id);
+    }
+
+    return count;
+  }
 
   /**
    * Refuse unless this student is in this session.
@@ -189,13 +295,24 @@ export class SessionsService {
     return updatedSession;
   }
 
+  /**
+   * The sessions this student has been in, for the list on the pairing page.
+   *
+   * `members` is what lets that list say who each session was with; it was
+   * already being returned and simply never rendered, so four attempts at the
+   * same question showed as four identical rows.
+   *
+   * Interventions used to be included here, fully and ordered. Nothing on the
+   * page read them - the history view fetches one session for that - so every
+   * visit carried every nudge ever shown to this student across every session
+   * they had ever been in, to render a list of titles and dates.
+   */
   async findByUser(userId: string) {
     return this.prisma.pairSession.findMany({
       where: { members: { some: { userId } } },
       include: {
         question: PUBLIC_QUESTION,
         members: PUBLIC_MEMBERS,
-        interventions: { orderBy: { shownAt: 'desc' } },
       },
       orderBy: { startedAt: 'desc' },
     });

@@ -17,6 +17,10 @@ import { RedisService } from '../../common/redis.service';
 import { corsOriginCallback } from '../../common/env';
 import { isAccessToken } from '../../common/tokens';
 
+/** Runs per student per window. Matches what the removed HTTP route declared. */
+const RUN_LIMIT = 10;
+const RUN_WINDOW_MS = 60_000;
+
 @WebSocketGateway({
   cors: {
     // A callback, not a value. This decorator is evaluated when the module is
@@ -51,6 +55,33 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   // Roles change in exactly two places (a member joining, and a swap), so both
   // write here and nothing else can drift.
   private sessionRoles = new Map<string, Record<string, string>>(); // sessionId -> userId -> role
+
+  /*
+   * ============ WHY RUNNING CODE IS RATE LIMITED HERE ============
+   * `run_code` compiles and executes a Java program. It was the only path to
+   * the code runner that anything actually used - and it had no limit of any
+   * kind, because the limit was on `POST /code-runner/run-java`, an endpoint
+   * with no caller anywhere on the platform. The protection was on the door
+   * nobody used.
+   *
+   * Socket messages never reach the HTTP ThrottlerGuard, so nothing counted
+   * these. One client in a loop forks an unbounded number of `javac` and
+   * `java` processes on the API host - each one a real compiler with real
+   * memory - which is a denial of service against every other pair on the
+   * server, and in `lambda` mode is an unbounded number of billed
+   * invocations.
+   *
+   * Two separate limits, because they stop different things:
+   *   RUN_LIMIT/RUN_WINDOW_MS  a per-student budget, matching the 10/min the
+   *                            dead endpoint declared.
+   *   runsInFlight             one run at a time per session. A student who
+   *                            presses Run four times while the first is
+   *                            still compiling gets one compile, not four,
+   *                            and the pair is not shown four results.
+   * ===============================================================
+   */
+  private runHistory = new Map<string, number[]>(); // userId -> recent run timestamps
+  private runsInFlight = new Set<string>(); // sessionIds currently compiling
 
   constructor(
     private readonly codeRunnerService: CodeRunnerService,
@@ -136,8 +167,41 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       if (members.size === 0) {
         this.rooms.delete(sessionId);
         this.sessionRoles.delete(sessionId);
+        this.runsInFlight.delete(sessionId);
       }
     });
+
+    // Run budgets are keyed by student, not by session, so nothing above
+    // reaches them. Left alone the map keeps one entry for every student who
+    // has ever connected to this process; a student who reconnects inside the
+    // window simply starts with a fresh budget, which costs at most RUN_LIMIT
+    // extra runs and is not worth tracking sockets to prevent.
+    const userId = client.data?.userId;
+    if (userId && !this.hasOtherSocket(client.id, userId)) {
+      this.runHistory.delete(userId);
+    }
+  }
+
+  /**
+   * Is anybody currently in this session's room?
+   *
+   * Read by the idle sweep so a pair sitting quietly - reading, talking,
+   * thinking - is not closed out from under them. This process's rooms only:
+   * behind more than one instance a session held open elsewhere looks empty
+   * here, so the sweep treats this as one signal and not the only one.
+   */
+  hasLiveMembers(sessionId: string): boolean {
+    return (this.rooms.get(sessionId)?.size ?? 0) > 0;
+  }
+
+  /** Is this student still connected on some other socket? */
+  private hasOtherSocket(socketId: string, userId: string): boolean {
+    for (const members of this.rooms.values()) {
+      for (const [id, uid] of members) {
+        if (uid === userId && id !== socketId) return true;
+      }
+    }
+    return false;
   }
 
   @SubscribeMessage('join_room')
@@ -396,13 +460,47 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     const userId = client.data.userId;
     if (!this.isInRoom(client, sessionId)) return;
 
-    this.lastCode.set(sessionId, code);
+    if (typeof code !== 'string') return;
 
-    // Log the run attempt
-    await this.logEvent(sessionId, userId, 'CODE_RUN', { codeLength: code.length });
+    // Already compiling for this pair. Told to the one who asked, not to the
+    // room - the partner has no reason to see a message about a button they
+    // did not press.
+    if (this.runsInFlight.has(sessionId)) {
+      client.emit('run_rejected', {
+        reason: 'busy',
+        message: 'Your code is still running. One at a time.',
+      });
+      return;
+    }
 
-    // Actually compile and run the Java code
+    if (!this.allowRun(userId)) {
+      client.emit('run_rejected', {
+        reason: 'rate_limited',
+        message: `That is ${RUN_LIMIT} runs in a minute. Give it a moment before running again.`,
+      });
+      return;
+    }
+
+    /*
+     * Claimed here, before the first `await`, and not next to the runJava call
+     * it guards.
+     *
+     * Two run_code messages arriving in the same tick would otherwise both
+     * pass the check above: the first suspends at the logEvent round trip
+     * having claimed nothing, and the second finds the flag still unset. That
+     * window is a database write wide, which is most of the race. Setting it
+     * while the handler is still synchronous means the second message cannot
+     * observe anything but the claim.
+     */
+    this.runsInFlight.add(sessionId);
+
     try {
+      this.lastCode.set(sessionId, code);
+
+      // Log the run attempt
+      await this.logEvent(sessionId, userId, 'CODE_RUN', { codeLength: code.length });
+
+      // Actually compile and run the Java code
       const result = await this.codeRunnerService.runJava({ code });
 
       // Broadcast result to everyone in room
@@ -433,7 +531,34 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         stderr: 'Internal error running code',
         compileError: null,
       });
+    } finally {
+      // In a finally, so a runner that throws does not leave the session
+      // permanently unable to run anything again.
+      this.runsInFlight.delete(sessionId);
     }
+  }
+
+  /**
+   * Has this student got a run left in the current window?
+   *
+   * A sliding window rather than a fixed one: with fixed buckets a student can
+   * spend the whole budget at the end of one minute and the whole of the next
+   * at the start of the following one, which is the burst this exists to stop.
+   */
+  private allowRun(userId: string): boolean {
+    const now = Date.now();
+    const recent = (this.runHistory.get(userId) ?? []).filter((t) => now - t < RUN_WINDOW_MS);
+
+    if (recent.length >= RUN_LIMIT) {
+      // Write the pruned list back even on refusal, so the timestamps of a
+      // student who keeps trying cannot grow without bound.
+      this.runHistory.set(userId, recent);
+      return false;
+    }
+
+    recent.push(now);
+    this.runHistory.set(userId, recent);
+    return true;
   }
 
   @SubscribeMessage('intervention_response')
@@ -509,6 +634,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     this.lastCode.delete(sessionId);
     this.activeWorkCounters.delete(sessionId);
     this.sessionRoles.delete(sessionId);
+    this.runsInFlight.delete(sessionId);
 
     this.server?.to(sessionId).emit('session_ended', { sessionId });
   }

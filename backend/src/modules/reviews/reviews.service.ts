@@ -162,6 +162,15 @@ export class ReviewsService {
       throw new BadRequestException('Session not found');
     }
 
+    if (session.status === 'EXPIRED') {
+      // Told apart from "not finished yet", because the remedy is different:
+      // there is nothing to wait for and no button to press. The session was
+      // closed by the idle sweep after nobody touched it for half an hour.
+      throw new BadRequestException(
+        'This session expired without being finished, so there is nothing to review.',
+      );
+    }
+
     if (session.status !== 'COMPLETED') {
       throw new BadRequestException('Session must be completed to submit review');
     }

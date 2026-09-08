@@ -69,7 +69,17 @@ interface Harness {
  * mutate it through the gateway rather than by hand, so a swap that fails to
  * persist shows up as a failed assertion rather than a passing one.
  */
-function harness(members: Array<{ userId: string; role: string }>): Harness {
+function harness(
+  members: Array<{ userId: string; role: string }>,
+  // The code runner, for the tests that care when it returns rather than what
+  // it returns. Instant and successful unless a test says otherwise.
+  runJava: (args: { code: string }) => Promise<any> = async () => ({
+    success: true,
+    stdout: '',
+    stderr: '',
+    compileError: null,
+  }),
+): Harness {
   const memberRows = members.map((m, i) => ({ id: `m${i}`, ...m }));
   const events: Harness['events'] = [];
   const roleUpdates: Harness['roleUpdates'] = [];
@@ -107,7 +117,7 @@ function harness(members: Array<{ userId: string; role: string }>): Harness {
   };
 
   const gateway = new WebsocketGateway(
-    { runJava: async () => ({ success: true, stdout: '', stderr: '', compileError: null }) } as any,
+    { runJava } as any,
     prisma as any,
     { predictPairState: async () => null, recommendIntervention: async () => null } as any,
     { verify: () => ({ sub: 'u1' }) } as any,
@@ -484,5 +494,127 @@ describe('leaving', () => {
     h.gateway.handleDisconnect(driver as any);
 
     expect((h.gateway as any).rooms.get('s1').size).toBe(1);
+  });
+});
+
+describe('running code', () => {
+  /*
+   * `run_code` compiles and executes a Java program on the API host. It had no
+   * limit at all: the 10/min lived on POST /code-runner/run-java, an endpoint
+   * nothing ever called, and socket messages never reach the HTTP throttler.
+   * One client in a loop forks unbounded compilers, which is a denial of
+   * service against every other pair on the server.
+   */
+  const run = (h: Harness, socket: any) =>
+    h.gateway.handleRunCode({ sessionId: 's1', code: 'class A {}' }, socket as any);
+
+  const rejections = (socket: any) =>
+    socket.emitted.filter((e: any) => e.event === 'run_rejected');
+
+  /** Let pending microtasks settle, without letting a held promise resolve. */
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+  it('allows ten runs a minute and refuses the eleventh', async () => {
+    const h = harness(DRIVER_NAV);
+    const driver = fakeSocket('sd', 'driver');
+    await join(h, driver);
+
+    for (let i = 0; i < 10; i += 1) await run(h, driver);
+    expect(rejections(driver)).toHaveLength(0);
+
+    await run(h, driver);
+
+    const refused = rejections(driver);
+    expect(refused).toHaveLength(1);
+    expect((refused[0].payload as any).reason).toBe('rate_limited');
+
+    // And the eleventh really did not run: ten results, not eleven.
+    expect(h.server.sent.filter((s) => s.event === 'code_result')).toHaveLength(10);
+  });
+
+  it('budgets per student, not per session', async () => {
+    // Otherwise one member exhausting the budget locks their partner out of
+    // running anything for the rest of the minute.
+    const h = harness(DRIVER_NAV);
+    const driver = fakeSocket('sd', 'driver');
+    const nav = fakeSocket('sn', 'nav');
+    await join(h, driver);
+    await join(h, nav);
+
+    for (let i = 0; i < 11; i += 1) await run(h, driver);
+    expect(rejections(driver)).toHaveLength(1);
+
+    await run(h, nav);
+    expect(rejections(nav)).toHaveLength(0);
+  });
+
+  it('refuses a second run while the first is still compiling', async () => {
+    let release: (v: any) => void = () => {};
+    let calls = 0;
+    const h = harness(DRIVER_NAV, () => {
+      calls += 1;
+      return new Promise((resolve) => {
+        release = resolve;
+      });
+    });
+
+    const driver = fakeSocket('sd', 'driver');
+    await join(h, driver);
+
+    const first = run(h, driver);
+    await flush(); // let the first reach the runner and block there
+    await run(h, driver); // arrives while the first is still in flight
+
+    const refused = rejections(driver);
+    expect(refused).toHaveLength(1);
+    expect((refused[0].payload as any).reason).toBe('busy');
+    expect(calls).toBe(1);
+
+    release({ success: true, stdout: '', stderr: '', compileError: null });
+    await first;
+
+    // And the session is runnable again once the first one finishes.
+    const third = run(h, driver);
+    await flush();
+    expect(calls).toBe(2);
+
+    release({ success: true, stdout: '', stderr: '', compileError: null });
+    await third;
+  });
+
+  it('does not strand a session when the runner throws', async () => {
+    // Without the finally, one failure leaves `runsInFlight` holding the
+    // session forever and the pair can never run anything again.
+    let calls = 0;
+    const h = harness(DRIVER_NAV, async () => {
+      calls += 1;
+      throw new Error('runner exploded');
+    });
+
+    const driver = fakeSocket('sd', 'driver');
+    await join(h, driver);
+
+    await run(h, driver);
+    await run(h, driver);
+
+    expect(calls).toBe(2);
+    expect(rejections(driver)).toHaveLength(0);
+  });
+
+  it('ignores a run_code with no code', async () => {
+    // `code` is annotated as a string, which is erased at runtime, and this
+    // path reaches `code.length` before anything else looks at it.
+    let calls = 0;
+    const h = harness(DRIVER_NAV, async () => {
+      calls += 1;
+      return { success: true, stdout: '', stderr: '', compileError: null };
+    });
+
+    const driver = fakeSocket('sd', 'driver');
+    await join(h, driver);
+
+    await h.gateway.handleRunCode({ sessionId: 's1' } as any, driver as any);
+
+    expect(calls).toBe(0);
   });
 });

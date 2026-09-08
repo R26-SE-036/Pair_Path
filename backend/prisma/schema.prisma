@@ -110,7 +110,10 @@ model PairSession {
   id           String    @id @default(cuid())
   joinCode     String    @unique
   questionId   String
-  status       String    @default("ACTIVE") // ACTIVE, COMPLETED
+  // ACTIVE while the pair is working; COMPLETED when somebody ends it;
+  // EXPIRED when the idle sweep closes one nobody touched for 30 minutes.
+  // See SessionsService.expireIdleSessions for why the last two are distinct.
+  status       String    @default("ACTIVE")
   startedAt    DateTime  @default(now())
   endedAt      DateTime?
   finalCode    String?

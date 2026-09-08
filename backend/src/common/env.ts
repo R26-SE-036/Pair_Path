@@ -168,6 +168,35 @@ export function assertRequiredEnv(): void {
     );
   }
 
+  /*
+   * ============ THE ONE FLAG THAT MUST NOT TRAVEL ============
+   * CODE_RUNNER_ALLOW_UNSANDBOXED=true runs student Java on the API host with
+   * the API's own permissions - which includes read access to .env and the
+   * database credentials in it. It exists so that this component can be
+   * developed on a machine with no Docker, and it is correct there.
+   *
+   * It is fatal in production rather than merely ignored. A deployment that
+   * carries this flag is a broken deployment: someone copied a development
+   * .env forward, and the failure it causes - student code executing outside
+   * any sandbox - is silent, is the L10 ethical blocker, and would be
+   * discovered by reading logs long after real participants had used it.
+   *
+   * Refusing to start turns that into a deployment that fails immediately,
+   * with one line saying which variable to remove. Downgrading quietly to
+   * `disabled` was the alternative and is worse: pairing would look healthy
+   * while Run did nothing, and the obvious way to "fix" it is to put the flag
+   * back.
+   * ===========================================================
+   */
+  if (process.env.NODE_ENV === 'production' && process.env.CODE_RUNNER_ALLOW_UNSANDBOXED === 'true') {
+    problems.push(
+      '  - CODE_RUNNER_ALLOW_UNSANDBOXED=true with NODE_ENV=production. This runs\n' +
+        '    student code unsandboxed, with this process\'s own permissions and access\n' +
+        '    to its credentials. Remove the variable, and set\n' +
+        '    CODE_RUNNER_LAMBDA_FUNCTION so code runs in the Lambda sandbox instead.',
+    );
+  }
+
   if (problems.length) {
     throw new Error(
       `Refusing to start - required configuration is missing:\n${problems.join('\n')}\n`,

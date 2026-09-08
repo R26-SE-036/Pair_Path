@@ -6,7 +6,7 @@
 // explicit list turns OFF automatic inclusion of every other @types package,
 // which risks the production build to fix a test file.
 
-import { mlServiceUrl } from './env';
+import { assertRequiredEnv, mlServiceUrl } from './env';
 
 /**
  * Regression tests for the ML_SERVICE_URL guard.
@@ -67,5 +67,57 @@ describe('mlServiceUrl', () => {
   it('rejects a value that is not a URL at all', () => {
     set('not a url');
     expect(() => mlServiceUrl()).toThrow(/valid URL/);
+  });
+});
+
+describe('the unsandboxed code-runner flag', () => {
+  /*
+   * CODE_RUNNER_ALLOW_UNSANDBOXED=true runs student Java with the API's own
+   * permissions, including read access to the credentials in .env. It is
+   * correct on a development machine with no Docker and nowhere else.
+   */
+  const saved = { ...process.env };
+
+  beforeEach(() => {
+    // assertRequiredEnv checks everything, so the cases that expect it to pass
+    // need the unrelated required variables to be valid. Set here rather than
+    // in each test so a new check added to that function fails one obvious
+    // place instead of three scattered ones.
+    process.env.JWT_SECRET = 'a-secret-long-enough-to-be-plausible';
+    process.env.ML_SERVICE_URL = 'http://pairpath-ml:8000';
+  });
+
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  it('refuses to start in production', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.CODE_RUNNER_ALLOW_UNSANDBOXED = 'true';
+
+    expect(() => assertRequiredEnv()).toThrow(/CODE_RUNNER_ALLOW_UNSANDBOXED/);
+  });
+
+  it('names the variable and the remedy', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.CODE_RUNNER_ALLOW_UNSANDBOXED = 'true';
+
+    // A refusal that does not say what to remove costs whoever reads it a
+    // trip through the source at the worst possible moment.
+    expect(() => assertRequiredEnv()).toThrow(/CODE_RUNNER_LAMBDA_FUNCTION/);
+  });
+
+  it('is allowed outside production', () => {
+    process.env.NODE_ENV = 'development';
+    process.env.CODE_RUNNER_ALLOW_UNSANDBOXED = 'true';
+
+    expect(() => assertRequiredEnv()).not.toThrow();
+  });
+
+  it('does not object to production on its own', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.CODE_RUNNER_ALLOW_UNSANDBOXED;
+
+    expect(() => assertRequiredEnv()).not.toThrow();
   });
 });

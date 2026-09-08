@@ -16,7 +16,14 @@ interface Row {
   joinCode: string;
   status: string;
   members: Array<{ userId: string; role: string }>;
+  // Only the idle sweep reads these; everything else predates them.
+  startedAt?: Date;
+  events?: Array<{ timestamp: Date }>;
+  endedAt?: Date | null;
 }
+
+const MINUTES = 60 * 1000;
+const ago = (minutes: number) => new Date(Date.now() - minutes * MINUTES);
 
 /**
  * A Prisma stand-in over an in-memory table.
@@ -73,7 +80,24 @@ function fakePrisma(rows: Row[]) {
         if (data.status) row.status = data.status;
         return row;
       },
-      findMany: async () => rows,
+      // Honours only the two conditions the idle sweep sends. Anything else
+      // gets every row, which is what the tests that assert on the `where`
+      // argument itself expect.
+      findMany: async ({ where }: any = {}) =>
+        rows
+          .filter((r) => (where?.status ? r.status === where.status : true))
+          .filter((r) =>
+            where?.startedAt?.lt ? (r.startedAt ?? new Date(0)) < where.startedAt.lt : true,
+          )
+          .map((r) => ({ ...r, events: r.events ?? [] })),
+
+      updateMany: async ({ where, data }: any) => {
+        const matched = rows.filter(
+          (r) => where.id.in.includes(r.id) && (!where.status || r.status === where.status),
+        );
+        matched.forEach((r) => Object.assign(r, data));
+        return { count: matched.length };
+      },
     },
 
     $transaction: async (fn: any, options: any) => {
@@ -86,9 +110,13 @@ function fakePrisma(rows: Row[]) {
   return client;
 }
 
-function make(rows: Row[]) {
+function make(rows: Row[], live: string[] = []) {
   const prisma = fakePrisma(rows);
-  const gateway = { notifySessionEnded: jest.fn() };
+  const gateway = {
+    notifySessionEnded: jest.fn(),
+    // `live` is the set of sessions with somebody still connected.
+    hasLiveMembers: jest.fn((id: string) => live.includes(id)),
+  };
   return { service: new SessionsService(prisma, gateway as any), prisma, gateway, rows };
 }
 
@@ -275,6 +303,97 @@ describe('ending a session', () => {
 
     await expect(service.end('s2', 'me')).rejects.toThrow('Not a member of this session');
     expect(rows[0].status).toBe('ACTIVE');
+    expect(gateway.notifySessionEnded).not.toHaveBeenCalled();
+  });
+});
+
+describe('expiring abandoned sessions', () => {
+  /*
+   * A session became COMPLETED only when somebody pressed End, so a closed tab
+   * left the row ACTIVE forever: the pairing page offered "Rejoin" into dead
+   * workspaces, and `/pair/analytics` kept counting duration from startedAt -
+   * one abandoned session had been "running" for 64 hours.
+   */
+  const abandoned = (id: string, overrides: Partial<Row> = {}): Row => ({
+    id,
+    joinCode: id.toUpperCase(),
+    status: 'ACTIVE',
+    members: [{ userId: 'me', role: 'DRIVER' }],
+    startedAt: ago(120),
+    events: [{ timestamp: ago(90) }],
+    ...overrides,
+  });
+
+  it('expires a session nobody has touched for over thirty minutes', async () => {
+    const rows = [abandoned('s1')];
+    const { service, gateway } = make(rows);
+
+    expect(await service.expireIdleSessions()).toBe(1);
+    expect(rows[0].status).toBe('EXPIRED');
+    expect(rows[0].endedAt).toBeInstanceOf(Date);
+
+    // Anyone still holding a socket is told, so a forgotten tab stops
+    // behaving as though the session were live.
+    expect(gateway.notifySessionEnded).toHaveBeenCalledWith('s1');
+  });
+
+  it('marks it EXPIRED rather than COMPLETED', async () => {
+    // The review step requires COMPLETED. Calling an abandoned attempt
+    // "completed" would offer a peer-review form for a session that never
+    // happened, and would count it as evidence alongside real ones.
+    const rows = [abandoned('s1')];
+    const { service } = make(rows);
+
+    await service.expireIdleSessions();
+
+    expect(rows[0].status).not.toBe('COMPLETED');
+  });
+
+  it('leaves a session alone while somebody is still connected', async () => {
+    // A pair reading code in silence produces no events. Closing their
+    // workspace underneath them because they stopped typing for half an hour
+    // would be worse than the problem being fixed.
+    const rows = [abandoned('s1')];
+    const { service, gateway } = make(rows, ['s1']);
+
+    expect(await service.expireIdleSessions()).toBe(0);
+    expect(rows[0].status).toBe('ACTIVE');
+    expect(gateway.notifySessionEnded).not.toHaveBeenCalled();
+  });
+
+  it('measures idleness from the last event, not from when it started', async () => {
+    // Otherwise a genuinely long session is closed while the pair is working
+    // in it - the record then ends in the middle of the collaboration it is
+    // supposed to describe.
+    const rows = [abandoned('s1', { startedAt: ago(600), events: [{ timestamp: ago(2) }] })];
+    const { service } = make(rows);
+
+    expect(await service.expireIdleSessions()).toBe(0);
+    expect(rows[0].status).toBe('ACTIVE');
+  });
+
+  it('falls back to startedAt for a session with no events at all', async () => {
+    // The common case: a session created, never joined by a partner, and
+    // abandoned at the workspace before anything was typed.
+    const rows = [abandoned('s1', { events: [] })];
+    const { service } = make(rows);
+
+    expect(await service.expireIdleSessions()).toBe(1);
+    expect(rows[0].status).toBe('EXPIRED');
+  });
+
+  it('does not touch a session that has already finished', async () => {
+    const rows = [abandoned('s1', { status: 'COMPLETED' })];
+    const { service } = make(rows);
+
+    expect(await service.expireIdleSessions()).toBe(0);
+    expect(rows[0].status).toBe('COMPLETED');
+  });
+
+  it('is quiet when there is nothing to expire', async () => {
+    const { service, gateway } = make([OWNED]);
+
+    expect(await service.expireIdleSessions()).toBe(0);
     expect(gateway.notifySessionEnded).not.toHaveBeenCalled();
   });
 });

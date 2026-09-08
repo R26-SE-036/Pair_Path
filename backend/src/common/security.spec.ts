@@ -179,9 +179,22 @@ describe('rate limiting is actually wired up', () => {
     expect(source).toContain('req?.ip');
   });
 
-  it('puts the endpoints where the request is the attack on a tighter bucket', () => {
-    // Credential guessing, and compiling arbitrary Java.
+  it('puts credential guessing on a tighter bucket', () => {
     expect(read('modules/auth/auth.controller.ts')).toContain('@Throttle');
-    expect(read('modules/code-runner/code-runner.controller.ts')).toContain('@Throttle');
+  });
+
+  it('limits running code on the path students actually use', () => {
+    /*
+     * This used to assert @Throttle on code-runner.controller.ts. That was
+     * true and useless: `POST /code-runner/run-java` had no caller anywhere on
+     * the platform, and every real run arrives as a `run_code` socket message,
+     * which no HTTP guard ever sees. The endpoint has been removed; the limit
+     * moved to the handler that does the work.
+     */
+    const gateway = read('modules/websocket/websocket.gateway.ts');
+    expect(gateway).toContain('RUN_LIMIT');
+    expect(gateway).toContain('allowRun');
+    // One compile at a time per session, so holding Run cannot fan out.
+    expect(gateway).toContain('runsInFlight');
   });
 });

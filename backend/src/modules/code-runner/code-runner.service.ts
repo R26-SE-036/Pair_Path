@@ -80,6 +80,23 @@ export class CodeRunnerService implements OnModuleInit {
       return;
     } catch {
       this.dockerAvailable = false;
+
+      // Belt and braces with assertRequiredEnv, which refuses to start at all
+      // in this configuration. Repeated here so the safety property does not
+      // depend on main.ts remembering to call it - this is the line that
+      // actually decides whether unsandboxed execution happens.
+      const production = process.env.NODE_ENV === 'production';
+
+      if (production && process.env.CODE_RUNNER_ALLOW_UNSANDBOXED === 'true') {
+        this.mode = 'disabled';
+        this.logger.error(
+          'CODE_RUNNER_ALLOW_UNSANDBOXED=true is IGNORED in production. Code ' +
+            'execution is disabled. Set CODE_RUNNER_LAMBDA_FUNCTION to run code ' +
+            'in the Lambda sandbox.',
+        );
+        return;
+      }
+
       if (process.env.CODE_RUNNER_ALLOW_UNSANDBOXED === 'true') {
         this.mode = 'host';
         this.logger.warn(
@@ -208,8 +225,14 @@ export class CodeRunnerService implements OnModuleInit {
       };
     }
 
-    // Extract class name (also constrains it to a shell-safe token)
-    const classMatch = code.match(/(?:public\s+)?class\s+([A-Za-z0-9_]+)/);
+    // Extract class name (also constrains it to a shell-safe token).
+    //
+    // The identifier must start with a letter or underscore, matching Java and
+    // matching the Lambda's own check. It used to be [A-Za-z0-9_]+, which
+    // accepted `9Foo` here and was then rejected by the Lambda as an invalid
+    // class name - so a student got "Invalid class name" from a sandbox rather
+    // than the compiler error that explains the actual rule.
+    const classMatch = code.match(/(?:public\s+)?class\s+([A-Za-z_][A-Za-z0-9_]*)/);
     if (!classMatch) {
       return {
         success: false,
