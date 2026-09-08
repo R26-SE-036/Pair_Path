@@ -113,10 +113,21 @@ The trainer enforces the audit corrections and refuses to run otherwise:
 ## Running
 
 ```bash
-pip install -r requirements.txt   # pinned (L15)
-uvicorn app.main:app --port 8000
+pip install -r requirements-dev.txt   # service + dev_tools; pinned (L15)
+python app/main.py                    # port 8020 locally
 # or containerized:
-docker build -t pairpath-ml . && docker run -p 8000:8000 pairpath-ml
+docker build -t pairpath-ml . && docker run -p 8020:8000 pairpath-ml
 ```
 
-Env: `ML_WINDOW_SECONDS` (180), `ML_CONFIDENCE_THRESHOLD` (0.6).
+Tests: `python -m unittest discover -s tests -t .`
+
+Env: `ML_WINDOW_SECONDS` (180), `ML_CONFIDENCE_THRESHOLD` (0.6),
+`ML_SERVICE_TOKEN` (unset; a shared secret the API sends, warned about at
+startup when absent).
+
+**Two requirements files.** `requirements.txt` is what the image installs -
+only what answering a request needs. `requirements-dev.txt` adds pandas for
+the offline tools and the full `xgboost` for training. The image installs
+`xgboost-cpu` instead, which is the same library at the same version without
+454MB of bundled CUDA that a CPU container has no use for; the split took the
+image from 1.2GB to 424MB with byte-identical predictions.

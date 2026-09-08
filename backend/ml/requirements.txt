@@ -1,18 +1,44 @@
+# What the SERVICE needs to answer a request. Nothing else.
+#
 # Pinned (L15). Versions match the environment the current artifacts were
-# built/tested with — bump deliberately, never silently.
+# built and tested with - bump deliberately, never silently.
+#
+# ===================== WHY THIS FILE GOT SMALLER =====================
+# The image was 1.2GB. Measured inside it, the largest directories were:
+#
+#     nvidia   454MB      CUDA runtime, pulled in by xgboost
+#     xgboost  228MB
+#     scipy    139MB
+#     pandas    73MB
+#     numpy     69MB
+#     sklearn   47MB
+#
+# Half the image was CUDA. The `xgboost` wheel on PyPI bundles GPU support by
+# default, and this service runs inference on a CPU container - it loads a
+# serialized booster and calls predict_proba. `xgboost-cpu` is the same
+# library at the same version built without the GPU bits.
+#
+# pandas, pymongo, httpx, python-dotenv and python-multipart were also in
+# here. pandas belongs to dev_tools; the other four are used by NOTHING in
+# this repository - pymongo was for a Mongo export script that no longer
+# exists, and python-multipart is only needed for form uploads, which this
+# JSON-only service does not accept.
+# =====================================================================
+
+# ── The server ──
 fastapi==0.136.0
 uvicorn==0.44.0
 pydantic==2.13.2
+
+# ── Inference ──
+# scikit-learn and xgboost are not imported by app/ directly, and are still
+# required: joblib.load unpickles an XGBoost booster and a scikit-learn
+# LabelEncoder, and unpickling needs the defining package importable.
 scikit-learn==1.8.0
-xgboost==3.2.0
+xgboost-cpu==3.2.0
 numpy==2.4.1
-pandas==3.0.2
 joblib==1.5.3
-python-multipart==0.0.27
-httpx==0.28.1
-# dev_tools (Mongo export)
-pymongo==4.17.0
-python-dotenv==1.2.2
-# NOTE (L14): sentence-transformers intentionally NOT declared — current
+
+# NOTE (L14): sentence-transformers intentionally NOT declared - current
 # retrieval is keyword-based (RAG-lite). Add it back only when the Phase 3
 # embedding comparison is actually implemented.

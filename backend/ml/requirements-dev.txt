@@ -1,0 +1,21 @@
+# Everything the service needs, plus what only the offline tools need.
+#
+#     pip install -r requirements-dev.txt
+#
+# This is what a developer installs. requirements.txt is what the image
+# installs, and keeping them separate is what stops 73MB of pandas and a
+# Mongo driver riding along into a container that imports neither.
+-r requirements.txt
+
+# dev_tools/build_windows.py, label_windows.py, train_xgboost.py,
+# evaluate_simulated.py and model_report.py all read and write CSVs.
+pandas==3.0.2
+
+# The full xgboost, with GPU support, for training. The image installs
+# xgboost-cpu instead - the same version without 454MB of CUDA - because
+# inference does not use a GPU and the container does not have one.
+#
+# Listed after the pinned xgboost-cpu on purpose: pip resolves this last and
+# the two provide the same `xgboost` module, so a developer training a model
+# gets the full build while the image keeps the small one.
+xgboost==3.2.0
