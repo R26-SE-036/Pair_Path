@@ -223,14 +223,14 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
         });
 
         /*
-         * These four strings are shown to a student, verbatim, on the pairing
+         * The refusals below are shown to a student, verbatim, on the pairing
          * page - so they say what happened and what to do about it. They read
          * as log lines before ("Invalid join code", "Session is full"), which
          * is fine for a log and not an explanation for someone holding a code
          * their partner just read out to them.
          *
-         * The status stays 400 in every case: nothing here is a fault, and a
-         * join that cannot proceed is not a server error.
+         * The status stays 400 throughout: nothing here is a fault, and a join
+         * that cannot proceed is not a server error.
          */
         if (!session) {
           throw new BadRequestException(
@@ -242,10 +242,32 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
             'That session has already finished. Start a new one to work together again.',
           );
         }
+
+        /*
+         * ============ REJOINING IS NOT AN ERROR ============
+         * Already in this session: hand it back and let them in.
+         *
+         * This used to refuse with "Already a member of this session", which
+         * is a strange thing to tell somebody whose only intent was to get
+         * back to where they already belong. A dropped connection, a closed
+         * tab, a reload after lunch - all of them end with a student typing
+         * the code they were given and being turned away from their own work.
+         *
+         * Before the capacity check on purpose. A pair session is full BY
+         * DEFINITION once both members are in it, so testing capacity first
+         * would refuse both of them at the door of their own session, and
+         * "that session already has 2 people in it" would be the message -
+         * technically true, and one of the two is you.
+         *
+         * The row is not written to. Joining twice adds no member, changes no
+         * role, and leaves no trace in the record.
+         * ===================================================
+         */
         if (session.members.some((m) => m.userId === userId)) {
-          throw new BadRequestException(
-            'You are already in this session - reopen it from the list below rather than joining again.',
-          );
+          return tx.pairSession.findUniqueOrThrow({
+            where: { id: session.id },
+            include: { members: PUBLIC_MEMBERS, question: PUBLIC_QUESTION },
+          });
         }
         if (session.members.length >= MAX_MEMBERS) {
           throw new BadRequestException(

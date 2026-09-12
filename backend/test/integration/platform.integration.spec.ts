@@ -161,6 +161,61 @@ describe('what a student is served', () => {
   });
 });
 
+describe('joining', () => {
+  it('lets a member back into a full session instead of refusing them', async () => {
+    /*
+     * The whole round trip, because the unit test cannot see the status code
+     * and the status code is what the pairing page reacts to.
+     *
+     * Both refusals this replaces were reachable here: a pair session is full
+     * the moment both students are in it, so a reconnecting member hit either
+     * "Already a member of this session" or "Session is full" depending on
+     * which check ran first. Both arrived at the browser as "Bad Request".
+     */
+    const created = await request('/sessions', {
+      token: driver.accessToken,
+      body: { questionId },
+    });
+    const joinCode = created.body.joinCode;
+
+    await request('/sessions/join', { token: navigator.accessToken, body: { joinCode } });
+
+    // Two members now - the session is full by definition.
+    for (const student of [driver, navigator]) {
+      const again = await request('/sessions/join', {
+        token: student.accessToken,
+        body: { joinCode },
+      });
+
+      expect(again.status).toBe(201);
+      expect(again.body.id).toBe(created.body.id);
+      // Rejoining wrote nothing: still two members, not three or four.
+      expect(again.body.members).toHaveLength(2);
+    }
+  });
+
+  it('still refuses a third student', async () => {
+    const created = await request('/sessions', {
+      token: driver.accessToken,
+      body: { questionId },
+    });
+    await request('/sessions/join', {
+      token: navigator.accessToken,
+      body: { joinCode: created.body.joinCode },
+    });
+
+    const third = await request('/sessions/join', {
+      token: stranger.accessToken,
+      body: { joinCode: created.body.joinCode },
+    });
+
+    expect(third.status).toBe(400);
+    // The words the student is shown. NestJS puts them in `message`; the
+    // browser used to read `error`, which holds "Bad Request".
+    expect(String(third.body.message)).toMatch(/already has 2 people/);
+  });
+});
+
 describe('the peer review', () => {
   async function completedSession() {
     const created = await request('/sessions', {

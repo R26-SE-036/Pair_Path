@@ -69,6 +69,14 @@ function fakePrisma(rows: Row[]) {
       },
       findUnique: async ({ where }: any) =>
         rows.find((r) => (where.id ? r.id === where.id : r.joinCode === where.joinCode)) ?? null,
+      // Mirrors the real client: same lookup, throws instead of returning null.
+      findUniqueOrThrow: async ({ where }: any) => {
+        const row = rows.find((r) =>
+          where.id ? r.id === where.id : r.joinCode === where.joinCode,
+        );
+        if (!row) throw new Error('No PairSession found');
+        return row;
+      },
       update: async ({ where, data }: any) => {
         const row = rows.find((r) => r.id === where.id)!;
         if (data.members?.create) {
@@ -258,11 +266,36 @@ describe('joining', () => {
     }
   });
 
-  it('tells a student already in the session where to go instead', async () => {
-    const { service } = make([OWNED]);
-    await expect(service.join({ joinCode: 'ABC123' }, 'me')).rejects.toThrow(
-      /already in this session/,
-    );
+  it('lets a member back into their own session instead of refusing them', async () => {
+    /*
+     * A dropped connection, a closed tab, a reload after lunch. Typing the
+     * code you were given should put you back where you already belong, and
+     * this used to answer "Already a member of this session".
+     */
+    const rows = [{ ...OWNED, members: [...OWNED.members] }];
+    const { service } = make(rows);
+
+    const session: any = await service.join({ joinCode: 'ABC123' }, 'me');
+
+    expect(session.id).toBe('s1');
+    // No second membership row, and nobody's role reassigned.
+    expect(rows[0].members).toHaveLength(2);
+    expect(rows[0].members.find((m) => m.userId === 'me')?.role).toBe('DRIVER');
+  });
+
+  it('lets a member back in even though the session is full', async () => {
+    /*
+     * Checked before capacity, deliberately. A pair session is full by
+     * definition once both members are in it, so testing capacity first would
+     * turn both of them away from their own session - and one of the "2
+     * people already in it" would be the person reading the message.
+     */
+    const rows = [{ ...OWNED, members: [...OWNED.members] }];
+    const { service } = make(rows);
+
+    await expect(service.join({ joinCode: 'ABC123' }, 'partner')).resolves.toMatchObject({
+      id: 's1',
+    });
   });
 });
 
