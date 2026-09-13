@@ -138,29 +138,42 @@ describe('every question is well formed', () => {
      *
      * Deliberately NOT a per-line check. "Classify a Number" expects
      * "negative / zero / positive" and its TODO reads `return "negative",
-     * "zero" or "positive"`; "In Range" expects `false` and its TODO says
-     * "print true ... false otherwise". Naming the vocabulary is how those
+     * "zero" or "positive"`; "In Range" prints true or false per value and its
+     * TODO says "print true ... false otherwise". Naming the vocabulary is how those
      * exercises are stated - the work is deciding WHICH one for which input,
      * and a test that forbade the words would be demanding worse questions.
      *
-     * The consequence, worth stating plainly: for the two single-token
-     * boolean exercises, output matching alone can be passed by printing a
-     * constant. It is a completion signal, not an assessment - the peer
-     * review is what carries the assessment.
+     * No exercise can be passed by printing one lucky word any more - see
+     * the next test - so a multi-line output is the normal case, and this
+     * check applies to nearly every question.
      */
     const expected = q.expectedOutput.trim();
 
-    // Single-line outputs are exempt, and every one of them in this bank is
-    // named by its own TODO: "print A, B, C or F", `print "weekend" or
-    // "weekday"`, "print true ... false otherwise". That is the exercise
-    // being stated, not the answer being given away - which one applies to
-    // the input is the work.
-    //
-    // So this catches the case that is unambiguous: a multi-line expected
-    // output sitting in the scaffold as a block the pair could copy.
+    // A single line is exempt: it is a phrase like "Sum: 108", and a TODO may
+    // fairly name the words it is built from. What this catches is the
+    // unambiguous case - a multi-line expected output sitting in the scaffold
+    // as a block the pair could copy.
     if (!expected.includes('\n')) return;
 
     expect(q.starterCode).not.toContain(expected);
+  }));
+
+  it('cannot be passed by printing one lucky word', each((q) => {
+    /*
+     * "In Range" expected `false`, "Grade Boundaries" `B`, "Day Type"
+     * `weekend` and "Matching Answers" `true` - one value each, so a program
+     * printing the right constant was graded correct without deciding
+     * anything. Worse, one input could never exercise the concept: a switch
+     * missing its break looked right on SATURDAY alone, and `==` looked right
+     * on the single pair of strings it was given.
+     *
+     * Each now prints a result per input, across its boundaries. One line is
+     * still fine when it is a phrase - "Sum: 108" - rather than a word a pair
+     * could guess.
+     */
+    const lines = q.expectedOutput.trim().split('\n');
+    if (lines.length > 1) return;
+    expect(lines[0].trim().split(/\s+/).length).toBeGreaterThan(1);
   }));
 });
 

@@ -54,10 +54,11 @@ export interface BankQuestion {
   /**
    * Exactly what `referenceSolution` prints, byte for byte.
    *
-   * Not hand-written: every value here was captured by running the reference
-   * solution through the code runner, and a test re-runs all sixteen and
-   * fails if any of them stops matching. A hand-typed expected output is a
-   * second implementation of the exercise, and the one nobody runs.
+   * Held to the reference solution by question-bank.run.spec.ts, which
+   * compiles and runs every one with a real JDK and fails on any difference.
+   * Without that an expected output is a second implementation of the
+   * exercise - the one nobody runs - and a typo in it would tell a pair who
+   * got it right that they had not.
    *
    * Withheld from the API for the same reason as referenceSolution - for
    * "print 10 down to 1" the expected output IS the answer.
@@ -405,27 +406,44 @@ export const QUESTIONS: BankQuestion[] = [
 
   // ── Conditions and Logic ───────────────────────────────────────────────
   {
-    id: 'q-conditional-logic-grade',
+    id: 'q-conditional-logic-grade-v2',
     topicId: 'conditions-topic',
     title: 'Grade Boundaries',
     description:
-      'Print a grade for the score: A for 80 and above, B for 70-79, C for 50-69, F below 50. ' +
-      'Check that each branch is reachable and that none repeats another.',
+      'Print a grade for each score, one per line: A for 80 and above, B for 70-79, C for 50-69, ' +
+      'F below 50. The scores sit either side of every boundary - check that each branch is ' +
+      'reachable and that none repeats another.',
     difficulty: 'BEGINNER',
     conceptTags: ['conditional_logic'],
     invitesErrors: ['DUPLICATE_IF_ELSE_CONDITION', 'INCORRECT_CONDITIONAL_OPERATOR'],
     starterCode: `public class Grades {
     public static void main(String[] args) {
-        int score = 73;
+        grade(95);
+        grade(80);
+        grade(79);
+        grade(70);
+        grade(69);
+        grade(50);
+        grade(49);
+    }
 
+    static void grade(int score) {
         // TODO: print A, B, C or F for this score
 
     }
 }`,
     referenceSolution: `public class Grades {
     public static void main(String[] args) {
-        int score = 73;
+        grade(95);
+        grade(80);
+        grade(79);
+        grade(70);
+        grade(69);
+        grade(50);
+        grade(49);
+    }
 
+    static void grade(int score) {
         if (score >= 80) {
             System.out.println("A");
         } else if (score >= 70) {
@@ -437,47 +455,59 @@ export const QUESTIONS: BankQuestion[] = [
         }
     }
 }`,
-    expectedOutput: "B\n",
+    expectedOutput: "A\nA\nB\nB\nC\nC\nF\n",
     reviewQuestions: [
       { prompt: 'Is every branch reachable for some score?', expected: true },
       { prompt: 'Does the same condition appear twice in the chain?', expected: false },
-      { prompt: 'Did we test the boundary values 80, 70 and 50?', expected: true },
+      { prompt: 'Did each boundary score - 80, 70 and 50 - get the higher grade?', expected: true },
       { prompt: 'Did we write = where we meant == at any point?', expected: false },
-      { prompt: 'Did we check what happens at exactly 79?', expected: true },
+      { prompt: 'Could we say why 79 is a B and not an A?', expected: true },
     ],
   },
   {
-    id: 'q-boolean-logic-range',
+    id: 'q-boolean-logic-range-v2',
     topicId: 'conditions-topic',
     title: 'In Range',
     description:
-      'Print whether the value falls between 10 and 20 inclusive. Read your condition ' +
-      'aloud to each other and check it can actually be false.',
+      'Print whether each value falls between 10 and 20 inclusive, one result per line. Read ' +
+      'your condition aloud to each other and check it can actually be false.',
     difficulty: 'BEGINNER',
     conceptTags: ['boolean_logic'],
     invitesErrors: ['ALWAYS_TRUE_OR_CONDITION'],
     starterCode: `public class InRange {
     public static void main(String[] args) {
-        int value = 25;
+        check(9);
+        check(10);
+        check(15);
+        check(20);
+        check(21);
+    }
 
+    static void check(int value) {
         // TODO: print true if value is between 10 and 20 inclusive, false otherwise
 
     }
 }`,
     referenceSolution: `public class InRange {
     public static void main(String[] args) {
-        int value = 25;
+        check(9);
+        check(10);
+        check(15);
+        check(20);
+        check(21);
+    }
 
+    static void check(int value) {
         boolean inRange = value >= 10 && value <= 20;
         System.out.println(inRange);
     }
 }`,
-    expectedOutput: "false\n",
+    expectedOutput: "false\ntrue\ntrue\ntrue\nfalse\n",
     reviewQuestions: [
       { prompt: 'Did we use && rather than || to join the two comparisons?', expected: true },
-      { prompt: 'Is there a value of the variable that makes the condition false?', expected: true },
-      { prompt: 'Did we test a value below 10, one inside, and one above 20?', expected: true },
-      { prompt: 'Did our first version print true for every value we tried?', expected: false },
+      { prompt: 'Is there a value that makes the condition false?', expected: true },
+      { prompt: 'Did 10 and 20 themselves come out as in range?', expected: true },
+      { prompt: 'Did our first version print true for every value?', expected: false },
     ],
   },
   {
@@ -528,27 +558,37 @@ export const QUESTIONS: BankQuestion[] = [
     ],
   },
   {
-    id: 'q-switch-statements-day',
+    id: 'q-switch-statements-day-v2',
     topicId: 'conditions-topic',
     title: 'Day Type',
     description:
-      'Use a switch on the day name to print "weekend" or "weekday". Check what happens ' +
-      'at the end of each case.',
+      'Use a switch on the day name to print "weekend" or "weekday" for each day, one per line. ' +
+      'Check what happens at the end of each case - every day should print exactly one line.',
     difficulty: 'INTERMEDIATE',
     conceptTags: ['switch_statements'],
     invitesErrors: ['MISSING_BREAK_IN_SWITCH'],
     starterCode: `public class DayType {
     public static void main(String[] args) {
-        String day = "SATURDAY";
+        classify("SATURDAY");
+        classify("MONDAY");
+        classify("SUNDAY");
+        classify("FRIDAY");
+    }
 
+    static void classify(String day) {
         // TODO: use a switch to print "weekend" or "weekday"
 
     }
 }`,
     referenceSolution: `public class DayType {
     public static void main(String[] args) {
-        String day = "SATURDAY";
+        classify("SATURDAY");
+        classify("MONDAY");
+        classify("SUNDAY");
+        classify("FRIDAY");
+    }
 
+    static void classify(String day) {
         switch (day) {
             case "SATURDAY":
             case "SUNDAY":
@@ -560,50 +600,58 @@ export const QUESTIONS: BankQuestion[] = [
         }
     }
 }`,
-    expectedOutput: "weekend\n",
+    expectedOutput: "weekend\nweekday\nweekend\nweekday\n",
     reviewQuestions: [
       { prompt: 'Does each case that produces output end with a break?', expected: true },
       { prompt: 'Did our first version print two lines for one day?', expected: false },
       { prompt: 'Did we deliberately let SATURDAY and SUNDAY share a body?', expected: true },
-      { prompt: 'Did we test a weekday as well as a weekend day?', expected: true },
+      { prompt: 'Did every day print exactly one line?', expected: true },
       { prompt: 'Is there a default case?', expected: true },
     ],
   },
 
   // ── Strings ────────────────────────────────────────────────────────────
   {
-    id: 'q-string-comparison-password',
+    id: 'q-string-comparison-password-v2',
     topicId: 'strings-topic',
     title: 'Matching Answers',
     description:
-      'Print whether the two answers match. They are equal as text — make sure your ' +
-      'comparison says so.',
+      'Print whether each pair of answers is the same text, one result per line. Some are equal ' +
+      'as text but were built in different ways - make sure your comparison says so.',
     difficulty: 'BEGINNER',
     conceptTags: ['string_comparison'],
     invitesErrors: ['STRING_EQUALITY_WITH_OPERATOR'],
     starterCode: `public class MatchingAnswers {
     public static void main(String[] args) {
-        String expected = "hello";
-        String given = new String("hello");
+        compare("hello", new String("hello"));
+        compare("hello", "Hello");
+        compare("hello", "hello");
+        compare("hello", new String("help"));
+    }
 
+    static void compare(String expected, String given) {
         // TODO: print true if the two strings are the same text
 
     }
 }`,
     referenceSolution: `public class MatchingAnswers {
     public static void main(String[] args) {
-        String expected = "hello";
-        String given = new String("hello");
+        compare("hello", new String("hello"));
+        compare("hello", "Hello");
+        compare("hello", "hello");
+        compare("hello", new String("help"));
+    }
 
+    static void compare(String expected, String given) {
         System.out.println(expected.equals(given));
     }
 }`,
-    expectedOutput: "true\n",
+    expectedOutput: "true\nfalse\ntrue\nfalse\n",
     reviewQuestions: [
       { prompt: 'Did we compare the strings with .equals rather than ==?', expected: true },
       { prompt: 'Did our first attempt print false even though the text matched?', expected: false },
       { prompt: 'Could one of us explain what == actually compares for objects?', expected: true },
-      { prompt: 'Did we test with two strings that differ as well?', expected: true },
+      { prompt: 'Could we say why "hello" and "Hello" are not the same text?', expected: true },
     ],
   },
   {
