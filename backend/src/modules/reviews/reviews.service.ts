@@ -29,7 +29,7 @@ interface ReviewPrompt {
  * Those are treated as expecting `true`, which is exactly the old scoring - so
  * an old row keeps the score it always had rather than silently changing.
  */
-function promptsOf(reviewQuestions: unknown): ReviewPrompt[] {
+export function promptsOf(reviewQuestions: unknown): ReviewPrompt[] {
   if (!Array.isArray(reviewQuestions)) return [];
 
   return reviewQuestions.flatMap((entry) => {

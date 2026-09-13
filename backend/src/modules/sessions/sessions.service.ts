@@ -13,6 +13,9 @@ import { PUBLIC_MEMBERS, PUBLIC_QUESTION } from '../../common/public-select';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { JoinSessionDto } from './dto/join-session.dto';
 import { WebsocketGateway } from '../websocket/websocket.gateway';
+import { QUESTIONS } from '../../content/question-bank';
+import { promptsOf } from '../reviews/reviews.service';
+import { SessionOutcome, summariseOutcome } from './session-outcome';
 
 /** Join codes are read aloud and typed in a hurry, so they stay short. */
 const JOIN_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -405,6 +408,59 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
         interventions: { orderBy: { shownAt: 'asc' } },
         members: PUBLIC_MEMBERS,
       },
+    });
+  }
+
+  /**
+   * One student's outcome for a session - runs, whether it was solved, their
+   * review score. See session-outcome.ts for what counts and why it is worked
+   * out here rather than in a browser.
+   */
+  async outcome(id: string, userId: string): Promise<SessionOutcome> {
+    await this.requireMembership(id, userId);
+
+    const session = await this.prisma.pairSession.findUniqueOrThrow({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        questionId: true,
+        startedAt: true,
+        endedAt: true,
+        question: {
+          select: {
+            title: true,
+            difficulty: true,
+            conceptTags: true,
+            reviewQuestions: true,
+            // Read to know whether a run COULD be graded, and no further: the
+            // outcome carries a boolean derived from it, never the text.
+            expectedOutput: true,
+          },
+        },
+        events: {
+          where: { eventType: 'CODE_RUN_RESULT' },
+          select: { timestamp: true, metadata: true },
+        },
+        reviews: { where: { userId }, select: { score: true } },
+      },
+    });
+
+    return summariseOutcome({
+      session,
+      question: {
+        title: session.question.title,
+        difficulty: session.question.difficulty,
+        conceptTags: session.question.conceptTags,
+        hasExpectedOutput: session.question.expectedOutput !== null,
+      },
+      runResults: session.events,
+      myReview: session.reviews[0] ?? null,
+      promptCount: promptsOf(session.question.reviewQuestions).length,
+      // `invitesErrors` lives in the bank, not the schema. It is what lets an
+      // unsolved session open a lesson: Code Coach files a trigger under an
+      // error type, and a pair session has no diagnostic to take one from.
+      bankErrorType: QUESTIONS.find((q) => q.id === session.questionId)?.invitesErrors[0] ?? null,
     });
   }
 }

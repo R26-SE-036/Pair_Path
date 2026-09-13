@@ -36,6 +36,7 @@ import {
   request,
   waitFor,
 } from './helpers';
+import { QUESTIONS } from '../../src/content/question-bank';
 
 jest.setTimeout(60000);
 
@@ -213,6 +214,121 @@ describe('joining', () => {
     // The words the student is shown. NestJS puts them in `message`; the
     // browser used to read `error`, which holds "Bad Request".
     expect(String(third.body.message)).toMatch(/already has 2 people/);
+  });
+});
+
+describe('a session outcome', () => {
+  /*
+   * The whole path the outcome depends on, with nothing faked: real Java
+   * through the code runner, the verdict written onto the event by the
+   * gateway, and the outcome read back from that record.
+   *
+   * The reference solution comes from the bank, which is available here and
+   * never sent over the API - it is the definition of a correct answer, so if
+   * running it does not come back correct, grading is broken.
+   */
+  const referenceFor = (id: string) => {
+    const question = QUESTIONS.find((q) => q.id === id);
+    if (!question) throw new Error(`question ${id} is not in the bank`);
+    return question.referenceSolution;
+  };
+
+  function run(socket: Socket, sessionId: string, code: string) {
+    // A real compile, so well past waitFor's default.
+    const result = waitFor<{ success: boolean; correct: boolean | null }>(
+      socket,
+      'code_result',
+      30000,
+    );
+    socket.emit('run_code', { sessionId, code });
+    return result;
+  }
+
+  async function finish(sessionId: string) {
+    const ended = await request(`/sessions/${sessionId}/end`, {
+      token: driver.accessToken,
+      body: { finalCode: '' },
+    });
+    expect(ended.status).toBe(201);
+  }
+
+  it('is solved when a run printed the expected output', async () => {
+    const { sessionId, driverSocket, navigatorSocket } = await openSession();
+    try {
+      const result = await run(driverSocket, sessionId, referenceFor(questionId));
+      expect(result.success).toBe(true);
+      expect(result.correct).toBe(true);
+    } finally {
+      closeAll(driverSocket, navigatorSocket);
+    }
+    await finish(sessionId);
+
+    const { status, body } = await request(`/sessions/${sessionId}/outcome`, {
+      token: driver.accessToken,
+    });
+
+    expect(status).toBe(200);
+    expect(body.status).toBe('COMPLETED');
+    expect(body.solved).toBe(true);
+    expect(body.gradedRunCount).toBe(1);
+    expect(body.correctRunCount).toBe(1);
+    expect(body.conceptTags.length).toBeGreaterThan(0);
+    // What lets an unsolved session open a lesson in Code Coach.
+    expect(body.errorType).toEqual(expect.any(String));
+    // The outcome leaves this service. For most exercises the expected output
+    // is the answer.
+    expect(JSON.stringify(body)).not.toContain('xpectedOutput');
+  }, 60000);
+
+  it('is unsolved when the program ran and printed the wrong thing', async () => {
+    const { sessionId, driverSocket, navigatorSocket } = await openSession();
+    try {
+      const result = await run(
+        driverSocket,
+        sessionId,
+        'public class Wrong { public static void main(String[] args) { System.out.println("not the answer"); } }',
+      );
+      // Ran cleanly - which is exactly what `success` alone could never tell
+      // apart from being right.
+      expect(result.success).toBe(true);
+      expect(result.correct).toBe(false);
+    } finally {
+      closeAll(driverSocket, navigatorSocket);
+    }
+    await finish(sessionId);
+
+    // The partner reads the same outcome for the same record.
+    const { body } = await request(`/sessions/${sessionId}/outcome`, {
+      token: navigator.accessToken,
+    });
+
+    expect(body.solved).toBe(false);
+    expect(body.gradedRunCount).toBe(1);
+    expect(body.correctRunCount).toBe(0);
+  }, 60000);
+
+  it('is unjudged, not unsolved, when nobody ran anything', async () => {
+    const { sessionId, driverSocket, navigatorSocket } = await openSession();
+    closeAll(driverSocket, navigatorSocket);
+    await finish(sessionId);
+
+    const { body } = await request(`/sessions/${sessionId}/outcome`, {
+      token: driver.accessToken,
+    });
+
+    expect(body.runCount).toBe(0);
+    expect(body.solved).toBeNull();
+  });
+
+  it('is refused to a student who was not in the session', async () => {
+    const { sessionId, driverSocket, navigatorSocket } = await openSession();
+    closeAll(driverSocket, navigatorSocket);
+
+    const { status } = await request(`/sessions/${sessionId}/outcome`, {
+      token: stranger.accessToken,
+    });
+
+    expect(status).toBe(404);
   });
 });
 

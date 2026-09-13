@@ -34,6 +34,16 @@ export class SessionsController {
     return this.sessionsService.getOneAnalytics(id, req.user.userId);
   }
 
+  /**
+   * What this session amounted to for the student asking. The web app reads
+   * it when it reports a finished session to Code Coach - see
+   * session-outcome.ts.
+   */
+  @Get(':id/outcome')
+  outcome(@Param('id') id: string, @Req() req: any) {
+    return this.sessionsService.outcome(id, req.user.userId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req: any) {
     return this.sessionsService.findById(id, req.user.userId);
