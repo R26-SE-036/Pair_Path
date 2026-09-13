@@ -55,6 +55,7 @@ model User {
   sessionMemberships PairSessionMember[]
   sessionEvents      SessionEvent[]
   reviewSubmissions  ReviewSubmission[]
+  researchConsents   ResearchConsent[]
 
   @@map("users")
 }
@@ -297,4 +298,24 @@ model SimulatedWindow {
   @@index([sessionId])
   @@index([label])
   @@map("simulated_windows")
+}
+
+// A student's decision about whether their pair sessions may be used as
+// research data - see src/modules/research/research.service.ts.
+//
+// Append-only. The current decision is the latest row; a withdrawal is a new
+// row, never an edit that erases the agreement before it, because an ethics
+// audit asks what someone had agreed to AT THE TIME. `version` names the
+// statement they were shown, so agreement to old wording never counts for new.
+model ResearchConsent {
+  id        String   @id @default(cuid())
+  userId    String
+  version   String
+  decision  String // GRANTED | DECLINED
+  decidedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, decidedAt])
+  @@map("research_consents")
 }

@@ -1,12 +1,15 @@
 """Build unlabeled feature windows from real session events (L5 offline path).
 
-Input: a JSON file containing an array of SessionEvent rows exported from
-Postgres, e.g. via:
+Input: events.json from the research export, run in the API's directory:
 
-  \\copy (SELECT json_agg(t) FROM (
-      SELECT "sessionId", "userId", "eventType", "metadata",
-             "timestamp" FROM "SessionEvent" ORDER BY "timestamp"
-    ) t) TO 'events.json'
+  RESEARCH_EXPORT_SALT=<secret> npm run research:export -- --out ../research-export
+
+It includes only sessions every member agreed to share, and replaces every id
+consistently - including the ids inside ROLE_SWITCH newRoles, which the role
+reconstruction below depends on. A raw query against the table is not the way
+in: it skips the consent check and copies chat text and real ids. (The query
+that used to be here also named a table, "SessionEvent", that does not exist;
+the table is session_events.)
 
 Each event: {"sessionId": ..., "userId": ..., "eventType": ...,
              "metadata": str|dict, "timestamp": ISO8601}

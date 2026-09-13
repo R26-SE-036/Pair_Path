@@ -361,6 +361,44 @@ describe('the nudge effect', () => {
   });
 });
 
+describe('research consent', () => {
+  it('starts undecided, and records each decision rather than overwriting it', async () => {
+    const before = await request('/research/consent', { token: stranger.accessToken });
+    expect(before.status).toBe(200);
+    expect(before.body.decision).toBeNull();
+    expect(before.body.statement.title).toEqual(expect.any(String));
+
+    const granted = await request('/research/consent', {
+      token: stranger.accessToken,
+      body: { decision: 'GRANTED' },
+    });
+    expect(granted.status).toBe(201);
+    expect(granted.body).toMatchObject({ decision: 'GRANTED', current: true });
+
+    const withdrawn = await request('/research/consent', {
+      token: stranger.accessToken,
+      body: { decision: 'DECLINED' },
+    });
+    expect(withdrawn.body.decision).toBe('DECLINED');
+
+    const rows = await prisma.researchConsent.count({ where: { userId: stranger.userId } });
+    expect(rows).toBe(2);
+  });
+
+  it("does not touch anyone else's decision", async () => {
+    const { body } = await request('/research/consent', { token: navigator.accessToken });
+    expect(body.decision).toBeNull();
+  });
+
+  it('refuses anything but a clear choice', async () => {
+    const { status } = await request('/research/consent', {
+      token: driver.accessToken,
+      body: { decision: 'MAYBE' },
+    });
+    expect(status).toBe(400);
+  });
+});
+
 describe('the peer review', () => {
   async function completedSession() {
     const created = await request('/sessions', {
