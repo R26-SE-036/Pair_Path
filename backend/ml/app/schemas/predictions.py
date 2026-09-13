@@ -9,6 +9,10 @@ class PredictPairStateRequest(BaseModel):
     roles: Optional[Dict[str, str]] = None
     lastRoleSwitchAt: Optional[float] = None  # epoch seconds, if known
     sessionStartAt: Optional[float] = None  # epoch seconds; enables session-age features
+    # Epoch seconds. Where the feature window ends. The live path sends "now",
+    # as build_windows.py did at every training step; left out, the window
+    # ends on the latest event, which can never contain the silence after it.
+    windowEnd: Optional[float] = None
     # Legacy path: pre-computed features (kept for backward compatibility).
     features: Optional[Dict[str, Any]] = None
 
@@ -20,3 +24,6 @@ class PredictPairStateResponse(BaseModel):
     # Echo of the features actually used, so the caller can log the exact
     # vector the prediction was made on (for later human labeling).
     features: Optional[Dict[str, float]] = None
+    # The window those features were read from, in epoch seconds.
+    windowStart: Optional[float] = None
+    windowEnd: Optional[float] = None

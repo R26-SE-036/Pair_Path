@@ -10,6 +10,8 @@ export interface PredictPairStateRequest {
   roles?: Record<string, string>;
   lastRoleSwitchAt?: number;
   sessionStartAt?: number;
+  /** Epoch seconds. Where the feature window ends - normally now. */
+  windowEnd?: number;
   features?: Record<string, number>;
 }
 
@@ -58,6 +60,7 @@ export class MlService {
           roles: request.roles ?? null,
           lastRoleSwitchAt: request.lastRoleSwitchAt ?? null,
           sessionStartAt: request.sessionStartAt ?? null,
+          windowEnd: request.windowEnd ?? null,
           features: request.features ?? null,
         }, { headers: this.headers })
         .toPromise();

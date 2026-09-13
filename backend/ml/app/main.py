@@ -75,13 +75,18 @@ async def predict_pair_state(request: PredictPairStateRequest):
     """
     try:
         if request.events is not None:
+            window_start, window_end = feature_extractor.window_bounds(
+                request.events, request.windowEnd
+            )
             features = feature_extractor.extract(
                 request.events,
                 roles=request.roles,
+                window_end=window_end,
                 last_role_switch_at=request.lastRoleSwitchAt,
                 session_start_at=request.sessionStartAt,
             )
         else:
+            window_start = window_end = None
             features = request.features or {}
 
         prediction = await predictor.predict(features)
@@ -91,6 +96,8 @@ async def predict_pair_state(request: PredictPairStateRequest):
             confidence=prediction["confidence"],
             modelVersion=predictor.model_version,
             features={k: float(v) for k, v in features.items()},
+            windowStart=window_start,
+            windowEnd=window_end,
         )
     except Exception:
         # Fallback prediction

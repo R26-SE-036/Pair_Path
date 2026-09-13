@@ -20,9 +20,14 @@
  * behaviour it never saw. So a prediction counts only once its window end is
  * a full window past the nudge.
  *
- * Note this is NOT `windowStart` on the prediction row. The gateway sends the
- * model the last fifty events and stores the earliest of those as the window
- * start, which can be many minutes before the three the model actually read.
+ * Note this reads `windowEnd`, never `windowStart`. Predictions recorded before
+ * serving was aligned with training stored the earliest and latest of the
+ * fifty events the gateway sent: a start that could be many minutes before the
+ * window the model read, and an end at the last event rather than at the
+ * moment of prediction. Their `windowEnd` is therefore at or before the true
+ * one, which can only leave a nudge unmeasured - never credit it with activity
+ * that happened before it. Rows since store the window the model actually
+ * read (common/ml-window.ts).
  *
  * The horizon bounds attribution: a change twenty minutes later has too many
  * other causes to lay at the nudge's door.

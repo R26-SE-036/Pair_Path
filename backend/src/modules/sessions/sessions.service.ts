@@ -16,7 +16,8 @@ import { WebsocketGateway } from '../websocket/websocket.gateway';
 import { QUESTIONS } from '../../content/question-bank';
 import { promptsOf } from '../reviews/reviews.service';
 import { SessionOutcome, summariseOutcome } from './session-outcome';
-import { DEFAULT_WINDOW_SECONDS, NudgeEffect, measureNudges } from './nudge-effect';
+import { NudgeEffect, measureNudges } from './nudge-effect';
+import { ML_WINDOW_SECONDS } from '../../common/ml-window';
 
 /** Join codes are read aloud and typed in a hurry, so they stay short. */
 const JOIN_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -25,14 +26,6 @@ const JOIN_CODE_ATTEMPTS = 5;
 
 /** A pair is two people. */
 const MAX_MEMBERS = 2;
-
-/**
- * The model's feature window, which decides when a prediction counts as made
- * entirely after a nudge - see nudge-effect.ts. It has to agree with
- * ML_WINDOW_SECONDS on the ML service (180, set in its Dockerfile), so it is
- * read from the same variable: one setting moves both.
- */
-const ML_WINDOW_SECONDS = Number(process.env.ML_WINDOW_SECONDS) || DEFAULT_WINDOW_SECONDS;
 
 /**
  * ==================== WHY SESSIONS EXPIRE ====================

@@ -16,6 +16,7 @@ import { MlService } from '../ml/ml.service';
 import { RedisService } from '../../common/redis.service';
 import { corsOriginCallback } from '../../common/env';
 import { isAccessToken } from '../../common/tokens';
+import { MAX_WINDOW_EVENTS, MIN_WINDOW_EVENTS, ML_WINDOW_SECONDS } from '../../common/ml-window';
 
 /** Runs per student per window. Matches what the removed HTTP route declared. */
 const RUN_LIMIT = 10;
@@ -787,16 +788,47 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
 
   private async triggerMlPrediction(sessionId: string) {
     try {
-      // Get recent events for feature extraction
-      const recentEvents = await this.prisma.sessionEvent.findMany({
-        where: { sessionId },
-        orderBy: { timestamp: 'desc' },
-        take: 50,
+      /*
+       * ============ THE WINDOW THE MODEL WAS TRAINED ON ============
+       * dev_tools/build_windows.py built the training set by stepping through
+       * each session in time and extracting every event inside the window
+       * ending at each step. This path did something different in four ways,
+       * each harmless-looking on its own:
+       *
+       *   - it sent the FIFTY NEWEST events. CODE_EDIT is written per change,
+       *     so fifty can be the last few seconds of typing - and the extractor
+       *     counts every ten-second bucket before them as idle. A pair typing
+       *     fast was read as mostly idle.
+       *   - it sent no window end, so the window ended on the last event. A
+       *     pair that went quiet was described by the minutes BEFORE they
+       *     stopped, predicted afresh every sweep on the same frozen window -
+       *     so disengagement could not be seen while it was happening.
+       *   - it skipped sessions with fewer than five events in total; training
+       *     skipped windows with fewer than three events inside them.
+       *   - it measured session age from when the row was created; training
+       *     measured it from the first event.
+       *
+       * Every one of these now matches build_windows.py, and ml/tests/
+       * test_serving_parity.py holds the ML side to it window by window.
+       * =============================================================
+       */
+      const windowEnd = new Date();
+      const windowStart = new Date(windowEnd.getTime() - ML_WINDOW_SECONDS * 1000);
+
+      const windowEvents = await this.prisma.sessionEvent.findMany({
+        where: { sessionId, timestamp: { gt: windowStart, lte: windowEnd } },
+        orderBy: { timestamp: 'asc' },
+        take: MAX_WINDOW_EVENTS,
       });
 
-      // Skip prediction if not enough events yet (session just started)
-      if (recentEvents.length < 5) {
+      if (windowEvents.length < MIN_WINDOW_EVENTS) {
         return;
+      }
+      if (windowEvents.length === MAX_WINDOW_EVENTS) {
+        console.warn(
+          `Session ${sessionId}: ${MAX_WINDOW_EVENTS}+ events in one window - the ` +
+            'prediction is reading a truncated window.',
+        );
       }
 
       // L5: send raw events + current roles; ml-service computes features with
@@ -806,21 +838,23 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       const roles = await this.rolesFor(sessionId);
 
       const lastSwitch = await this.prisma.sessionEvent.findFirst({
-        where: { sessionId, eventType: 'ROLE_SWITCH' },
+        where: { sessionId, eventType: 'ROLE_SWITCH', timestamp: { lte: windowEnd } },
         orderBy: { timestamp: 'desc' },
       });
 
       // Session age lets the model distinguish "no role switch yet, 2 minutes
       // in" from "no role switch, 20 minutes in" — without it those look
-      // identical and productive pairs get misread as driver-dominant.
-      const session = await this.prisma.pairSession.findUnique({
-        where: { id: sessionId },
-        select: { startedAt: true },
+      // identical and productive pairs get misread as driver-dominant. From
+      // the first event, as training measured it, not from row creation.
+      const firstEvent = await this.prisma.sessionEvent.findFirst({
+        where: { sessionId },
+        orderBy: { timestamp: 'asc' },
+        select: { timestamp: true },
       });
 
       const prediction = await this.mlService.predictPairState({
         sessionId,
-        events: recentEvents.map((e) => ({
+        events: windowEvents.map((e) => ({
           timestamp: e.timestamp,
           userId: e.userId,
           eventType: e.eventType,
@@ -828,7 +862,8 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         })),
         roles,
         lastRoleSwitchAt: lastSwitch ? lastSwitch.timestamp.getTime() / 1000 : undefined,
-        sessionStartAt: session ? session.startedAt.getTime() / 1000 : undefined,
+        sessionStartAt: firstEvent ? firstEvent.timestamp.getTime() / 1000 : undefined,
+        windowEnd: windowEnd.getTime() / 1000,
       });
 
       /*
@@ -863,10 +898,9 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       // feature window whose prediction is missing, or a prediction whose
       // features are missing, cannot be labeled and is not worth keeping.
       if (prediction) {
-        const timestamps = recentEvents.map((event) => event.timestamp);
-        const windowStart = new Date(Math.min(...timestamps.map((t) => t.getTime())));
-        const windowEnd = new Date(Math.max(...timestamps.map((t) => t.getTime())));
-
+        // The window the model actually read, from above. It stored the
+        // earliest and latest of the fifty events it sent, which described
+        // neither end of it - see nudge-effect.ts for what that cost.
         try {
           await this.prisma.$transaction([
             this.prisma.featureWindow.create({

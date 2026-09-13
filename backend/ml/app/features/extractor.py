@@ -19,7 +19,7 @@ Roles: {userId: "DRIVER" | "NAVIGATOR"} as of the window end.
 import json
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 DEFAULT_WINDOW_SECONDS = int(os.getenv("ML_WINDOW_SECONDS", "180"))
 
@@ -77,6 +77,25 @@ def _metadata(event: Dict[str, Any]) -> Dict[str, Any]:
 class WindowFeatureExtractor:
     def __init__(self, window_seconds: int = DEFAULT_WINDOW_SECONDS):
         self.window_seconds = window_seconds
+
+    def window_bounds(
+        self,
+        events: List[Dict[str, Any]],
+        window_end: Optional[float] = None,
+    ) -> Tuple[float, float]:
+        """The (start, end) that extract() reads for these arguments.
+
+        window_end defaults to the latest event, as extract() does. The live
+        path passes it explicitly - "now" - because a window that always ends
+        on an event can never contain the silence after one, and training
+        windows routinely did.
+        """
+        if window_end is None:
+            stamps = [
+                ts for ts in (_to_epoch_seconds(e.get("timestamp")) for e in events) if ts is not None
+            ]
+            window_end = max(stamps) if stamps else 0.0
+        return window_end - self.window_seconds, window_end
 
     def extract(
         self,
@@ -232,8 +251,10 @@ class WindowFeatureExtractor:
     ) -> List[Dict[str, Any]]:
         """Offline path: slide over a whole session's events and emit one
         feature row per window. Windows with fewer than min_events events
-        are skipped (matching the runtime's low-activity rule so training
-        never sees windows the model won't be asked about)."""
+        are skipped, so training never sees a window the model won't be
+        asked about. The live gateway applies the same rule
+        (MIN_WINDOW_EVENTS in the API's common/ml-window.ts); it did not until
+        serving was aligned with training, and this said it did."""
         stamped = sorted(
             (ts for ts in (_to_epoch_seconds(e.get("timestamp")) for e in events) if ts is not None)
         )
