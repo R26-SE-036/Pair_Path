@@ -630,6 +630,46 @@ describe('the live session', () => {
     }
   });
 
+  it("lights the navigator's line on the driver's screen, and records nothing", async () => {
+    const { sessionId, driverSocket, navigatorSocket } = await openSession();
+    try {
+      const before = await prisma.sessionEvent.count({ where: { sessionId } });
+
+      const pointed = waitFor<{ line: number | null; userId: string }>(
+        driverSocket,
+        'line_pointed',
+      );
+      navigatorSocket.emit('point_at_line', { sessionId, line: 7 });
+      expect(await pointed).toEqual({ line: 7, userId: navigator.userId });
+
+      // And the driver's "Got it" reaches the navigator.
+      const cleared = waitFor<{ line: number | null }>(navigatorSocket, 'line_pointed');
+      driverSocket.emit('point_at_line', { sessionId, line: null });
+      expect((await cleared).line).toBeNull();
+
+      // Given time to be written, if anything were going to be. idle_ratio,
+      // active_user_dominance and the three-event minimum count events of
+      // every type, and the model was trained on sessions with no pointing.
+      await new Promise((r) => setTimeout(r, 1500));
+      expect(await prisma.sessionEvent.count({ where: { sessionId } })).toBe(before);
+    } finally {
+      closeAll(driverSocket, navigatorSocket);
+    }
+  });
+
+  it('will not let the driver point', async () => {
+    const { sessionId, driverSocket, navigatorSocket } = await openSession();
+    try {
+      const rejected = waitFor<{ message: string }>(driverSocket, 'point_rejected');
+      driverSocket.emit('point_at_line', { sessionId, line: 3 });
+
+      expect((await rejected).message).toMatch(/navigator/i);
+      await expectNo(navigatorSocket, 'line_pointed');
+    } finally {
+      closeAll(driverSocket, navigatorSocket);
+    }
+  });
+
   it('tells the partner when the other student ends the session', async () => {
     const { sessionId, driverSocket, navigatorSocket } = await openSession();
     try {

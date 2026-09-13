@@ -23,6 +23,12 @@ const RUN_LIMIT = 10;
 const RUN_WINDOW_MS = 60_000;
 
 /**
+ * The highest line a navigator may point at. A bound on what is handed to a
+ * partner's editor, not a limit any exercise here comes near.
+ */
+const MAX_POINTABLE_LINE = 10_000;
+
+/**
  * Compare a run's output with what the exercise expects.
  *
  * ==================== WHAT COUNTS AS THE SAME ====================
@@ -477,6 +483,65 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
 
     // Log event
     await this.logEvent(sessionId, userId, 'ROLE_SWITCH', { newRoles }, roleBefore);
+  }
+
+  /*
+   * ================= POINTING AT A LINE, NOT TYPING IT =================
+   * The navigator's editor is read-only, so "look at line 12" used to mean
+   * typing it into the chat and waiting while the driver counted lines. This
+   * lets the navigator click a line number and have that line light up on
+   * the driver's screen.
+   *
+   * Only the navigator points - the driver already has the cursor, and a
+   * pointer from the person at the keyboard says nothing. Either partner can
+   * clear one: the driver's "Got it" is how the navigator learns it was seen.
+   *
+   * Deliberately NOT a SessionEvent. The feature extractor reads more than
+   * the event types it names: idle_ratio marks a bucket active for ANY event,
+   * active_user_dominance counts ANY event by its author, and the three-event
+   * minimum decides whether a window is scored at all. The model was trained
+   * on sessions with no pointing in them, so logging it would move three of
+   * its inputs - a navigator clicking lines through a silent stretch would
+   * stop that stretch reading as idle - with nothing in training to say what
+   * that means. Record it once a model is trained on data that contains it,
+   * and not before.
+   * ====================================================================
+   */
+  @SubscribeMessage('point_at_line')
+  async handlePointAtLine(
+    @MessageBody() data: { sessionId: string; line?: number | null },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { sessionId, line } = data;
+    const userId = client.data.userId;
+    if (!this.isInRoom(client, sessionId)) return;
+
+    if (line === null) {
+      client.to(sessionId).emit('line_pointed', { line: null, userId });
+      return;
+    }
+
+    // A whole number the editor could show. A string, a fraction or zero is
+    // not something the client sends, and is not handed on to a partner's
+    // editor to make sense of.
+    if (
+      typeof line !== 'number' ||
+      !Number.isInteger(line) ||
+      line < 1 ||
+      line > MAX_POINTABLE_LINE
+    ) {
+      return;
+    }
+
+    const roles = await this.rolesFor(sessionId);
+    if (roles[userId] !== 'NAVIGATOR') {
+      client.emit('point_rejected', {
+        message: 'Only the navigator points at lines - the driver already has the cursor.',
+      });
+      return;
+    }
+
+    client.to(sessionId).emit('line_pointed', { line, userId });
   }
 
   @SubscribeMessage('discussion_note')

@@ -303,6 +303,101 @@ describe('swapping roles', () => {
   });
 });
 
+describe('pointing at a line', () => {
+  /** Both partners in the room, with the noise of joining cleared away. */
+  async function pair() {
+    const h = harness(DRIVER_NAV);
+    const driver = fakeSocket('sock-d', 'driver');
+    const navigator = fakeSocket('sock-n', 'nav');
+    await join(h, driver);
+    await join(h, navigator);
+    for (const socket of [driver, navigator]) {
+      socket.emitted.length = 0;
+      socket.toRoom.length = 0;
+    }
+    return { h, driver, navigator };
+  }
+
+  /** What one socket passed on to its partner. */
+  const pointersFrom = (socket: ReturnType<typeof fakeSocket>) =>
+    socket.toRoom.filter((m) => m.event === 'line_pointed').map((m) => m.payload);
+
+  it("shows the driver the navigator's line", async () => {
+    const { h, navigator } = await pair();
+
+    await h.gateway.handlePointAtLine({ sessionId: 's1', line: 12 }, navigator as any);
+
+    expect(pointersFrom(navigator)).toEqual([{ line: 12, userId: 'nav' }]);
+  });
+
+  it('refuses a pointer from the driver and says why', async () => {
+    const { h, driver } = await pair();
+
+    await h.gateway.handlePointAtLine({ sessionId: 's1', line: 12 }, driver as any);
+
+    expect(pointersFrom(driver)).toHaveLength(0);
+    expect(driver.emitted.map((e) => e.event)).toContain('point_rejected');
+  });
+
+  it('lets either partner clear it', async () => {
+    const { h, driver, navigator } = await pair();
+
+    await h.gateway.handlePointAtLine({ sessionId: 's1', line: null }, driver as any);
+    await h.gateway.handlePointAtLine({ sessionId: 's1', line: null }, navigator as any);
+
+    // The driver's "Got it" is how the navigator learns the line was seen.
+    expect(pointersFrom(driver)).toEqual([{ line: null, userId: 'driver' }]);
+    expect(pointersFrom(navigator)).toEqual([{ line: null, userId: 'nav' }]);
+  });
+
+  it('passes on nothing that is not a line number', async () => {
+    const { h, navigator } = await pair();
+
+    for (const line of [0, -3, 2.5, NaN, 10_001, '12', undefined]) {
+      await h.gateway.handlePointAtLine({ sessionId: 's1', line } as any, navigator as any);
+    }
+
+    expect(pointersFrom(navigator)).toHaveLength(0);
+  });
+
+  it('follows the roles after a swap', async () => {
+    const { h, driver, navigator } = await pair();
+    await h.gateway.handleRoleSwitch({ sessionId: 's1' }, driver as any);
+
+    await h.gateway.handlePointAtLine({ sessionId: 's1', line: 4 }, driver as any);
+    await h.gateway.handlePointAtLine({ sessionId: 's1', line: 5 }, navigator as any);
+
+    expect(pointersFrom(driver)).toEqual([{ line: 4, userId: 'driver' }]);
+    expect(pointersFrom(navigator)).toHaveLength(0);
+    expect(navigator.emitted.map((e) => e.event)).toContain('point_rejected');
+  });
+
+  it('ignores a socket that has not joined the room', async () => {
+    const { h } = await pair();
+    // The navigator's own id, on a socket that never joined.
+    const stray = fakeSocket('sock-stray', 'nav');
+
+    await h.gateway.handlePointAtLine({ sessionId: 's1', line: 3 }, stray as any);
+
+    expect(pointersFrom(stray)).toHaveLength(0);
+    expect(stray.emitted).toHaveLength(0);
+  });
+
+  it('writes nothing to the behavioural record', async () => {
+    const { h, driver, navigator } = await pair();
+    const before = h.events.length;
+
+    await h.gateway.handlePointAtLine({ sessionId: 's1', line: 7 }, navigator as any);
+    await h.gateway.handlePointAtLine({ sessionId: 's1', line: null }, driver as any);
+    await h.gateway.handlePointAtLine({ sessionId: 's1', line: 9 }, driver as any);
+
+    // idle_ratio, active_user_dominance and the three-event minimum all count
+    // events of every type. A pointer row would move them, and the model was
+    // trained on sessions with no pointing in them.
+    expect(h.events).toHaveLength(before);
+  });
+});
+
 describe('the stored record', () => {
   it('records which role the author held', async () => {
     const h = harness(DRIVER_NAV);
