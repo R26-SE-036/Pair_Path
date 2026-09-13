@@ -108,17 +108,44 @@ export function connect(token: string): Promise<Socket> {
       timeout: 8000,
     });
 
-    const fail = (reason: string) => {
+    /*
+     * ============= CLEARED ON CONNECT, OR IT KILLS THE SOCKET =============
+     * This timer was never cleared. Nine seconds after every SUCCESSFUL
+     * connect it still fired, closed the healthy socket - the server logged
+     * both of a pair's sockets leaving in the same second, reason
+     * "io client disconnect" - and rejected a promise that had already
+     * resolved, which does nothing, so no error ever surfaced.
+     *
+     * Every test that outlived nine seconds from its first socket therefore
+     * lost both sockets and then timed out waiting for a reply that could no
+     * longer arrive. Which test that was depended on how slow the database
+     * happened to be that run, so the failure moved around and looked like
+     * latency. It was also what kept Jest from exiting: a live timer per
+     * socket.
+     *
+     * The connect-phase listeners come off once connected, too. The gateway
+     * emits auth_error mid-session to refuse a join, and that must not close
+     * a socket that connected perfectly well.
+     * =======================================================================
+     */
+    const onConnectError = (error: Error) => fail(error.message);
+    const onAuthError = (payload: { message?: string }) => fail(payload?.message ?? 'auth_error');
+    const timer = setTimeout(() => fail('timed out'), 9000);
+
+    function fail(reason: string) {
+      clearTimeout(timer);
       socket.close();
       reject(new Error(`socket did not connect: ${reason}`));
-    };
+    }
 
-    socket.on('connect', () => resolve(socket));
-    socket.on('connect_error', (error) => fail(error.message));
-    socket.on('auth_error', (payload: { message?: string }) =>
-      fail(payload?.message ?? 'auth_error'),
-    );
-    setTimeout(() => fail('timed out'), 9000);
+    socket.once('connect', () => {
+      clearTimeout(timer);
+      socket.off('connect_error', onConnectError);
+      socket.off('auth_error', onAuthError);
+      resolve(socket);
+    });
+    socket.on('connect_error', onConnectError);
+    socket.on('auth_error', onAuthError);
   });
 }
 
