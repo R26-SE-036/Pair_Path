@@ -164,6 +164,29 @@ export function waitFor<T = any>(socket: Socket, event: string, ms = 6000): Prom
 }
 
 /**
+ * Poll until `read` returns something, or fail saying how long it waited.
+ *
+ * For a row the gateway writes AFTER telling the room. A chat note reaches the
+ * partner first and is saved second - nobody should wait on a database write
+ * to read what their partner said - so reading the table the instant the note
+ * arrives races the write, and against a remote database the write loses that
+ * race some of the time.
+ */
+export async function eventually<T>(
+  read: () => Promise<T | null | undefined>,
+  what: string,
+  ms = 6000,
+): Promise<T> {
+  const deadline = Date.now() + ms;
+  for (;;) {
+    const value = await read();
+    if (value !== null && value !== undefined) return value;
+    if (Date.now() >= deadline) throw new Error(`${what} did not appear within ${ms}ms`);
+    await new Promise((r) => setTimeout(r, 150));
+  }
+}
+
+/**
  * Assert an event does NOT arrive.
  *
  * Half these tests are about something correctly not happening - a discarded

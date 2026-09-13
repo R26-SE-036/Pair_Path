@@ -29,6 +29,7 @@ import {
   Account,
   cleanUp,
   connect,
+  eventually,
   expectNo,
   joinRoom,
   prisma,
@@ -540,9 +541,15 @@ describe('the live session', () => {
       expect(received.note).toBe('that loop starts at 1');
       expect(received.userId).toBe(navigator.userId);
 
-      const event = await prisma.sessionEvent.findFirst({
-        where: { sessionId, eventType: 'DISCUSSION_NOTE' },
-      });
+      // Waited for, not read once: the note is broadcast before it is saved,
+      // so the row can land a moment after the partner has the text.
+      const event = await eventually(
+        () =>
+          prisma.sessionEvent.findFirst({
+            where: { sessionId, eventType: 'DISCUSSION_NOTE' },
+          }),
+        'the DISCUSSION_NOTE row',
+      );
       expect(JSON.parse(String(event!.metadata)).note).toBe('that loop starts at 1');
       // And the role, which was the empty string on every event ever written.
       expect(event!.role).toBe('NAVIGATOR');
