@@ -6,7 +6,11 @@
  * code review - it just answers, to anybody who changes the id in the URL.
  */
 
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { SessionsService } from './sessions.service';
@@ -465,5 +469,101 @@ describe('expiring abandoned sessions', () => {
 
     expect(await service.expireIdleSessions()).toBe(0);
     expect(gateway.notifySessionEnded).not.toHaveBeenCalled();
+  });
+});
+
+describe('a join that outlasts the database', () => {
+  /*
+   * Two joins in the integration suite took over five seconds against the
+   * remote database, Prisma closed their transactions (P2028), and both came
+   * back as a 500 for a student who had typed a valid code.
+   */
+  const failure = (code: string) =>
+    new Prisma.PrismaClientKnownRequestError(`transaction failed (${code})`, {
+      code,
+      clientVersion: 'test',
+    });
+
+  const waitingForPartner = (): Row[] => [
+    { id: 's1', joinCode: 'JOIN01', status: 'ACTIVE', members: [{ userId: 'me', role: 'DRIVER' }] },
+  ];
+
+  /** Wrap the fake's transaction so a test can fail the first N attempts. */
+  function failing(prisma: any, code: string, times: number) {
+    const original = prisma.$transaction;
+    const seen = { calls: 0, options: [] as any[] };
+    prisma.$transaction = async (fn: any, options: any) => {
+      seen.calls += 1;
+      seen.options.push(options);
+      if (seen.calls <= times) throw failure(code);
+      return original(fn, options);
+    };
+    return seen;
+  }
+
+  it("gives the transaction longer than Prisma's five-second default", async () => {
+    const { service, prisma } = make(waitingForPartner());
+    const seen = failing(prisma, 'P2028', 0);
+
+    await service.join({ joinCode: 'JOIN01' }, 'partner');
+
+    expect(seen.options[0].timeout).toBeGreaterThan(5000);
+    expect(seen.options[0].isolationLevel).toBe(Prisma.TransactionIsolationLevel.Serializable);
+  });
+
+  it('retries a timed-out join once, and seats the student once', async () => {
+    const rows = waitingForPartner();
+    const { service, prisma } = make(rows);
+    const seen = failing(prisma, 'P2028', 1);
+
+    await expect(service.join({ joinCode: 'JOIN01' }, 'partner')).resolves.toMatchObject({ id: 's1' });
+
+    expect(seen.calls).toBe(2);
+    expect(rows[0].members).toHaveLength(2);
+  });
+
+  it('retries a serialization conflict the same way', async () => {
+    const rows = waitingForPartner();
+    const { service, prisma } = make(rows);
+    const seen = failing(prisma, 'P2034', 1);
+
+    await expect(service.join({ joinCode: 'JOIN01' }, 'partner')).resolves.toMatchObject({ id: 's1' });
+    expect(seen.calls).toBe(2);
+  });
+
+  it('says joining is slow, rather than failing, when the retry times out too', async () => {
+    const { service, prisma } = make(waitingForPartner());
+    const seen = failing(prisma, 'P2028', 99);
+
+    const error = await service.join({ joinCode: 'JOIN01' }, 'partner').catch((e: Error) => e);
+
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect((error as Error).message).toMatch(/enter the code again/);
+    expect(seen.calls).toBe(2);
+  });
+
+  it('does not retry a join that was refused', async () => {
+    // A full session is an answer, not a failure. Retrying it would only
+    // repeat the refusal a second time, a transaction later.
+    const { service, prisma } = make([{ ...OWNED, members: [...OWNED.members] }]);
+    const seen = failing(prisma, 'P2028', 0);
+
+    await expect(service.join({ joinCode: 'ABC123' }, 'third')).rejects.toBeInstanceOf(BadRequestException);
+    expect(seen.calls).toBe(1);
+  });
+});
+
+describe('a sweep that hits a database error', () => {
+  it('logs it and carries on, rather than taking the process down', async () => {
+    // The sweep is started with `void`. Before, this rejection went unhandled,
+    // and Node exits on an unhandled rejection - every live session with it.
+    const { service, prisma } = make([]);
+    prisma.pairSession.findMany = async () => {
+      throw new Error('Timed out fetching a new connection from the connection pool');
+    };
+    const warn = jest.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
+
+    await expect((service as any).sweepSafely()).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/sweep failed/));
   });
 });

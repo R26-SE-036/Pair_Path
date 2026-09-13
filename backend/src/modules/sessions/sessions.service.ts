@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  ServiceUnavailableException,
   Logger,
   OnModuleInit,
   OnModuleDestroy,
@@ -26,6 +27,31 @@ const JOIN_CODE_ATTEMPTS = 5;
 
 /** A pair is two people. */
 const MAX_MEMBERS = 2;
+
+/*
+ * ================= A JOIN THAT OUTLASTS THE DATABASE =================
+ * Joining is one interactive transaction - read the session, check it, seat
+ * the student - and Prisma abandons an interactive transaction after five
+ * seconds unless told otherwise. Against a remote database that is not much:
+ * two joins in the integration suite took 5.4 and 5.8 seconds, Prisma closed
+ * the transaction underneath them (P2028), and each student got a raw 500 for
+ * typing a code correctly.
+ *
+ * So the transaction gets a deliberate budget, and a failure the database
+ * causes is retried once: a timeout, or a serialization conflict (P2034),
+ * which Serializable isolation is entitled to raise. Retrying is safe because
+ * the whole decision is re-made inside a fresh transaction - a student the
+ * first attempt did seat takes the rejoin path and is handed the session, and
+ * the capacity check still runs under Serializable, so a retry can never seat
+ * a third person.
+ *
+ * A second failure is a 503 with words a student can act on. The database was
+ * slow; nobody did anything wrong, and a 500 says neither.
+ * =====================================================================
+ */
+const JOIN_TRANSACTION_OPTIONS = { maxWait: 5_000, timeout: 15_000 };
+const JOIN_ATTEMPTS = 2;
+const TRANSIENT_TRANSACTION_ERRORS = new Set(['P2028', 'P2034']);
 
 /**
  * ==================== WHY SESSIONS EXPIRE ====================
@@ -62,10 +88,10 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
     // Once at startup as well as on the interval: the sessions most in need of
     // this are the ones abandoned before the last restart, and waiting five
     // minutes to notice them serves nobody.
-    void this.expireIdleSessions();
+    void this.sweepSafely();
 
     this.expirySweep = setInterval(() => {
-      void this.expireIdleSessions();
+      void this.sweepSafely();
     }, EXPIRY_SWEEP_MS);
 
     // Node keeps the process alive for a pending timer. Nothing here is worth
@@ -75,6 +101,27 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
 
   onModuleDestroy() {
     if (this.expirySweep) clearInterval(this.expirySweep);
+  }
+
+  /**
+   * The sweep, run the way a background job has to be: a failure is logged,
+   * never thrown.
+   *
+   * It is started with `void`, so nothing awaits it. A database error inside it
+   * - a timeout, a database waking from a cold start - became an unhandled
+   * promise rejection, and Node exits the process on one. A single slow query
+   * in a housekeeping job would have taken down every live pair session on the
+   * server, in order to tidy up sessions nobody was in.
+   */
+  private async sweepSafely() {
+    try {
+      await this.expireIdleSessions();
+    } catch (error) {
+      this.logger.warn(
+        `Idle-session sweep failed; the next sweep will try again: ` +
+          `${(error as Error)?.message?.split('\n')[0]}`,
+      );
+    }
   }
 
   /**
@@ -220,6 +267,28 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
    * assignment that no longer means anything.
    */
   async join(joinSessionDto: JoinSessionDto, userId: string) {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.joinOnce(joinSessionDto, userId);
+      } catch (error) {
+        const transient =
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          TRANSIENT_TRANSACTION_ERRORS.has(error.code);
+        if (!transient) throw error;
+
+        if (attempt >= JOIN_ATTEMPTS) {
+          this.logger.warn(`Join gave up after ${attempt} attempts (${error.code}).`);
+          throw new ServiceUnavailableException(
+            'Joining is taking longer than it should right now. Give it a moment and enter the code again.',
+          );
+        }
+        this.logger.warn(`Join transaction failed with ${error.code}; retrying once.`);
+      }
+    }
+  }
+
+  /** One attempt at a join, inside a single Serializable transaction. */
+  private async joinOnce(joinSessionDto: JoinSessionDto, userId: string) {
     return this.prisma.$transaction(
       async (tx) => {
         const session = await tx.pairSession.findUnique({
@@ -293,7 +362,7 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
           include: { members: PUBLIC_MEMBERS, question: PUBLIC_QUESTION },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, ...JOIN_TRANSACTION_OPTIONS },
     );
   }
 

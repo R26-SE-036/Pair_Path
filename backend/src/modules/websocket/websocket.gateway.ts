@@ -268,10 +268,26 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     // L9: identity comes from the verified handshake, never the message body.
     const userId = client.data.userId;
 
-    // L9: only actual session members may join the room.
-    const membership = await this.prisma.pairSessionMember.findFirst({
-      where: { sessionId, userId },
-    });
+    /*
+     * ============== TWO ROUND TRIPS WHERE THERE WERE FOUR ==============
+     * Membership, then session status, then the roles, then the JOIN event -
+     * four database round trips one after another before room_state went out.
+     * Against a remote database that was long enough for joining a room to
+     * outrun the six seconds the integration suite allows, and for a student
+     * to sit in a workspace that had not yet told them whether they may type.
+     *
+     * Reads that do not depend on each other now go out together. What is
+     * DECIDED, and in what order, is unchanged: membership is checked before
+     * the session's status is acted on, so a stranger learns nothing about a
+     * session by being refused from it, and the JOIN event is still saved
+     * before room_state is sent.
+     * ===================================================================
+     */
+    const [membership, session] = await Promise.all([
+      // L9: only actual session members may join the room.
+      this.prisma.pairSessionMember.findFirst({ where: { sessionId, userId } }),
+      this.prisma.pairSession.findUnique({ where: { id: sessionId }, select: { status: true } }),
+    ]);
     if (!membership) {
       client.emit('auth_error', { message: 'Not a member of this session' });
       return;
@@ -291,10 +307,6 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
      * results page needs the room without being session activity. The rule it
      * implies was never enforced on join_room itself.
      */
-    const session = await this.prisma.pairSession.findUnique({
-      where: { id: sessionId },
-      select: { status: true },
-    });
     if (session?.status !== 'ACTIVE') {
       client.emit('session_closed', {
         sessionId,
@@ -308,16 +320,17 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
 
     // Roles are part of joining, not a separate fetch. The client needs them
     // before the first keystroke to know whether this student may type at all.
-    const roles = await this.loadRoles(sessionId);
+    // Read alongside the JOIN write, which still lands before room_state.
+    const [roles] = await Promise.all([
+      this.loadRoles(sessionId),
+      this.logEvent(sessionId, userId, 'JOIN', {}),
+    ]);
 
     // Track membership
     if (!this.rooms.has(sessionId)) {
       this.rooms.set(sessionId, new Map());
     }
     this.rooms.get(sessionId)!.set(client.id, userId);
-
-    // Log event to database
-    await this.logEvent(sessionId, userId, 'JOIN', {});
 
     // Notify others
     client.to(sessionId).emit('user_joined', { userId });

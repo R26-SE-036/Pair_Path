@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
+import { connectWithRetry } from './connect-with-retry';
+
 /**
  * Prisma, with optional connection pooling.
  *
@@ -36,7 +38,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         ? 'Connecting through the pooled database URL'
         : 'Connecting through DATABASE_URL (set DATABASE_URL_POOLED to use a pooler)',
     );
-    await this.$connect();
+
+    // A database that is still waking up is waited for, not crashed on - see
+    // connect-with-retry.ts for the boot this used to cost.
+    await connectWithRetry(() => this.$connect(), {
+      onRetry: (attempt, delayMs, code) =>
+        this.logger.warn(
+          `Database not reachable yet (${code}); retrying in ${Math.round(delayMs / 1000)}s ` +
+            `(attempt ${attempt}).`,
+        ),
+    });
   }
 
   async onModuleDestroy() {
