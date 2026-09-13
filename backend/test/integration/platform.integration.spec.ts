@@ -332,6 +332,35 @@ describe('a session outcome', () => {
   });
 });
 
+describe('the nudge effect', () => {
+  it('answers on its own path, not as a session called "interventions"', async () => {
+    // Nest matches routes in declaration order. Declared after analytics/:id
+    // this path is read as a session id, and comes back 404 "Session not found".
+    const { status, body } = await request('/sessions/analytics/interventions', {
+      token: stranger.accessToken,
+    });
+
+    expect(status).toBe(200);
+    expect(body.windowSeconds).toBe(180);
+    expect(body.byResponse.map((group: any) => group.key)).toEqual([
+      'accepted',
+      'dismissed',
+      'no_response',
+    ]);
+  });
+
+  it("counts only the asking student's own sessions", async () => {
+    // The stranger was refused from every session in this suite, so whatever
+    // other pairs' records hold, none of it may reach them.
+    const { body } = await request('/sessions/analytics/interventions', {
+      token: stranger.accessToken,
+    });
+
+    const shown = body.byResponse.reduce((sum: number, group: any) => sum + group.shown, 0);
+    expect(shown + body.reinforcement.shown).toBe(0);
+  });
+});
+
 describe('the peer review', () => {
   async function completedSession() {
     const created = await request('/sessions', {

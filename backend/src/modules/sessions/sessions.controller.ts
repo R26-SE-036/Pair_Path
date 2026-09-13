@@ -29,6 +29,19 @@ export class SessionsController {
     return this.sessionsService.findByUser(req.user.userId);
   }
 
+  /**
+   * Whether the nudges changed what the model saw next, across this
+   * student's own sessions - see nudge-effect.ts.
+   *
+   * Declared before `analytics/:id`, and it has to be: Nest matches routes in
+   * declaration order, so below it this path would be read as a session whose
+   * id is "interventions".
+   */
+  @Get('analytics/interventions')
+  getNudgeEffect(@Req() req: any) {
+    return this.sessionsService.nudgeEffect(req.user.userId);
+  }
+
   @Get('analytics/:id')
   getOneAnalytics(@Param('id') id: string, @Req() req: any) {
     return this.sessionsService.getOneAnalytics(id, req.user.userId);
