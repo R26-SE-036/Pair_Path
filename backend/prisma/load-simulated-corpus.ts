@@ -1,5 +1,5 @@
 /**
- * Loads the simulated training corpus from ml-service/data/ into Postgres so
+ * Loads the simulated training corpus from ml/data/ into Postgres so
  * it can be browsed and demonstrated instead of living only as files.
  *
  * Sources (produced by dev_tools/generate_demo_sessions.py + build_windows.py):
@@ -22,7 +22,10 @@ import * as path from 'path';
 
 const prisma = new PrismaClient();
 
-const ML_DATA = path.join(__dirname, '..', '..', 'ml-service', 'data');
+// backend/ml/data. This pointed at ../../ml-service/data, which stopped
+// existing when the ML service moved inside backend/ - so the script failed
+// on its first read from then on, and nothing ran it to notice.
+const ML_DATA = path.join(__dirname, '..', 'ml', 'data');
 const CHUNK = 1000;
 
 /** Minimal CSV reader — these files are generated, so no quoted commas. */
