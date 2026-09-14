@@ -19,3 +19,7 @@ pandas==3.0.2
 # the two provide the same `xgboost` module, so a developer training a model
 # gets the full build while the image keeps the small one.
 xgboost==3.2.0
+
+# tests/ - `python -m pytest tests`. Was missing, so a fresh environment could
+# not run the service's own test suite.
+pytest==9.1.1
