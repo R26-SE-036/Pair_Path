@@ -1,0 +1,25 @@
+# Kept out of the build context.
+#
+# The Dockerfile only copies app/ and models/, so none of this was ever in the
+# image - but everything here is uploaded to the daemon before the first
+# instruction runs, and .venv alone is 482MB. A build that should take seconds
+# spent most of them shipping a virtualenv that the image then rebuilds from
+# requirements.txt anyway.
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+.pytest_cache
+
+# Training inputs and working documents. The service loads a serialized model
+# from models/; it never reads the raw sessions or the extracted windows, and
+# dev_tools is where those are turned into one.
+data
+dev_tools
+archive
+tests
+
+.git
+.gitignore
+*.log

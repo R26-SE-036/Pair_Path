@@ -1,0 +1,69 @@
+import { Controller, Post, Get, Param, Body, UseGuards, Req } from '@nestjs/common';
+import { SessionsService } from './sessions.service';
+import { CreateSessionDto } from './dto/create-session.dto';
+import { JoinSessionDto } from './dto/join-session.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
+@Controller('sessions')
+@UseGuards(JwtAuthGuard)
+export class SessionsController {
+  constructor(private readonly sessionsService: SessionsService) {}
+
+  @Post()
+  create(@Body() createSessionDto: CreateSessionDto, @Req() req: any) {
+    return this.sessionsService.create(createSessionDto, req.user.userId);
+  }
+
+  @Post('join')
+  join(@Body() joinSessionDto: JoinSessionDto, @Req() req: any) {
+    return this.sessionsService.join(joinSessionDto, req.user.userId);
+  }
+
+  @Get('analytics/all')
+  getAllAnalytics(@Req() req: any) {
+    return this.sessionsService.getAllAnalytics(req.user.userId);
+  }
+
+  @Get('my')
+  findMySessions(@Req() req: any) {
+    return this.sessionsService.findByUser(req.user.userId);
+  }
+
+  /**
+   * Whether the nudges changed what the model saw next, across this
+   * student's own sessions - see nudge-effect.ts.
+   *
+   * Declared before `analytics/:id`, and it has to be: Nest matches routes in
+   * declaration order, so below it this path would be read as a session whose
+   * id is "interventions".
+   */
+  @Get('analytics/interventions')
+  getNudgeEffect(@Req() req: any) {
+    return this.sessionsService.nudgeEffect(req.user.userId);
+  }
+
+  @Get('analytics/:id')
+  getOneAnalytics(@Param('id') id: string, @Req() req: any) {
+    return this.sessionsService.getOneAnalytics(id, req.user.userId);
+  }
+
+  /**
+   * What this session amounted to for the student asking. The web app reads
+   * it when it reports a finished session to Code Coach - see
+   * session-outcome.ts.
+   */
+  @Get(':id/outcome')
+  outcome(@Param('id') id: string, @Req() req: any) {
+    return this.sessionsService.outcome(id, req.user.userId);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string, @Req() req: any) {
+    return this.sessionsService.findById(id, req.user.userId);
+  }
+
+  @Post(':id/end')
+  end(@Param('id') id: string, @Body() body: { finalCode?: string }, @Req() req: any) {
+    return this.sessionsService.end(id, req.user.userId, body.finalCode);
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "code-runner-lambda",
+  "private": true,
+  "description": "Compiles and runs one student Java file, as an AWS Lambda container image. Not an npm dependency of anything: this file exists for `npm test`, and the image copies only index.js.",
+  "scripts": {
+    "test": "node --test test/handler.test.js"
+  }
+}

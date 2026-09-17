@@ -1,0 +1,240 @@
+/**
+ * Talking to the running services the way a client does.
+ *
+ * Everything here goes over HTTP and Socket.IO. Nothing reaches into the
+ * application's own classes - that is the whole point: the bugs this suite
+ * exists to catch were two components each behaving correctly in isolation and
+ * disagreeing about the shape between them, which no in-process test can see.
+ *
+ * The one exception is cleanup, which uses Prisma directly. A test that leaves
+ * sessions and accounts behind pollutes the same tables the research record
+ * lives in, and doing that through the API would need endpoints that
+ * deliberately do not exist.
+ */
+
+import * as path from 'path';
+import { io, type Socket } from 'socket.io-client';
+import { PrismaClient } from '@prisma/client';
+
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+
+export const API = process.env.INTEGRATION_API_URL ?? 'http://127.0.0.1:3001';
+
+/** Everything this suite creates is named so cleanup can find it. */
+export const TEST_EMAIL_MARKER = 'pairpath-itest';
+
+export const prisma = new PrismaClient();
+
+export interface Account {
+  userId: string;
+  accessToken: string;
+  refreshToken: string;
+  email: string;
+}
+
+interface RequestOptions {
+  token?: string;
+  body?: unknown;
+  method?: string;
+}
+
+export interface Response<T = any> {
+  status: number;
+  body: T;
+}
+
+export async function request<T = any>(
+  route: string,
+  { token, body, method }: RequestOptions = {},
+): Promise<Response<T>> {
+  const response = await fetch(`${API}${route}`, {
+    method: method ?? (body === undefined ? 'GET' : 'POST'),
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  const text = await response.text();
+  let parsed: any = null;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    parsed = text;
+  }
+
+  return { status: response.status, body: parsed };
+}
+
+/**
+ * A real account, through the real registration path.
+ *
+ * Registering rather than inserting a row means the tokens come from the same
+ * code a student's do, so a change to how they are signed shows up here.
+ */
+export async function register(label: string): Promise<Account> {
+  const email = `${TEST_EMAIL_MARKER}-${label}-${Date.now()}@example.test`;
+
+  const { status, body } = await request('/auth/register', {
+    body: {
+      email,
+      password: 'integration-suite-password',
+      firstName: 'Integration',
+      lastName: label,
+    },
+  });
+
+  if (status !== 201 && status !== 200) {
+    throw new Error(`Could not register ${email}: ${status} ${JSON.stringify(body)}`);
+  }
+
+  return {
+    userId: body.user.id,
+    accessToken: body.accessToken,
+    refreshToken: body.refreshToken,
+    email,
+  };
+}
+
+/** A connected, authenticated socket. Rejects rather than hanging. */
+export function connect(token: string): Promise<Socket> {
+  return new Promise((resolve, reject) => {
+    const socket = io(API, {
+      auth: { token },
+      transports: ['websocket'],
+      reconnection: false,
+      timeout: 8000,
+    });
+
+    /*
+     * ============= CLEARED ON CONNECT, OR IT KILLS THE SOCKET =============
+     * This timer was never cleared. Nine seconds after every SUCCESSFUL
+     * connect it still fired, closed the healthy socket - the server logged
+     * both of a pair's sockets leaving in the same second, reason
+     * "io client disconnect" - and rejected a promise that had already
+     * resolved, which does nothing, so no error ever surfaced.
+     *
+     * Every test that outlived nine seconds from its first socket therefore
+     * lost both sockets and then timed out waiting for a reply that could no
+     * longer arrive. Which test that was depended on how slow the database
+     * happened to be that run, so the failure moved around and looked like
+     * latency. It was also what kept Jest from exiting: a live timer per
+     * socket.
+     *
+     * The connect-phase listeners come off once connected, too. The gateway
+     * emits auth_error mid-session to refuse a join, and that must not close
+     * a socket that connected perfectly well.
+     * =======================================================================
+     */
+    const onConnectError = (error: Error) => fail(error.message);
+    const onAuthError = (payload: { message?: string }) => fail(payload?.message ?? 'auth_error');
+    const timer = setTimeout(() => fail('timed out'), 9000);
+
+    function fail(reason: string) {
+      clearTimeout(timer);
+      socket.close();
+      reject(new Error(`socket did not connect: ${reason}`));
+    }
+
+    socket.once('connect', () => {
+      clearTimeout(timer);
+      socket.off('connect_error', onConnectError);
+      socket.off('auth_error', onAuthError);
+      resolve(socket);
+    });
+    socket.on('connect_error', onConnectError);
+    socket.on('auth_error', onAuthError);
+  });
+}
+
+/** The next payload for one event, or a failure naming what did not arrive. */
+export function waitFor<T = any>(socket: Socket, event: string, ms = 6000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`no '${event}' within ${ms}ms`)),
+      ms,
+    );
+    socket.once(event, (payload: T) => {
+      clearTimeout(timer);
+      resolve(payload);
+    });
+  });
+}
+
+/**
+ * Poll until `read` returns something, or fail saying how long it waited.
+ *
+ * For a row the gateway writes AFTER telling the room. A chat note reaches the
+ * partner first and is saved second - nobody should wait on a database write
+ * to read what their partner said - so reading the table the instant the note
+ * arrives races the write, and against a remote database the write loses that
+ * race some of the time.
+ */
+export async function eventually<T>(
+  read: () => Promise<T | null | undefined>,
+  what: string,
+  ms = 6000,
+): Promise<T> {
+  const deadline = Date.now() + ms;
+  for (;;) {
+    const value = await read();
+    if (value !== null && value !== undefined) return value;
+    if (Date.now() >= deadline) throw new Error(`${what} did not appear within ${ms}ms`);
+    await new Promise((r) => setTimeout(r, 150));
+  }
+}
+
+/**
+ * Assert an event does NOT arrive.
+ *
+ * Half these tests are about something correctly not happening - a discarded
+ * edit, a note with no text - and "nothing happened" needs as much evidence as
+ * "the right thing happened".
+ */
+export async function expectNo(socket: Socket, event: string, ms = 1200): Promise<void> {
+  let seen: unknown;
+  const handler = (payload: unknown) => {
+    seen = payload;
+  };
+  socket.on(event, handler);
+  await new Promise((r) => setTimeout(r, ms));
+  socket.off(event, handler);
+
+  if (seen !== undefined) {
+    throw new Error(`unexpected '${event}': ${JSON.stringify(seen)}`);
+  }
+}
+
+/** Join a room and wait until the server confirms it. */
+export async function joinRoom(socket: Socket, sessionId: string) {
+  const state = waitFor<{ members: string[]; roles: Record<string, string> }>(
+    socket,
+    'room_state',
+  );
+  socket.emit('join_room', { sessionId });
+  return state;
+}
+
+/**
+ * Remove everything this suite created.
+ *
+ * Sessions first: deleting a user cascades their membership rows but leaves
+ * the session behind with nobody in it, which is worse than not cleaning up at
+ * all - an empty session is indistinguishable from a real one that nobody
+ * joined.
+ */
+export async function cleanUp() {
+  const users = await prisma.user.findMany({
+    where: { email: { contains: TEST_EMAIL_MARKER } },
+    select: { id: true },
+  });
+  const ids = users.map((u) => u.id);
+  if (ids.length === 0) return;
+
+  await prisma.pairSession.deleteMany({
+    where: { members: { some: { userId: { in: ids } } } },
+  });
+  await prisma.user.deleteMany({ where: { id: { in: ids } } });
+}
