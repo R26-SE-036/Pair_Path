@@ -15,7 +15,13 @@ generator client {
   // dropped; node:22-alpine ships OpenSSL 3. The -openssl-3.0.x target is the
   // one that matches, and both are listed so `npm run start` on a laptop and
   // the container image keep working from the same generate.
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  //
+  // The EC2 host is arm64 (t4g), and the x86 target above is no use to it:
+  // with nothing listed for arm64, "native" in the Alpine build stage - which
+  // has no OpenSSL installed - fell back to linux-musl-arm64-openssl-1.1.x, and
+  // the API crash-looped on the server with "could not locate the Query Engine
+  // for runtime linux-musl-arm64-openssl-3.0.x".
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {

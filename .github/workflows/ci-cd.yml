@@ -1,0 +1,174 @@
+# Test every push; deploy what reaches main to the AWS server.
+#
+#   push / pull request to dev or main  ->  tests
+#   push to main (after the tests pass) ->  build arm64 images, push to ECR,
+#                                           update the code-runner Lambda, and
+#                                           roll pairpath-api and pairpath-ml
+#                                           on the EC2 host
+#
+# AWS access is OpenID Connect: GitHub proves which repository and branch the
+# run is for, and AWS hands back credentials for about an hour. No access keys
+# are stored here. The role (vars.AWS_DEPLOY_ROLE_ARN) trusts only the main
+# branch of the five Code Guru repositories, and on the host it may run one
+# thing - the codeguru-deploy SSM document, which takes a service name and a
+# commit SHA and nothing else.
+name: CI/CD
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  test-api:
+    name: Test - API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: backend/.nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx jest --silent
+
+  test-ml:
+    name: Test - ML service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/ml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/ml/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q -p no:cacheprovider tests
+
+  test-runner:
+    name: Test - code runner
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: code-runner-lambda
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # The execution tests compile and run Java, and skip themselves without
+      # a JDK - which would pass the job while testing nothing that matters.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "17"
+      - run: npm test
+
+  build:
+    name: Build ${{ matrix.image }}
+    needs: [test-api, test-ml, test-runner]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    # The server is arm64 (t4g), so the images are built on an arm64 runner
+    # rather than emulated.
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - {image: pairpath-api, context: backend}
+          - {image: pairpath-ml, context: backend/ml}
+          - {image: code-runner, context: code-runner-lambda}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/arm64
+          # Lambda refuses an image index, which is what an attestation adds.
+          provenance: false
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/codeguru/${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  deploy:
+    name: Deploy to AWS
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: deploy-pair-path
+      cancel-in-progress: false
+    env:
+      INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update the code-runner Lambda
+        run: |
+          account=$(aws sts get-caller-identity --query Account --output text)
+          aws lambda update-function-code --function-name codeguru-code-runner \
+            --image-uri "$account.dkr.ecr.$AWS_REGION.amazonaws.com/codeguru/code-runner:$GITHUB_SHA" \
+            --query LastUpdateStatus --output text
+          aws lambda wait function-updated-v2 --function-name codeguru-code-runner
+
+      - name: Run a Java program in the new Lambda
+        run: |
+          echo '{"className":"Main","code":"public class Main { public static void main(String[] a) { System.out.println(6 * 7); } }"}' > event.json
+          aws lambda invoke --function-name codeguru-code-runner --cli-binary-format raw-in-base64-out \
+            --payload file://event.json result.json > /dev/null
+          cat result.json; echo
+          grep -q '"stdout":"42' result.json
+
+      # The ML service first: the API reads its predictions, so the API should
+      # come up against the model it was released with.
+      - name: Roll the services on the server
+        run: |
+          for service in pairpath-ml pairpath-api; do
+            echo "::group::$service"
+            id=$(aws ssm send-command --document-name codeguru-deploy --instance-ids "$INSTANCE_ID" \
+              --parameters "{\"service\":[\"$service\"],\"tag\":[\"$GITHUB_SHA\"]}" \
+              --comment "$GITHUB_REPOSITORY@${GITHUB_SHA::7}" \
+              --query Command.CommandId --output text)
+            status=Pending
+            for _ in $(seq 1 180); do
+              status=$(aws ssm get-command-invocation --command-id "$id" --instance-id "$INSTANCE_ID" \
+                --query Status --output text 2>/dev/null || echo Pending)
+              case "$status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+              sleep 5
+            done
+            aws ssm get-command-invocation --command-id "$id" --instance-id "$INSTANCE_ID" \
+              --query '[StandardOutputContent,StandardErrorContent]' --output text || true
+            echo "::endgroup::"
+            if [ "$status" != Success ]; then
+              echo "::error::$service was not deployed ($status); the server kept the previous image"
+              exit 1
+            fi
+          done
