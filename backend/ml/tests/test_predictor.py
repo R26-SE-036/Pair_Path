@@ -41,7 +41,7 @@ class TestMissingFeatures(unittest.TestCase):
         self.assertIn(result["state"], PAIR_STATES)
         # The rule-based fallback's confidences are fixed values from a short
         # list; a real prediction almost never lands exactly on one.
-        self.assertNotIn(result["confidence"], {0.55, 0.6, 0.65, 0.7})
+        self.assertNotIn(result["confidence"], {0.6, 0.65, 0.7})
 
     def test_a_missing_column_falls_back_instead_of_substituting_zero(self):
         partial = dict(self.full)
@@ -209,6 +209,33 @@ class TestLabelMapping(unittest.TestCase):
 
     def test_an_unknown_state_resolves_to_silence(self):
         self.assertEqual(get_intervention_for_state("NOPE"), NO_ACTION)
+
+
+class TestRuleFallbackClearsTheGate(unittest.TestCase):
+    """Every state the fallback can name must be able to reach the student.
+
+    PASSIVE_NAVIGATOR sat at 0.55 under a 0.6 gate, so the fallback recorded it
+    and never once nudged it.
+    """
+
+    WINDOWS = {
+        "DISENGAGED": {"idle_ratio": 0.9, "discussion_note_count": 0},
+        "LOGIC_STRUGGLE": {"run_attempt_count": 3, "run_success_rate": 0.0,
+                           "navigator_note_count": 2},
+        "PASSIVE_NAVIGATOR": {"navigator_note_count": 0, "total_edit_count": 5},
+        "DRIVER_DOMINANCE": {"navigator_note_count": 2, "total_edit_count": 5,
+                             "seconds_since_role_switch": 300},
+        "PRODUCTIVE": {"navigator_note_count": 2, "total_edit_count": 5},
+    }
+
+    def test_each_state_is_named_with_enough_confidence_to_act_on(self):
+        from app.models.intervention_engine import CONFIDENCE_THRESHOLD
+
+        predictor = PairStatePredictor()
+        for state, features in self.WINDOWS.items():
+            result = predictor._fallback_prediction(features)
+            self.assertEqual(result["state"], state)
+            self.assertGreaterEqual(result["confidence"], CONFIDENCE_THRESHOLD, state)
 
 
 if __name__ == "__main__":
