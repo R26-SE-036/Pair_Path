@@ -2,55 +2,57 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
-import { SubmitReviewDto } from './dto/submit-review.dto';
 import { WebsocketGateway } from '../websocket/websocket.gateway';
-import { PUBLIC_QUESTION, PUBLIC_USER } from '../../common/public-select';
+import { PUBLIC_USER } from '../../common/public-select';
+import { ReviewGeneratorService, ReviewRequest } from './review-generator.service';
+import {
+  ReviewContent,
+  fromQuestionBank,
+  markedAnswer,
+  modeOf,
+  promptsOf,
+  readContent,
+  runsOf,
+  scoredCountOf,
+  teamworkOf,
+} from './session-review';
+
+// Imported from here by the sessions module.
+export { promptsOf } from './session-review';
 
 /**
- * A review prompt and the answer a pair who did the exercise well would give.
+ * The review after a session ends.
  *
- * `expected` is not always true. The old prompts were all phrased so that yes
- * was the good answer and scored as the count of yes answers, which measures
- * willingness to tick boxes rather than what happened in the session. See
- * prisma/question-bank.ts.
- */
-interface ReviewPrompt {
-  prompt: string;
-  expected: boolean;
-}
-
-/**
- * Read the prompts off a question, in either shape.
+ * ==================== FROM A FORM TO A WALKTHROUGH ====================
+ * It was the exercise's fixed yes/no prompts, identical for every pair that
+ * ever attempted it. It is now written for the session that happened - the
+ * student's own final code, whether it worked, and for a pair how they worked
+ * together - by Study Guider's language model, as a few steps that each teach
+ * one idea and then ask one multiple-choice question about it.
  *
- * Questions seeded before `expected` existed store a plain array of strings.
- * Those are treated as expecting `true`, which is exactly the old scoring - so
- * an old row keeps the score it always had rather than silently changing.
+ * The review is written ONCE per session and stored (SessionReview), so both
+ * partners answer the same questions and their agreement still means
+ * something. When it cannot be written - Study Guider down, over quota, not
+ * configured - the fixed prompts become the steps instead, as Yes/No
+ * questions, and that is stored in its place. A student is never left on a
+ * spinner, and never shown invented content.
+ *
+ * Each answer is marked as it is given and locked (ReviewAnswer): the student
+ * sees at once whether it was right and why, and cannot then change it. The
+ * final submission is built from those locked answers, so the score is the
+ * same number the old form produced - answers that match the expected ones -
+ * and everything downstream (results page, Code Coach, the research export)
+ * reads it unchanged.
+ *
+ * The expected answers, the explanations and the model solution stay on the
+ * server until the student has answered: an explanation arrives with its
+ * marked answer, and the solution with the submission.
+ * ======================================================================
  */
-export function promptsOf(reviewQuestions: unknown): ReviewPrompt[] {
-  if (!Array.isArray(reviewQuestions)) return [];
-
-  return reviewQuestions.flatMap((entry) => {
-    if (typeof entry === 'string') return [{ prompt: entry, expected: true }];
-    if (entry && typeof entry === 'object' && 'prompt' in entry) {
-      const row = entry as { prompt: unknown; expected?: unknown };
-      return typeof row.prompt === 'string'
-        ? [{ prompt: row.prompt, expected: row.expected !== false }]
-        : [];
-    }
-    return [];
-  });
-}
-
-/** How many answers agree with what the exercise expected. */
-function scoreAgainst(answers: boolean[], prompts: ReviewPrompt[]): number {
-  return prompts.reduce(
-    (total, prompt, index) => total + (answers[index] === prompt.expected ? 1 : 0),
-    0,
-  );
-}
 
 /**
  * How often the two partners gave the same answer, once both have submitted.
@@ -73,11 +75,36 @@ function agreementBetween(
   return { matched, outOf };
 }
 
+type SessionForRequest = {
+  startedAt: Date;
+  endedAt: Date | null;
+  finalCode: string | null;
+  question: {
+    title: string;
+    description: string;
+    difficulty: string;
+    conceptTags: unknown;
+    starterCode: string;
+    referenceSolution: string;
+    expectedOutput: string | null;
+  } | null;
+};
+
 @Injectable()
 export class ReviewsService {
+  private readonly logger = new Logger(ReviewsService.name);
+
+  /**
+   * Reviews being written right now, by session. Both partners reach the page
+   * within seconds of each other; this is what stops that costing two model
+   * calls. The table's primary key catches the rare case this misses.
+   */
+  private readonly preparing = new Map<string, Promise<void>>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly websocketGateway: WebsocketGateway,
+    private readonly generator: ReviewGeneratorService,
   ) {}
 
   /**
@@ -102,59 +129,236 @@ export class ReviewsService {
   }
 
   /**
-   * The review form, in the shape the client actually reads.
+   * Make sure this session has a review, writing it if it has none.
    *
-   * ==================== WHY THIS IS NOT A SESSION ====================
-   * It used to return the whole PairSession. The client reads
-   * `{ questions, alreadySubmitted }` off the response - neither of which a
-   * session has - so `questions` was undefined, the page rendered an empty
-   * form, and pressing Submit sent an empty array. Every peer review in the
-   * database is therefore a score of 0 recorded against no answers, and
-   * nothing anywhere reported a problem: the request succeeded, the row was
-   * written, and generateRecommendations dutifully advised "needs improvement".
+   * Resolves once one is stored. Safe to call as often as the page polls.
+   */
+  prepare(sessionId: string): Promise<void> {
+    let job = this.preparing.get(sessionId);
+    if (!job) {
+      job = this.writeReview(sessionId).finally(() => this.preparing.delete(sessionId));
+      this.preparing.set(sessionId, job);
+    }
+    return job;
+  }
+
+  private async writeReview(sessionId: string): Promise<void> {
+    const existing = await this.prisma.sessionReview.findUnique({
+      where: { sessionId },
+      select: { sessionId: true },
+    });
+    if (existing) return;
+
+    const session = await this.prisma.pairSession.findUnique({
+      where: { id: sessionId },
+      select: {
+        startedAt: true,
+        endedAt: true,
+        finalCode: true,
+        members: { select: { userId: true } },
+        question: {
+          select: {
+            title: true,
+            description: true,
+            difficulty: true,
+            conceptTags: true,
+            starterCode: true,
+            referenceSolution: true,
+            expectedOutput: true,
+            reviewQuestions: true,
+          },
+        },
+      },
+    });
+    if (!session) return;
+
+    const mode = modeOf(session.members);
+    let content: ReviewContent | null = null;
+    let source = 'question_bank';
+    let model: string | null = null;
+
+    if (this.generator.configured && session.question) {
+      try {
+        const written = await this.generator.generate(await this.reviewRequest(sessionId, session, mode));
+        content = written.content;
+        model = written.model;
+        source = 'generated';
+      } catch (error) {
+        // Logged for whoever runs the platform; the student gets the fixed
+        // prompts, which are real content, instead of an error.
+        this.logger.warn(
+          `Session ${sessionId}: review could not be written, using the exercise's own prompts. ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    content ??= fromQuestionBank(promptsOf(session.question?.reviewQuestions));
+
+    try {
+      await this.prisma.sessionReview.create({
+        data: { sessionId, source, mode, content: content as any, modelVersion: model },
+      });
+    } catch (error: any) {
+      // The partner's request stored one first. Theirs stands, so both answer
+      // the same review.
+      if (error?.code !== 'P2002') throw error;
+    }
+  }
+
+  /** What Study Guider is told about the session. Counts, never chat text or names. */
+  private async reviewRequest(
+    sessionId: string,
+    session: SessionForRequest,
+    mode: 'solo' | 'pair',
+  ): Promise<ReviewRequest> {
+    const question = session.question!;
+    const runResults = await this.prisma.sessionEvent.findMany({
+      where: { sessionId, eventType: 'CODE_RUN_RESULT' },
+      select: { metadata: true },
+    });
+    const { outcome, runs } = runsOf(runResults, question.expectedOutput !== null);
+
+    let teamwork: ReviewRequest['teamwork'] = null;
+    if (mode === 'pair') {
+      const grouped = await this.prisma.sessionEvent.groupBy({
+        by: ['userId', 'role', 'eventType'],
+        where: { sessionId },
+        _count: { _all: true },
+      });
+      teamwork = teamworkOf(
+        grouped.map((g) => ({ userId: g.userId, role: g.role, eventType: g.eventType, count: g._count._all })),
+        session.startedAt,
+        session.endedAt,
+      );
+    }
+
+    const tags = Array.isArray(question.conceptTags)
+      ? question.conceptTags.filter((t): t is string => typeof t === 'string').slice(0, 20)
+      : [];
+
+    return {
+      mode,
+      exercise: {
+        title: question.title.slice(0, 300),
+        description: question.description.slice(0, 6000),
+        difficulty: question.difficulty ? question.difficulty.slice(0, 40) : null,
+        concept_tags: tags,
+        expected_output: question.expectedOutput ? question.expectedOutput.slice(0, 4000) : null,
+        reference_solution: question.referenceSolution.slice(0, 20000),
+      },
+      code: (session.finalCode || question.starterCode || '').slice(0, 20000),
+      outcome,
+      runs,
+      teamwork,
+    };
+  }
+
+  /** The stored review, read back through the same checks, or the fixed prompts. */
+  private contentOf(stored: unknown, reviewQuestions: unknown): ReviewContent {
+    return readContent(stored) ?? fromQuestionBank(promptsOf(reviewQuestions));
+  }
+
+  /**
+   * The review, in the shape the page reads - without its answers.
    *
-   * The prompts are sent WITHOUT their expected answers, for the same reason
-   * the question is sent without referenceSolution.
-   * ===================================================================
+   * `ready: false` while it is being written; the page polls. The questions
+   * go out with their options and nothing else. Answers already given come
+   * back marked, so a reload resumes where the student was, and the model
+   * solution appears only once this student has submitted.
    */
   async getReview(sessionId: string, userId: string) {
     await this.requireMembership(sessionId, userId);
 
     const session = await this.prisma.pairSession.findUnique({
       where: { id: sessionId },
-      include: {
-        question: PUBLIC_QUESTION,
+      select: {
+        id: true,
+        status: true,
+        finalCode: true,
+        question: {
+          select: {
+            title: true,
+            description: true,
+            starterCode: true,
+            referenceSolution: true,
+            reviewQuestions: true,
+          },
+        },
+        review: { select: { content: true, mode: true, source: true } },
         reviews: { select: { userId: true } },
       },
     });
 
     if (!session) {
-      throw new BadRequestException('Session not found');
+      throw new NotFoundException('Session not found');
     }
 
-    return {
+    const alreadySubmitted = session.reviews.some((r) => r.userId === userId);
+    const base = {
       sessionId: session.id,
       status: session.status,
-      question: {
-        title: session.question?.title,
-        description: session.question?.description,
-      },
-      questions: promptsOf(session.question?.reviewQuestions).map((p) => p.prompt),
-      // Without this the page offers the form again to somebody who has
+      question: { title: session.question?.title, description: session.question?.description },
+      // Without these the page offers the review again to somebody who has
       // already answered, and submitting is refused with an error that reads
       // like a fault rather than a fact.
-      alreadySubmitted: session.reviews.some((r) => r.userId === userId),
+      alreadySubmitted,
       partnerSubmitted: session.reviews.some((r) => r.userId !== userId),
+    };
+
+    if (session.status !== 'COMPLETED') {
+      return { ...base, ready: false };
+    }
+
+    if (!session.review) {
+      // Started here rather than awaited: writing takes several seconds and
+      // the page shows that it is happening.
+      this.prepare(sessionId).catch((error) =>
+        this.logger.error(`Session ${sessionId}: could not store a review. ${error}`),
+      );
+      return { ...base, ready: false };
+    }
+
+    const content = this.contentOf(session.review.content, session.question?.reviewQuestions);
+    const given = await this.prisma.reviewAnswer.findMany({
+      where: { sessionId, userId },
+      select: { step: true, choice: true, correct: true },
+      orderBy: { step: 'asc' },
+    });
+
+    return {
+      ...base,
+      ready: true,
+      mode: session.review.mode,
+      source: session.review.source,
+      title: content.title,
+      summary: content.summary,
+      code: session.finalCode || session.question?.starterCode || '',
+      steps: content.steps.map((step) => ({
+        teach: step.teach,
+        lines: step.lines,
+        prompt: step.question.prompt,
+        options: step.question.options,
+      })),
+      reflection: content.reflection,
+      answers: given.map((a) => markedAnswer(content, a)),
+      solution: alreadySubmitted
+        ? { code: session.question?.referenceSolution ?? '', note: content.solutionNote }
+        : null,
     };
   }
 
-  async submitReview(sessionId: string, submitReviewDto: SubmitReviewDto, userId: string) {
+  /** The completed session and its review, or the reason there is none to answer. */
+  private async answerable(sessionId: string, userId: string) {
     const session = await this.prisma.pairSession.findUnique({
       where: { id: sessionId },
-      include: {
-        members: true,
-        reviews: true,
-        question: { select: { reviewQuestions: true } },
+      select: {
+        status: true,
+        members: { select: { userId: true } },
+        reviews: { select: { userId: true } },
+        review: { select: { content: true } },
+        question: { select: { referenceSolution: true, reviewQuestions: true } },
       },
     });
 
@@ -175,50 +379,96 @@ export class ReviewsService {
       throw new BadRequestException('Session must be completed to submit review');
     }
 
-    // Check if user is a member
-    const isMember = session.members.some(m => m.userId === userId);
-    if (!isMember) {
+    if (!session.members.some((m) => m.userId === userId)) {
       throw new ForbiddenException('Not a member of this session');
     }
 
-    // Check if already submitted
-    const existingReview = session.reviews.find(r => r.userId === userId);
-    if (existingReview) {
+    if (session.reviews.some((r) => r.userId === userId)) {
       throw new BadRequestException('Review already submitted');
     }
 
-    const prompts = promptsOf(
-      (session as { question?: { reviewQuestions?: unknown } }).question?.reviewQuestions,
-    );
+    if (!session.review) {
+      throw new BadRequestException('The review is still being prepared.');
+    }
 
-    // One answer per prompt, in order. A short array would silently score as
-    // if the unanswered prompts had been got wrong, and a long one means the
-    // client is answering something this question does not ask.
-    if (submitReviewDto.answers.length !== prompts.length) {
+    return { session, content: this.contentOf(session.review.content, session.question?.reviewQuestions) };
+  }
+
+  /**
+   * Answer one question. Marked at once and locked.
+   *
+   * Answering the same question again returns the first answer, unchanged:
+   * once the explanation has been seen, a second try would not be the
+   * student's answer any more.
+   */
+  async answer(sessionId: string, userId: string, step: number, choice: number) {
+    const { content } = await this.answerable(sessionId, userId);
+
+    const scored = content.steps.length;
+    const item = step < scored ? content.steps[step].question : content.reflection[step - scored];
+    if (!item) {
+      throw new BadRequestException(`This review has no question ${step}.`);
+    }
+    if (choice >= item.options.length) {
+      throw new BadRequestException(`Question ${step} has ${item.options.length} options.`);
+    }
+
+    const key = { sessionId_userId_step: { sessionId, userId, step } };
+    const existing = await this.prisma.reviewAnswer.findUnique({ where: key });
+    if (existing) return markedAnswer(content, existing);
+
+    const correct = step < scored ? choice === content.steps[step].question.answer : null;
+    try {
+      const saved = await this.prisma.reviewAnswer.create({
+        data: { sessionId, userId, step, choice, correct },
+      });
+      return markedAnswer(content, saved);
+    } catch (error: any) {
+      // A double click raced itself. The first answer stands.
+      if (error?.code !== 'P2002') throw error;
+      return markedAnswer(content, (await this.prisma.reviewAnswer.findUnique({ where: key }))!);
+    }
+  }
+
+  /**
+   * Finish the review: every scored question answered, score recorded.
+   *
+   * The teamwork questions are optional. They have no right answer, and a
+   * student who does not want to reflect on their partner in writing should
+   * not be stopped from finishing.
+   */
+  async submitReview(sessionId: string, userId: string) {
+    const { session, content } = await this.answerable(sessionId, userId);
+
+    const given = await this.prisma.reviewAnswer.findMany({
+      where: { sessionId, userId },
+      select: { step: true, choice: true, correct: true },
+    });
+    const byStep = new Map(given.map((a) => [a.step, a]));
+
+    const missing = content.steps.filter((_, index) => !byStep.has(index)).length;
+    if (missing > 0) {
       throw new BadRequestException(
-        `This review has ${prompts.length} prompts; ${submitReviewDto.answers.length} answers were sent.`,
+        `Answer every question first: ${missing} of ${content.steps.length} still to go.`,
       );
     }
 
-    const score = scoreAgainst(submitReviewDto.answers, prompts);
+    const choices = content.steps.map((_, index) => byStep.get(index)!.choice);
+    const score = content.steps.filter((_, index) => byStep.get(index)!.correct === true).length;
 
-    const review = await this.prisma.reviewSubmission.create({
-      data: {
-        sessionId,
-        userId,
-        answers: submitReviewDto.answers,
-        score,
-      },
-      include: {
-        user: { select: PUBLIC_USER },
-      },
+    await this.prisma.reviewSubmission.create({
+      data: { sessionId, userId, answers: choices, score },
     });
 
     // Tell the partner's results page to refresh — whoever finished first is
     // already sitting on a page that only knows about their own submission.
     this.websocketGateway.notifyReviewSubmitted(sessionId, { userId });
 
-    return review;
+    return {
+      score,
+      outOf: content.steps.length,
+      solution: { code: session.question?.referenceSolution ?? '', note: content.solutionNote },
+    };
   }
 
   async getResult(sessionId: string, userId: string) {
@@ -268,13 +518,16 @@ export class ReviewsService {
     };
   }
 
-  /** Out of how many prompts, so a percentage means something. */
+  /** Out of how many scored questions, so a percentage means something. */
   async promptCount(sessionId: string): Promise<number> {
     const session = await this.prisma.pairSession.findUnique({
       where: { id: sessionId },
-      select: { question: { select: { reviewQuestions: true } } },
+      select: {
+        review: { select: { content: true } },
+        question: { select: { reviewQuestions: true } },
+      },
     });
-    return promptsOf(session?.question?.reviewQuestions).length;
+    return scoredCountOf(session?.review?.content, session?.question?.reviewQuestions);
   }
 
   /** Proportional, so the advice does not depend on how many prompts a question has. */

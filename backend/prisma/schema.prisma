@@ -61,6 +61,7 @@ model User {
   sessionMemberships PairSessionMember[]
   sessionEvents      SessionEvent[]
   reviewSubmissions  ReviewSubmission[]
+  reviewAnswers      ReviewAnswer[]
   researchConsents   ResearchConsent[]
 
   @@map("users")
@@ -141,6 +142,8 @@ model PairSession {
   predictions PairStatePrediction[]
   interventions Intervention[]
   reviews     ReviewSubmission[]
+  review        SessionReview?
+  reviewAnswers ReviewAnswer[]
 
   @@map("pair_sessions")
 }
@@ -255,6 +258,52 @@ model ReviewSubmission {
 
   @@unique([sessionId, userId])
   @@map("review_submissions")
+}
+
+// The review both partners are taken through when a session ends: teaching
+// steps about their own code, each with a multiple-choice question, and - for
+// a pair - unscored questions about how they worked together.
+//
+// Written once per session, by Study Guider's language model (source
+// "generated"), or built from the exercise's fixed reviewQuestions when that
+// is unavailable (source "question_bank"). One row, so both partners answer the
+// same questions and their agreement still means something.
+//
+// `content` holds the correct answers and explanations. It is never sent to a
+// client whole - see ReviewsService.getReview.
+model SessionReview {
+  sessionId    String   @id
+  source       String   // generated | question_bank
+  mode         String   // solo | pair
+  content      Json
+  modelVersion String?
+  createdAt    DateTime @default(now())
+
+  session PairSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("session_reviews")
+}
+
+// One answer to one review question, locked when given.
+//
+// Stored as it is answered, not at the end, because each answer is marked
+// straight away: letting a student re-answer after seeing the explanation
+// would make every score 100%. `correct` is null for the unscored teamwork
+// questions, whose `step` numbers follow the scored ones.
+model ReviewAnswer {
+  id         String   @id @default(cuid())
+  sessionId  String
+  userId     String
+  step       Int
+  choice     Int
+  correct    Boolean?
+  answeredAt DateTime @default(now())
+
+  session PairSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId, step])
+  @@map("review_answers")
 }
 
 model SimulatedSession {

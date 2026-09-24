@@ -15,7 +15,7 @@ import { CreateSessionDto } from './dto/create-session.dto';
 import { JoinSessionDto } from './dto/join-session.dto';
 import { WebsocketGateway } from '../websocket/websocket.gateway';
 import { QUESTIONS } from '../../content/question-bank';
-import { promptsOf } from '../reviews/reviews.service';
+import { scoredCountOf } from '../reviews/session-review';
 import { SessionOutcome, summariseOutcome } from './session-outcome';
 import { NudgeEffect, measureNudges } from './nudge-effect';
 import { ML_WINDOW_SECONDS } from '../../common/ml-window';
@@ -514,6 +514,8 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
           select: { timestamp: true, metadata: true },
         },
         reviews: { where: { userId }, select: { score: true } },
+        // The written review, when there is one, is what the score is out of.
+        review: { select: { content: true } },
       },
     });
 
@@ -527,7 +529,7 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
       },
       runResults: session.events,
       myReview: session.reviews[0] ?? null,
-      promptCount: promptsOf(session.question.reviewQuestions).length,
+      promptCount: scoredCountOf(session.review?.content, session.question.reviewQuestions),
       // `invitesErrors` lives in the bank, not the schema. It is what lets an
       // unsolved session open a lesson: Code Coach files a trigger under an
       // error type, and a pair session has no diagnostic to take one from.
