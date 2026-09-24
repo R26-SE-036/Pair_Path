@@ -36,6 +36,13 @@ export class AuthController {
    * this on arrival. See AuthService.exchange for why PairPath issues its own
    * token rather than adopting Code Coach's.
    */
+  //
+  // Its own, much higher limit. Every call arrives from the web app's server,
+  // so the per-IP bucket above was one bucket for the whole platform: ten
+  // sign-ins a minute, and the eleventh student could not pair. There is also
+  // nothing here to guess - the caller must present a Code Coach token that
+  // Code Coach itself verifies.
+  @Throttle({ default: { ttl: 60000, limit: 600 } })
   @Public()
   @Post('exchange')
   async exchange(@Body('codeCoachAccessToken') codeCoachAccessToken: string) {

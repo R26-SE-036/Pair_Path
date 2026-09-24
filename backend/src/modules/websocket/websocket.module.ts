@@ -3,7 +3,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { WebsocketGateway } from './websocket.gateway';
 import { CodeRunnerModule } from '../code-runner/code-runner.module';
 import { MlModule } from '../ml/ml.module';
-import { PrismaService } from '../../common/prisma.service';
 import { jwtSecret } from '../../common/env';
 
 @Module({
@@ -15,7 +14,9 @@ import { jwtSecret } from '../../common/env';
       signOptions: { expiresIn: '24h' },
     }),
   ],
-  providers: [WebsocketGateway, PrismaService],
+  // PrismaService comes from the global CommonModule. Listing it here created
+  // a second client with its own connection pool - see health.module.ts.
+  providers: [WebsocketGateway],
   exports: [WebsocketGateway],
 })
 export class WebsocketModule {}

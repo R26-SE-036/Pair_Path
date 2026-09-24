@@ -139,7 +139,13 @@ class PairStatePredictor:
         elif run_attempts >= 2 and run_success_rate < 0.3:
             return {"state": "LOGIC_STRUGGLE", "confidence": 0.65}
         elif navigator_chat == 0 and total_edits > 0:
-            return {"state": "PASSIVE_NAVIGATOR", "confidence": 0.55}
+            # 0.6, not the 0.55 it was: below the intervention gate
+            # (ML_CONFIDENCE_THRESHOLD, 0.6) the fallback recorded this state
+            # but could never nudge it. PairPath has no voice channel, so a
+            # navigator with no chat for a whole window while the driver edits
+            # is not contributing - evidence enough for a prompt, which the
+            # cooldown keeps from repeating.
+            return {"state": "PASSIVE_NAVIGATOR", "confidence": 0.6}
         elif since_switch >= 180 and navigator_chat > 0:
             return {"state": "DRIVER_DOMINANCE", "confidence": 0.7}
         else:
