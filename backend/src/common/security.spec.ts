@@ -191,6 +191,20 @@ describe('rate limiting is actually wired up', () => {
     expect(read('modules/auth/auth.controller.ts')).toContain('@Throttle');
   });
 
+  it('does not let the platform-wide token exchange share the login bucket', () => {
+    // Every exchange comes from the web server's one address, so at the
+    // login limit of 10 the whole platform could connect ten students a
+    // minute to pairing.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { AuthController } = require('../modules/auth/auth.controller');
+    const limit = (handler: string) =>
+      Reflect.getMetadata('THROTTLER:LIMITdefault', AuthController.prototype[handler]) ??
+      Reflect.getMetadata('THROTTLER:LIMITdefault', AuthController);
+
+    expect(limit('login')).toBe(10);
+    expect(limit('exchange')).toBeGreaterThanOrEqual(300);
+  });
+
   it('limits running code on the path students actually use', () => {
     /*
      * This used to assert @Throttle on code-runner.controller.ts. That was
