@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/commo
 import { PrismaClient } from '@prisma/client';
 
 import { connectWithRetry } from './connect-with-retry';
+import { withTimeLimits } from './database-url';
 
 /**
  * Prisma, with optional connection pooling.
@@ -28,8 +29,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
-    const pooled = process.env.DATABASE_URL_POOLED?.trim();
-    super(pooled ? { datasources: { db: { url: pooled } } } : {});
+    // Passed explicitly even when it is DATABASE_URL, so the time limits in
+    // database-url.ts apply to whichever connection is used.
+    const url = withTimeLimits(
+      process.env.DATABASE_URL_POOLED?.trim() || process.env.DATABASE_URL,
+    );
+    super(url ? { datasources: { db: { url } } } : {});
   }
 
   async onModuleInit() {
