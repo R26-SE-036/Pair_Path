@@ -214,10 +214,17 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async create(createSessionDto: CreateSessionDto, userId: string) {
+    // A free session has no question, whatever the request carried: the
+    // database refuses one with both, and quietly dropping it here is kinder
+    // than a 500 for a client that sent a stale picker value along.
+    const free = createSessionDto.mode === 'FREE';
+    const questionId = free ? null : createSessionDto.questionId!;
+
     return this.withUniqueJoinCode((joinCode) =>
       this.prisma.pairSession.create({
         data: {
-          ...createSessionDto,
+          mode: free ? 'FREE' : 'EXERCISE',
+          questionId,
           joinCode,
           members: {
             create: {
@@ -495,6 +502,7 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
       select: {
         id: true,
         status: true,
+        mode: true,
         questionId: true,
         startedAt: true,
         endedAt: true,
@@ -519,17 +527,22 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
+    // A free session has no question: no concepts, nothing graded, and so
+    // nothing for Code Coach to move mastery by - see summariseOutcome.
+    const question = session.question;
     return summariseOutcome({
       session,
-      question: {
-        title: session.question.title,
-        difficulty: session.question.difficulty,
-        conceptTags: session.question.conceptTags,
-        hasExpectedOutput: session.question.expectedOutput !== null,
-      },
+      question: question
+        ? {
+            title: question.title,
+            difficulty: question.difficulty,
+            conceptTags: question.conceptTags,
+            hasExpectedOutput: question.expectedOutput !== null,
+          }
+        : null,
       runResults: session.events,
       myReview: session.reviews[0] ?? null,
-      promptCount: scoredCountOf(session.review?.content, session.question.reviewQuestions),
+      promptCount: scoredCountOf(session.review?.content, question?.reviewQuestions),
       // `invitesErrors` lives in the bank, not the schema. It is what lets an
       // unsolved session open a lesson: Code Coach files a trigger under an
       // error type, and a pair session has no diagnostic to take one from.

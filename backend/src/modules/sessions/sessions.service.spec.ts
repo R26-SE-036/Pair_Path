@@ -355,6 +355,23 @@ describe('creating a session', () => {
     // delays the message the student needs to see.
     expect(calls).toBe(1);
   });
+
+  it.each([
+    ['an exercise session keeps its question', { questionId: 'q1' }, { mode: 'EXERCISE', questionId: 'q1' }],
+    ['a free session has none, whatever was sent', { mode: 'FREE', questionId: 'q1' }, { mode: 'FREE', questionId: null }],
+  ])('%s', async (_name, dto, expected) => {
+    const { service, prisma } = make([]);
+    let written: any;
+    prisma.pairSession.create = async (args: any) => {
+      written = args.data;
+      return { id: 's-new', ...args.data };
+    };
+
+    await service.create(dto as any, 'me');
+
+    expect(written).toMatchObject(expected);
+    expect(written.members.create).toMatchObject({ userId: 'me', role: 'DRIVER' });
+  });
 });
 
 describe('ending a session', () => {

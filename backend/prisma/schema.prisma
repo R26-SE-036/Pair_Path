@@ -122,7 +122,18 @@ model Question {
 model PairSession {
   id           String    @id @default(cuid())
   joinCode     String    @unique
-  questionId   String
+  // EXERCISE: the pair works on a question from the bank, which supplies the
+  // starter code, the expected output, the hint topics and the review.
+  // FREE: no question at all - the pair writes whatever they like. Runs are
+  // reported as "ran", hint topics come from Code Coach's reading of their
+  // code, and the review has no model solution to compare against.
+  //
+  // Kept apart in the research export, because a free session has no task
+  // and a model evaluated on both would be measuring two different things.
+  mode         String    @default("EXERCISE")
+  // Required for EXERCISE and null for FREE - a CHECK constraint in the
+  // migration holds the database to that, since Prisma cannot express it.
+  questionId   String?
   // ACTIVE while the pair is working; COMPLETED when somebody ends it;
   // EXPIRED when the idle sweep closes one nobody touched for 30 minutes.
   // See SessionsService.expireIdleSessions for why the last two are distinct.
@@ -134,7 +145,10 @@ model PairSession {
   updatedAt    DateTime  @updatedAt
 
   // Relations
-  question    Question            @relation(fields: [questionId], references: [id])
+  // Restrict, stated: an optional relation would otherwise default to SET
+  // NULL, and deleting a question would quietly turn its exercise sessions
+  // into what look like free ones.
+  question    Question?           @relation(fields: [questionId], references: [id], onDelete: Restrict)
   members     PairSessionMember[]
   events      SessionEvent[]
   snapshots   CodeSnapshot[]
@@ -264,7 +278,7 @@ model ReviewSubmission {
 // steps about their own code, each with a multiple-choice question, and - for
 // a pair - unscored questions about how they worked together.
 //
-// Written once per session, by Study Guider's language model (source
+// Written once per session, by a language model PairPath calls itself (source
 // "generated"), or built from the exercise's fixed reviewQuestions when that
 // is unavailable (source "question_bank"). One row, so both partners answer the
 // same questions and their agreement still means something.

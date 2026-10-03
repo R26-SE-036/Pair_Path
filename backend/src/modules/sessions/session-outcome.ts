@@ -18,7 +18,10 @@
 export interface SessionOutcome {
   sessionId: string;
   status: string;
-  questionId: string;
+  /** EXERCISE or FREE. A free session reports no concepts, so it moves no mastery. */
+  mode: string;
+  /** Null for a free session, which has no question. */
+  questionId: string | null;
   questionTitle: string | null;
   conceptTags: string[];
   difficulty: string | null;
@@ -46,7 +49,8 @@ export interface OutcomeInput {
   session: {
     id: string;
     status: string;
-    questionId: string;
+    mode?: string;
+    questionId: string | null;
     startedAt: Date;
     endedAt: Date | null;
   };
@@ -123,6 +127,7 @@ export function summariseOutcome(input: OutcomeInput): SessionOutcome {
   return {
     sessionId: session.id,
     status: session.status,
+    mode: session.mode ?? 'EXERCISE',
     questionId: session.questionId,
     questionTitle: question?.title ?? null,
     conceptTags: Array.isArray(tags)

@@ -9,8 +9,11 @@ import { PrismaService } from '../../common/prisma.service';
 import { WebsocketGateway } from '../websocket/websocket.gateway';
 import { PUBLIC_USER } from '../../common/public-select';
 import { ReviewGeneratorService, ReviewRequest } from './review-generator.service';
+import { CodeConceptsService } from '../ml/code-concepts.service';
+import { SuggestionCandidate, fallbackSuggestion } from './review-writer';
 import {
   ReviewContent,
+  ReviewOutcome,
   fromQuestionBank,
   markedAnswer,
   modeOf,
@@ -31,12 +34,12 @@ export { promptsOf } from './session-review';
  * It was the exercise's fixed yes/no prompts, identical for every pair that
  * ever attempted it. It is now written for the session that happened - the
  * student's own final code, whether it worked, and for a pair how they worked
- * together - by Study Guider's language model, as a few steps that each teach
+ * together - by a language model (llm.service.ts), as a few steps that each teach
  * one idea and then ask one multiple-choice question about it.
  *
  * The review is written ONCE per session and stored (SessionReview), so both
  * partners answer the same questions and their agreement still means
- * something. When it cannot be written - Study Guider down, over quota, not
+ * something. When it cannot be written - the model down, over quota, not
  * configured - the fixed prompts become the steps instead, as Yes/No
  * questions, and that is stored in its place. A student is never left on a
  * spinner, and never shown invented content.
@@ -75,7 +78,56 @@ function agreementBetween(
   return { matched, outOf };
 }
 
+/** How many bank exercises a free session's review may choose its suggestion from. */
+const SUGGESTION_CANDIDATES = 8;
+
+const DIFFICULTY_ORDER: Record<string, number> = { BEGINNER: 0, INTERMEDIATE: 1, ADVANCED: 2 };
+
+/**
+ * Bank exercises worth suggesting after a free session, best first: those
+ * practising the most of the concepts in the pair's code, then the gentler
+ * ones. With no concepts to go on, the gentlest exercises.
+ */
+export function rankSuggestions(
+  questions: Array<{ id: string; title: string; difficulty: string; conceptTags: unknown }>,
+  concepts: string[],
+): SuggestionCandidate[] {
+  const wanted = new Set(concepts);
+  return questions
+    .map((q) => {
+      const tags = Array.isArray(q.conceptTags)
+        ? q.conceptTags.filter((t): t is string => typeof t === 'string')
+        : [];
+      return { q, tags, overlap: tags.filter((t) => wanted.has(t)).length };
+    })
+    .filter((row) => wanted.size === 0 || row.overlap > 0)
+    .sort(
+      (a, b) =>
+        b.overlap - a.overlap ||
+        (DIFFICULTY_ORDER[a.q.difficulty] ?? 9) - (DIFFICULTY_ORDER[b.q.difficulty] ?? 9) ||
+        a.q.title.localeCompare(b.q.title),
+    )
+    .slice(0, SUGGESTION_CANDIDATES)
+    .map(({ q, tags }) => ({ id: q.id, title: q.title, difficulty: q.difficulty || null, concept_tags: tags }));
+}
+
+/**
+ * What a review shows after the quiz. Never sent before the student has
+ * submitted. `outcome` is how the page frames it: solved is "two ways to the
+ * same answer", unsolved is "you were N changes away".
+ */
+function feedbackOf(content: ReviewContent, outcome: ReviewOutcome) {
+  return {
+    outcome,
+    strengths: content.strengths,
+    improvements: content.improvements,
+    nextStep: content.nextStep,
+    suggestion: content.suggestion,
+  };
+}
+
 type SessionForRequest = {
+  mode: string;
   startedAt: Date;
   endedAt: Date | null;
   finalCode: string | null;
@@ -105,6 +157,7 @@ export class ReviewsService {
     private readonly prisma: PrismaService,
     private readonly websocketGateway: WebsocketGateway,
     private readonly generator: ReviewGeneratorService,
+    private readonly codeConcepts?: CodeConceptsService,
   ) {}
 
   /**
@@ -152,6 +205,7 @@ export class ReviewsService {
     const session = await this.prisma.pairSession.findUnique({
       where: { id: sessionId },
       select: {
+        mode: true,
         startedAt: true,
         endedAt: true,
         finalCode: true,
@@ -173,13 +227,21 @@ export class ReviewsService {
     if (!session) return;
 
     const mode = modeOf(session.members);
+    const free = session.mode === 'FREE';
     let content: ReviewContent | null = null;
     let source = 'question_bank';
     let model: string | null = null;
 
-    if (this.generator.configured && session.question) {
+    // A free session's suggestions are worked out whether or not the model
+    // writes the review: without it, the best match is still a real exercise
+    // the pair can start, which is worth more than nothing.
+    const suggestions = free ? await this.suggestionsFor(session.finalCode ?? '') : null;
+
+    if (this.generator.configured && (session.question || free)) {
       try {
-        const written = await this.generator.generate(await this.reviewRequest(sessionId, session, mode));
+        const written = await this.generator.generate(
+          await this.reviewRequest(sessionId, session, mode, suggestions),
+        );
         content = written.content;
         model = written.model;
         source = 'generated';
@@ -194,7 +256,10 @@ export class ReviewsService {
       }
     }
 
-    content ??= fromQuestionBank(promptsOf(session.question?.reviewQuestions));
+    if (!content) {
+      content = fromQuestionBank(promptsOf(session.question?.reviewQuestions));
+      if (free) content.suggestion = fallbackSuggestion(suggestions?.candidates ?? []);
+    }
 
     try {
       await this.prisma.sessionReview.create({
@@ -207,18 +272,36 @@ export class ReviewsService {
     }
   }
 
-  /** What Study Guider is told about the session. Counts, never chat text or names. */
+  /** The concepts in a free session's code, and the bank exercises that practise them. */
+  private async suggestionsFor(code: string) {
+    const concepts = (await this.codeConcepts?.conceptsIn(code)) ?? [];
+    const questions = await this.prisma.question.findMany({
+      where: { archived: false },
+      select: { id: true, title: true, difficulty: true, conceptTags: true },
+    });
+    let candidates = rankSuggestions(questions, concepts);
+    // Concepts found, but nothing in the bank practises them: the gentlest
+    // exercises rather than no suggestion at all.
+    if (candidates.length === 0 && concepts.length) candidates = rankSuggestions(questions, []);
+    return { concepts, candidates };
+  }
+
+  /** What the model is told about the session. Counts, never chat text or names. */
   private async reviewRequest(
     sessionId: string,
     session: SessionForRequest,
     mode: 'solo' | 'pair',
+    suggestions: { concepts: string[]; candidates: SuggestionCandidate[] } | null,
   ): Promise<ReviewRequest> {
-    const question = session.question!;
+    const question = session.question;
     const runResults = await this.prisma.sessionEvent.findMany({
       where: { sessionId, eventType: 'CODE_RUN_RESULT' },
       select: { metadata: true },
     });
-    const { outcome, runs } = runsOf(runResults, question.expectedOutput !== null);
+    const graded = runsOf(runResults, question?.expectedOutput != null);
+    // A free session had nothing to solve, so its runs are counted but never graded.
+    const outcome = question ? graded.outcome : 'free';
+    const runs = graded.runs;
 
     let teamwork: ReviewRequest['teamwork'] = null;
     if (mode === 'pair') {
@@ -234,25 +317,43 @@ export class ReviewsService {
       );
     }
 
-    const tags = Array.isArray(question.conceptTags)
-      ? question.conceptTags.filter((t): t is string => typeof t === 'string').slice(0, 20)
-      : [];
+    const tags =
+      question && Array.isArray(question.conceptTags)
+        ? question.conceptTags.filter((t): t is string => typeof t === 'string').slice(0, 20)
+        : [];
 
     return {
       mode,
-      exercise: {
-        title: question.title.slice(0, 300),
-        description: question.description.slice(0, 6000),
-        difficulty: question.difficulty ? question.difficulty.slice(0, 40) : null,
-        concept_tags: tags,
-        expected_output: question.expectedOutput ? question.expectedOutput.slice(0, 4000) : null,
-        reference_solution: question.referenceSolution.slice(0, 20000),
-      },
-      code: (session.finalCode || question.starterCode || '').slice(0, 20000),
+      exercise: question
+        ? {
+            title: question.title.slice(0, 300),
+            description: question.description.slice(0, 6000),
+            difficulty: question.difficulty ? question.difficulty.slice(0, 40) : null,
+            concept_tags: tags,
+            expected_output: question.expectedOutput ? question.expectedOutput.slice(0, 4000) : null,
+            reference_solution: question.referenceSolution.slice(0, 20000),
+          }
+        : null,
+      code: (session.finalCode || question?.starterCode || '').slice(0, 20000),
       outcome,
       runs,
       teamwork,
+      code_concepts: suggestions?.concepts ?? [],
+      suggestions: suggestions?.candidates ?? [],
     };
+  }
+
+  /** How the session went, for framing the review: the same rules as the model was given. */
+  private async outcomeFor(
+    sessionId: string,
+    question: { expectedOutput: string | null } | null,
+  ): Promise<ReviewOutcome> {
+    if (!question) return 'free';
+    const runResults = await this.prisma.sessionEvent.findMany({
+      where: { sessionId, eventType: 'CODE_RUN_RESULT' },
+      select: { metadata: true },
+    });
+    return runsOf(runResults, question.expectedOutput !== null).outcome;
   }
 
   /** The stored review, read back through the same checks, or the fixed prompts. */
@@ -276,6 +377,7 @@ export class ReviewsService {
       select: {
         id: true,
         status: true,
+        mode: true,
         finalCode: true,
         question: {
           select: {
@@ -283,6 +385,8 @@ export class ReviewsService {
             description: true,
             starterCode: true,
             referenceSolution: true,
+            // Read to grade the runs for the framing, never sent.
+            expectedOutput: true,
             reviewQuestions: true,
           },
         },
@@ -299,7 +403,11 @@ export class ReviewsService {
     const base = {
       sessionId: session.id,
       status: session.status,
-      question: { title: session.question?.title, description: session.question?.description },
+      // EXERCISE or FREE. A free session has no question and no model solution.
+      kind: session.mode ?? 'EXERCISE',
+      question: session.question
+        ? { title: session.question.title, description: session.question.description }
+        : null,
       // Without these the page offers the review again to somebody who has
       // already answered, and submitting is refused with an error that reads
       // like a fault rather than a fact.
@@ -343,8 +451,14 @@ export class ReviewsService {
       })),
       reflection: content.reflection,
       answers: given.map((a) => markedAnswer(content, a)),
-      solution: alreadySubmitted
-        ? { code: session.question?.referenceSolution ?? '', note: content.solutionNote }
+      solution:
+        alreadySubmitted && session.question
+          ? { code: session.question.referenceSolution, note: content.solutionNote }
+          : null,
+      // After the quiz only: for an unsolved exercise the improvements spell
+      // out the fix, so they are held back exactly as the solution is.
+      feedback: alreadySubmitted
+        ? feedbackOf(content, await this.outcomeFor(sessionId, session.question))
         : null,
     };
   }
@@ -358,7 +472,7 @@ export class ReviewsService {
         members: { select: { userId: true } },
         reviews: { select: { userId: true } },
         review: { select: { content: true } },
-        question: { select: { referenceSolution: true, reviewQuestions: true } },
+        question: { select: { referenceSolution: true, reviewQuestions: true, expectedOutput: true } },
       },
     });
 
@@ -467,7 +581,10 @@ export class ReviewsService {
     return {
       score,
       outOf: content.steps.length,
-      solution: { code: session.question?.referenceSolution ?? '', note: content.solutionNote },
+      solution: session.question
+        ? { code: session.question.referenceSolution, note: content.solutionNote }
+        : null,
+      feedback: feedbackOf(content, await this.outcomeFor(sessionId, session.question)),
     };
   }
 

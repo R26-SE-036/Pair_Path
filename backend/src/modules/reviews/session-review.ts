@@ -56,12 +56,43 @@ export interface ReviewReflection {
   options: string[];
 }
 
+/**
+ * One change to the pair's own code, and what it would have done.
+ *
+ * In an exercise session these are the path from their code to a working
+ * one ("with `i <= 5` your loop would have printed all five numbers"); in a
+ * free session, the two things that would most improve what they wrote.
+ */
+export interface ReviewImprovement {
+  /** [first, last] lines of THEIR code the change is to, or null. */
+  lines: [number, number] | null;
+  change: string;
+  why: string;
+  achieves: string;
+}
+
+/** A bank exercise to try next, after a free session. Always a real one. */
+export interface ReviewSuggestion {
+  questionId: string;
+  title: string;
+  reason: string;
+}
+
 export interface ReviewContent {
   title: string;
   summary: string | null;
   steps: ReviewStep[];
   reflection: ReviewReflection[];
   solutionNote: string | null;
+  /**
+   * Shown after the quiz, with the model solution - never before, because
+   * for an unsolved exercise they spell out the fix. Empty on a review built
+   * from the exercise's fixed prompts, and on rows stored before they existed.
+   */
+  strengths: string[];
+  improvements: ReviewImprovement[];
+  nextStep: string | null;
+  suggestion: ReviewSuggestion | null;
 }
 
 const text = (value: unknown, limit: number): string | null =>
@@ -84,8 +115,8 @@ function lines(value: unknown): [number, number] | null {
 /**
  * A review that holds together, or null.
  *
- * Applied to what Study Guider returns and again to what is read back from the
- * database. Study Guider checks the same things before answering; this is the
+ * Applied to what the model returns and again to what is read back from the
+ * database. review-writer.ts checks the same things before storing; this is the
  * side that scores students, so it does not take that on trust.
  */
 export function readContent(value: unknown): ReviewContent | null {
@@ -124,6 +155,40 @@ export function readContent(value: unknown): ReviewContent | null {
     steps,
     reflection,
     solutionNote: text(raw.solutionNote, 600),
+    ...readFeedback(raw),
+  };
+}
+
+/**
+ * The after-the-quiz sections, read leniently: these are optional, and a row
+ * stored before they existed has none of them. An item that does not hold
+ * together is dropped on its own rather than costing the whole review.
+ */
+function readFeedback(raw: Record<string, unknown>) {
+  const strengths = (Array.isArray(raw.strengths) ? raw.strengths : [])
+    .map((entry) => text(entry, 300))
+    .filter((entry): entry is string => entry !== null)
+    .slice(0, 2);
+
+  const improvements: ReviewImprovement[] = [];
+  for (const entry of Array.isArray(raw.improvements) ? raw.improvements : []) {
+    const item = entry as Record<string, unknown> | null;
+    const change = text(item?.change, 300);
+    const why = text(item?.why, 400);
+    const achieves = text(item?.achieves, 400);
+    if (change && why && achieves) improvements.push({ lines: lines(item?.lines), change, why, achieves });
+  }
+
+  const s = raw.suggestion as Record<string, unknown> | null | undefined;
+  const questionId = text(s?.questionId, 64);
+  const title = text(s?.title, 200);
+  const reason = text(s?.reason, 400);
+
+  return {
+    strengths,
+    improvements: improvements.slice(0, 3),
+    nextStep: text(raw.nextStep, 400),
+    suggestion: questionId && title && reason ? { questionId, title, reason } : null,
   };
 }
 
@@ -145,6 +210,10 @@ export function fromQuestionBank(prompts: ReviewPrompt[]): ReviewContent {
     })),
     reflection: [],
     solutionNote: null,
+    strengths: [],
+    improvements: [],
+    nextStep: null,
+    suggestion: null,
   };
 }
 
@@ -181,7 +250,8 @@ function metadataOf(raw: unknown): Record<string, unknown> | null {
     : null;
 }
 
-export type ReviewOutcome = 'solved' | 'unsolved' | 'ungraded';
+/** `free` is a free-coding session: no task, so nothing to be solved. */
+export type ReviewOutcome = 'solved' | 'unsolved' | 'ungraded' | 'free';
 
 /** Runs, and whether any printed the expected output. Same rules as session-outcome.ts. */
 export function runsOf(runResults: Array<{ metadata: unknown }>, hasExpectedOutput: boolean) {

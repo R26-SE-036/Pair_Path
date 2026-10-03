@@ -13,6 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 import { CodeRunnerService } from '../code-runner/code-runner.service';
 import { PrismaService } from '../../common/prisma.service';
 import { MlService } from '../ml/ml.service';
+import { CodeConceptsService } from '../ml/code-concepts.service';
 import { RedisService } from '../../common/redis.service';
 import { corsOriginCallback } from '../../common/env';
 import { isAccessToken } from '../../common/tokens';
@@ -127,6 +128,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     private readonly mlService: MlService,
     private readonly jwtService: JwtService,
     private readonly redis: RedisService,
+    private readonly codeConcepts?: CodeConceptsService,
   ) {}
 
   onModuleInit() {
@@ -1076,17 +1078,17 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
             // which is one refactor away from being a leak.
             const session = await this.prisma.pairSession.findUnique({
               where: { id: sessionId },
-              select: { question: { select: { conceptTags: true } } },
+              select: { mode: true, question: { select: { conceptTags: true } } },
             });
 
-            if (session?.question) {
-              const conceptTags = (session.question.conceptTags as string[]) || [];
+            if (session) {
+              const { tags, interventionType } = await this.hintTopicsFor(sessionId, session);
               const hint = await this.mlService.retrieveHint({
                 sessionId,
                 pairId: '',
                 predictedState: 'LOGIC_STRUGGLE',
-                interventionType: 'LOGIC_HINT',
-                questionConceptTags: conceptTags,
+                interventionType,
+                questionConceptTags: tags,
                 recentErrorContext: this.lastError.get(sessionId) || '',
                 recentCodeSnippet: this.lastCode.get(sessionId) || '',
               });
@@ -1103,4 +1105,33 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     }
   }
 
+  /**
+   * What a struggling pair's hint should be about.
+   *
+   * An exercise session uses the exercise's concept tags. A free session has
+   * none, so Code Coach reads the pair's current code and says which concepts
+   * it touches. When it finds nothing - code that is fine as far as the
+   * detector can tell, or Code Coach unreachable - the hint is about working
+   * together instead of about Java: corpus tags the retriever matches on
+   * directly, under the collaboration intervention type.
+   */
+  private async hintTopicsFor(
+    sessionId: string,
+    session: { mode: string; question: { conceptTags: unknown } | null },
+  ): Promise<{ tags: string[]; interventionType: string }> {
+    if (session.question) {
+      const tags = Array.isArray(session.question.conceptTags)
+        ? session.question.conceptTags.filter((t): t is string => typeof t === 'string')
+        : [];
+      return { tags, interventionType: 'LOGIC_HINT' };
+    }
+
+    const found = (await this.codeConcepts?.conceptsIn(this.lastCode.get(sessionId) || '')) ?? [];
+    if (found.length) return { tags: found, interventionType: 'LOGIC_HINT' };
+
+    return {
+      tags: ['pair programming', 'collaboration', 'debugging'],
+      interventionType: 'COLLABORATION_PROMPT',
+    };
+  }
 }
