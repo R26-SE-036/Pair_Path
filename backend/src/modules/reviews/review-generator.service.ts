@@ -1,66 +1,55 @@
-import { Injectable } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import { Injectable, Logger } from '@nestjs/common';
 
-import { ReviewContent, readContent } from './session-review';
+import { LlmService } from './llm.service';
+import { ReviewError, ReviewRequest, buildPrompt, parseJson, validateReview } from './review-writer';
+import { ReviewContent } from './session-review';
 
-/** What Study Guider's /api/session-review/generate takes. */
-export interface ReviewRequest {
-  mode: 'solo' | 'pair';
-  exercise: {
-    title: string;
-    description: string;
-    difficulty: string | null;
-    concept_tags: string[];
-    expected_output: string | null;
-    reference_solution: string;
-  };
-  code: string;
-  outcome: 'solved' | 'unsolved' | 'ungraded';
-  runs: { total: number; correct: number; failed: number };
-  teamwork: Record<string, number> | null;
-}
+export type { ReviewRequest } from './review-writer';
 
 /**
- * Asks Study Guider to write a session's review.
+ * Writes a session's review with the language model.
  *
- * Study Guider holds the language model the lessons are written with, and its
- * syllabus notes, so the review is written the same way a lesson is. The call
- * is server to server with a shared key (INTERNAL_SERVICE_KEY, the same value
- * on both): the request carries the exercise's model solution, which a
- * student's token must never be able to fetch.
+ * This used to post the session to Study Guider and have it ask its model. It
+ * now asks the model itself, with PairPath's own GEMINI_API_KEY and
+ * OPENAI_API_KEY - see llm.service.ts - and the prompt and the checks live in
+ * review-writer.ts.
  *
- * Optional, like the ML service's token. Without STUDY_GUIDER_URL and the key,
- * `configured` is false and every review is built from the exercise's fixed
- * prompts - a working review, just not a written one.
+ * Optional. With neither key set, `configured` is false and every review is
+ * built from the exercise's fixed prompts - a working review, just not a
+ * written one.
  */
 @Injectable()
 export class ReviewGeneratorService {
-  private readonly url = (process.env.STUDY_GUIDER_URL ?? '').trim().replace(/\/+$/, '');
-  private readonly key = (process.env.INTERNAL_SERVICE_KEY ?? '').trim();
+  private readonly logger = new Logger(ReviewGeneratorService.name);
 
-  constructor(private readonly http: HttpService) {}
+  constructor(private readonly llm: LlmService) {}
 
   get configured(): boolean {
-    return Boolean(this.url && this.key);
+    return this.llm.configured;
   }
 
-  /** A checked review, or throw. The caller falls back; it never shows the error. */
+  /**
+   * A checked review, or throw. The caller falls back; it never shows the error.
+   *
+   * Tried twice: a model occasionally returns a response that parses but does
+   * not hold together, and a second attempt usually does. A provider that did
+   * not answer at all is not retried here - LlmService has already tried every
+   * provider it has a key for.
+   */
   async generate(request: ReviewRequest): Promise<{ content: ReviewContent; model: string | null }> {
-    const response = await firstValueFrom(
-      this.http.post(`${this.url}/api/session-review/generate`, request, {
-        headers: { 'X-Internal-Key': this.key },
-        // A thinking model writing four steps takes a while. The student is on
-        // a "preparing" screen that polls, so nothing is held open meanwhile.
-        timeout: 90_000,
-      }),
-    );
+    const prompt = buildPrompt(request);
 
-    const content = readContent(response.data);
-    if (!content || content.steps.length === 0) {
-      throw new Error('Study Guider returned a review that does not hold together.');
+    let last: Error | null = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { text, model } = await this.llm.generate(prompt);
+      try {
+        return { content: validateReview(parseJson(text), request), model };
+      } catch (error) {
+        if (!(error instanceof ReviewError)) throw error;
+        last = error;
+        this.logger.warn(`Session review did not hold together: ${error.message}`);
+      }
     }
-    const model = typeof response.data?.model === 'string' ? response.data.model : null;
-    return { content, model };
+    throw last ?? new ReviewError('The review could not be written.');
   }
 }

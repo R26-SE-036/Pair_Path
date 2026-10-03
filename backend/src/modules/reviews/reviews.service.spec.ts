@@ -20,12 +20,13 @@ import { ReviewContent } from './session-review';
 interface Session {
   id: string;
   status: string;
+  mode?: string;
   startedAt?: Date;
   endedAt?: Date | null;
   finalCode?: string | null;
   members: Array<{ userId: string }>;
   reviews: Array<{ userId: string; score: number; answers?: unknown[] }>;
-  question?: Record<string, unknown>;
+  question?: Record<string, unknown> | null;
   review?: { content: unknown; mode: string; source: string } | null;
   events?: Array<{ userId: string; role: string; eventType: string; metadata?: unknown }>;
 }
@@ -37,6 +38,12 @@ interface Answer {
   choice: number;
   correct: boolean | null;
 }
+
+const BANK = [
+  { id: 'q-arrays', title: 'Array Bounds Checking', difficulty: 'BEGINNER', conceptTags: ['array_indexing'] },
+  { id: 'q-loops', title: 'Countdown', difficulty: 'INTERMEDIATE', conceptTags: ['loop_boundaries'] },
+  { id: 'q-easy-loop', title: 'Count to Five', difficulty: 'BEGINNER', conceptTags: ['loop_boundaries'] },
+];
 
 function fakePrisma(sessions: Session[], answers: Answer[] = []) {
   const find = (id: string) => sessions.find((s) => s.id === id);
@@ -52,8 +59,12 @@ function fakePrisma(sessions: Session[], answers: Answer[] = []) {
     pairSession: {
       findUnique: async ({ where }: any) => {
         const s = find(where.id);
-        return s ? { review: null, startedAt: new Date(0), endedAt: null, ...s } : null;
+        return s ? { review: null, mode: 'EXERCISE', startedAt: new Date(0), endedAt: null, ...s } : null;
       },
+    },
+
+    question: {
+      findMany: async () => BANK,
     },
 
     sessionReview: {
@@ -122,6 +133,17 @@ const WRITTEN: ReviewContent = {
   ],
   reflection: [{ prompt: 'Who typed most?', options: ['One of us', 'Even', 'Not sure'] }],
   solutionNote: 'It counts down with `i--`.',
+  strengths: ['You set up the loop variable cleanly.'],
+  improvements: [
+    {
+      lines: [1, 1],
+      change: 'Start the condition as `i >= 1`.',
+      why: '`i <= 0` is false straight away.',
+      achieves: 'Your loop would have printed all ten numbers.',
+    },
+  ],
+  nextStep: 'Practise loops that count down.',
+  suggestion: null,
 };
 
 const PROMPTS = [
@@ -158,16 +180,27 @@ function generatorThat(behaviour: 'writes' | 'fails' | 'unconfigured') {
   return {
     configured: behaviour !== 'unconfigured',
     generate: jest.fn(async () => {
-      if (behaviour === 'fails') throw new Error('Study Guider is down');
+      if (behaviour === 'fails') throw new Error('the model is down');
       return { content: WRITTEN, model: 'gemini-test' };
     }),
   };
 }
 
-function reviews(sessions: Session[], generator = generatorThat('writes'), answers: Answer[] = []) {
+function reviews(
+  sessions: Session[],
+  generator = generatorThat('writes'),
+  answers: Answer[] = [],
+  concepts: string[] = ['loop_boundaries'],
+) {
   const ws = { notifyReviewSubmitted: jest.fn() };
-  const service = new ReviewsService(fakePrisma(sessions, answers), ws as any, generator as any);
-  return { service, generator, ws, answers };
+  const codeConcepts = { conceptsIn: jest.fn(async () => concepts) };
+  const service = new ReviewsService(
+    fakePrisma(sessions, answers),
+    ws as any,
+    generator as any,
+    codeConcepts as any,
+  );
+  return { service, generator, ws, answers, codeConcepts };
 }
 
 const written = (overrides: Partial<Session> = {}) =>
@@ -203,7 +236,7 @@ describe('writing the review', () => {
     expect(s.review).toMatchObject({ source: 'generated', mode: 'pair' });
   });
 
-  it('tells Study Guider about the session in counts, not chat or names', async () => {
+  it('tells the model about the session in counts, not chat or names', async () => {
     const s = session({
       events: [
         { userId: 'me', role: 'DRIVER', eventType: 'CODE_EDIT' },
@@ -239,7 +272,7 @@ describe('writing the review', () => {
   });
 
   it.each(['fails', 'unconfigured'] as const)(
-    'falls back to the exercise prompts when Study Guider %s',
+    'falls back to the exercise prompts when the model %s',
     async (behaviour) => {
       const s = session();
       await reviews([s], generatorThat(behaviour)).service.prepare('s1');
@@ -273,6 +306,9 @@ describe('reading the review', () => {
 
     expect(sent).not.toContain('10 is bigger.');
     expect(sent).not.toContain('i >= 1; i--');
+    // The improvements spell out the fix, so they wait with the solution.
+    expect(sent).not.toContain('all ten numbers');
+    expect(result.feedback).toBeNull();
     expect(result.steps[0]).toEqual({
       teach: 'The loop checks `i <= 0` first.',
       lines: [3, 3],
@@ -368,6 +404,14 @@ describe('submitting', () => {
       score: 1,
       outOf: 2,
       solution: { code: 'for (int i = 10; i >= 1; i--)', note: 'It counts down with `i--`.' },
+      feedback: {
+        // No runs were recorded, so nothing could be graded.
+        outcome: 'ungraded',
+        strengths: WRITTEN.strengths,
+        improvements: WRITTEN.improvements,
+        nextStep: WRITTEN.nextStep,
+        suggestion: null,
+      },
     });
     expect(s.reviews[0]).toMatchObject({ userId: 'me', answers: [1, 2], score: 1 });
     expect(ws.notifyReviewSubmitted).toHaveBeenCalledWith('s1', { userId: 'me' });
@@ -375,6 +419,7 @@ describe('submitting', () => {
     const after: any = await service.getReview('s1', 'me');
     expect(after.alreadySubmitted).toBe(true);
     expect(after.solution.code).toContain('i--');
+    expect(after.feedback.improvements[0].achieves).toMatch(/all ten numbers/);
   });
 
   it('does not reward answering yes to everything on the fixed prompts', async () => {
@@ -423,5 +468,55 @@ describe('results', () => {
     const s = written({ reviews: [{ userId: 'me', score: 2, answers: [1, 0] }] });
     const result: any = await reviews([s]).service.getResult('s1', 'me');
     expect(result.recommendations[0]).toMatch(/line up/i);
+  });
+});
+
+describe('free coding sessions', () => {
+  const free = (overrides: Partial<Session> = {}) =>
+    session({ mode: 'FREE', question: null, finalCode: 'for (int i = 0; i < 5; i++) {}', ...overrides });
+
+  it('are written with no exercise, nothing graded, and real exercises to suggest', async () => {
+    const s = free({
+      events: [{ userId: 'me', role: 'DRIVER', eventType: 'CODE_RUN_RESULT', metadata: '{"success":true}' }],
+    });
+    const { service, generator, codeConcepts } = reviews([s]);
+
+    await service.prepare('s1');
+    const request = (generator.generate.mock.calls[0] as any[])[0];
+
+    expect(codeConcepts.conceptsIn).toHaveBeenCalledWith('for (int i = 0; i < 5; i++) {}');
+    expect(request.exercise).toBeNull();
+    expect(request.outcome).toBe('free');
+    expect(request.runs.total).toBe(1);
+    expect(request.code_concepts).toEqual(['loop_boundaries']);
+    // Loop exercises only, the gentler one first.
+    expect(request.suggestions.map((q: any) => q.id)).toEqual(['q-easy-loop', 'q-loops']);
+  });
+
+  it('still suggest a real exercise when the model is unavailable', async () => {
+    const s = free();
+    await reviews([s], generatorThat('fails')).service.prepare('s1');
+
+    const content = s.review!.content as ReviewContent;
+    expect(s.review!.source).toBe('question_bank');
+    expect(content.steps).toEqual([]);
+    expect(content.suggestion).toMatchObject({ questionId: 'q-easy-loop', title: 'Count to Five' });
+  });
+
+  it('have no model solution to reveal', async () => {
+    const s = free({ review: { content: { ...WRITTEN, solutionNote: null }, mode: 'pair', source: 'generated' } });
+    const { service } = reviews([s]);
+    await service.answer('s1', 'me', 0, 1);
+    await service.answer('s1', 'me', 1, 0);
+
+    const result = await service.submitReview('s1', 'me');
+    expect(result.solution).toBeNull();
+    expect(result.feedback.strengths).toHaveLength(1);
+    expect(result.feedback.outcome).toBe('free');
+
+    const after: any = await service.getReview('s1', 'me');
+    expect(after.kind).toBe('FREE');
+    expect(after.question).toBeNull();
+    expect(after.solution).toBeNull();
   });
 });

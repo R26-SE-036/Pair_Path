@@ -22,7 +22,12 @@
  * exports until someone decides it belongs in them.
  * =======================================================================
  *
- * events.json is exactly what ml/dev_tools/build_windows.py reads.
+ * events.json is exactly what ml/dev_tools/build_windows.py reads, and holds
+ * EXERCISE sessions only. Free-coding sessions (no question, so no task to
+ * be stuck on or to solve) go to events-free.json instead, so training and
+ * evaluating the model on exercise sessions stays the default and mixing the
+ * two is a decision somebody makes on purpose. sessions.json carries both,
+ * each with its `mode`.
  *
  * Write the export OUTSIDE this repository. It is research data about real
  * people, and a git history is the hardest place to take it back out of.
@@ -79,6 +84,7 @@ async function main() {
       select: {
         id: true,
         status: true,
+        mode: true,
         questionId: true,
         startedAt: true,
         endedAt: true,
@@ -93,8 +99,10 @@ async function main() {
     );
 
     console.log(`Consent statement ${RESEARCH_CONSENT_VERSION}: ${consenting.size} student(s) currently agree.`);
+    const freeIds = new Set(included.filter((s) => s.mode === 'FREE').map((s) => s.id));
     console.log(
-      `${finished.length} finished session(s): ${included.length} eligible, ` +
+      `${finished.length} finished session(s): ${included.length} eligible ` +
+        `(${included.length - freeIds.size} exercise, ${freeIds.size} free coding), ` +
         `${excludedCount} left out because not every member agreed.`,
     );
     if (dryRun) {
@@ -121,17 +129,22 @@ async function main() {
     const options = { salt, keepNotes, keepDates };
     const at = (sessionId: string, when: Date) => shiftTime(when, origin.get(sessionId)!, keepDates);
 
+    const anonymise = (event: (typeof events)[number]) => anonymiseEvent(event, origin.get(event.sessionId)!, options);
+
     const exported = {
-      'events.json': events.map((event) => anonymiseEvent(event, origin.get(event.sessionId)!, options)),
+      'events.json': events.filter((e) => !freeIds.has(e.sessionId)).map(anonymise),
+      'events-free.json': events.filter((e) => freeIds.has(e.sessionId)).map(anonymise),
       'sessions.json': included.map((session) => {
         const outcome = summariseOutcome({
           session,
-          question: {
-            title: null,
-            difficulty: session.question.difficulty,
-            conceptTags: session.question.conceptTags,
-            hasExpectedOutput: session.question.expectedOutput !== null,
-          },
+          question: session.question
+            ? {
+                title: null,
+                difficulty: session.question.difficulty,
+                conceptTags: session.question.conceptTags,
+                hasExpectedOutput: session.question.expectedOutput !== null,
+              }
+            : null,
           runResults: events.filter((e) => e.sessionId === session.id && e.eventType === 'CODE_RUN_RESULT'),
           myReview: null,
           promptCount: 0,
@@ -139,6 +152,7 @@ async function main() {
         });
         return {
           sessionId: pseudonym(session.id, salt, 'session'),
+          mode: session.mode,
           questionId: session.questionId,
           conceptTags: outcome.conceptTags,
           difficulty: outcome.difficulty,
@@ -188,7 +202,11 @@ async function main() {
           counts: Object.fromEntries(Object.entries(exported).map(([file, rows]) => [file, rows.length])),
           chatTextIncluded: keepNotes,
           realDatesIncluded: keepDates,
-          note: 'events.json is the input ml/dev_tools/build_windows.py reads.',
+          sessionsByMode: { EXERCISE: included.length - freeIds.size, FREE: freeIds.size },
+          note:
+            'events.json (exercise sessions) is the input ml/dev_tools/build_windows.py reads. ' +
+            'events-free.json holds free-coding sessions, kept apart so they are only ' +
+            'mixed into training or evaluation on purpose.',
         },
         null,
         2,
