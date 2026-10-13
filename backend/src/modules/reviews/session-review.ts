@@ -85,9 +85,9 @@ export interface ReviewContent {
   reflection: ReviewReflection[];
   solutionNote: string | null;
   /**
-   * Shown after the quiz, with the model solution - never before, because
-   * for an unsolved exercise they spell out the fix. Empty on a review built
-   * from the exercise's fixed prompts, and on rows stored before they existed.
+   * Shown before the quiz, with the model solution: the quiz then checks the
+   * student understood them. Empty on a review built from the exercise's
+   * fixed prompts, and on rows stored before they existed.
    */
   strengths: string[];
   improvements: ReviewImprovement[];

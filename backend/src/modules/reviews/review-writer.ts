@@ -6,8 +6,7 @@
  * asking; ReviewsService stores the result.
  *
  * ========================= WHAT THE REVIEW IS =========================
- * Teach a little, then ask a little, one step at a time, about THIS session's
- * code. Then, once the quiz is done and the model solution is on screen:
+ * Feedback first, about THIS session's code, shown beside the model solution:
  *
  *   - what the pair did well (1-2 real strengths)
  *   - their path to the solution: 2-3 changes to their own lines, each with
@@ -15,7 +14,9 @@
  *     have printed all five numbers"
  *   - one next step
  *
- * framed by how the session went. Solved is "two ways to the same answer",
+ * Then a short quiz - teach a little, ask a little, one step at a time - that
+ * checks they understood that feedback. All of it is framed by how the
+ * session went. Solved is "two ways to the same answer",
  * not right against wrong. Unsolved is "you were two changes away". A free
  * session has no task and no model solution, so it gets strengths, two
  * improvements, and a real exercise from the bank to try next.
@@ -86,9 +87,9 @@ const STEPS_INSTRUCTION: Record<ReviewOutcome, string> = {
     'It was SOLVED: reinforce WHY their code works, and use one step on a mistake that would have ' +
     'broken it or a way it could be clearer.',
   unsolved:
-    'It was NOT SOLVED: the steps walk them toward the fix - first where their code goes wrong, then ' +
-    'why, then what change fixes it - so that by the last step they could fix it themselves. Do not ' +
-    'hand them the corrected program in the steps.',
+    'It was NOT SOLVED: they have just read their path to the solution. The steps go back over it - ' +
+    'first where their code goes wrong, then why, then why the change fixes it - so that by the last ' +
+    'step they could explain the fix themselves. Do not paste the corrected program in the steps.',
   ungraded:
     'It was not graded: teach from what their code does compared with what the task asks, and point ' +
     'them at anything still missing.',
@@ -156,7 +157,7 @@ function solutionText(request: ReviewRequest): string {
   if (!request.exercise) return '';
   return [
     '=== A MODEL SOLUTION - FOR YOU ONLY ===',
-    'The student sees this only after the quiz, beside the "improvements". Use it to understand the right',
+    'The student sees this BEFORE the quiz, beside the "improvements". Use it to understand the right',
     'approach. Never paste it, or any complete corrected program, into any field.',
     request.exercise.reference_solution,
   ].join('\n');
@@ -196,9 +197,10 @@ export function buildPrompt(request: ReviewRequest): string {
 You are 'Code Guru', a friendly Java tutor for first-year university students.
 
 ${pair ? 'A pair of students' : 'A student working alone'} just finished a ${free ? 'free coding session' : 'practice exercise'}. Write a short
-TEACHING REVIEW of this session: teach a little, then ask a little, one step at a time, and then - shown
-only after the questions are done - an encouraging look at what they did and what would have made it better.
-It is about THIS code - not a general lesson on the topic.
+TEACHING REVIEW of this session. It OPENS with an encouraging look at what they did and what would have
+made it better${free ? '' : ', shown beside the model solution'}. THEN come the questions: teach a little, then ask a
+little, one step at a time, to check they understood that feedback. It is about THIS code - not a general
+lesson on the topic.
 
 ${exerciseText(request)}
 
@@ -222,6 +224,9 @@ ${suggestionsText(request)}
     why, what it prints, or which change fixes it. It must be answerable from their code and the teaching
     above it. ${MIN_OPTIONS} or ${MAX_OPTIONS} options, exactly one correct. Wrong options are mistakes a beginner really
     makes, not jokes. Put the correct option in different positions across the steps.
+    They have ALREADY READ the strengths, the improvements${free ? '' : ' and the model solution'}, so ask what checks they
+    UNDERSTOOD them - why a change works, what a line prints, what would break without it - never a
+    question they can answer by copying a line off the screen.
     "answer" is the 0-based index of the correct option.
     "explanation": 1-2 sentences on why it is right, and what the most tempting wrong option gets wrong.
 - ${STEPS_INSTRUCTION[request.outcome]}
