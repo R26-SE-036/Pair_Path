@@ -98,6 +98,7 @@ async def predict_pair_state(request: PredictPairStateRequest):
             features={k: float(v) for k, v in features.items()},
             windowStart=window_start,
             windowEnd=window_end,
+            probabilities=prediction.get("probabilities"),
         )
     except Exception:
         # Fallback prediction

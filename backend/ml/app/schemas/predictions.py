@@ -27,3 +27,6 @@ class PredictPairStateResponse(BaseModel):
     # The window those features were read from, in epoch seconds.
     windowStart: Optional[float] = None
     windowEnd: Optional[float] = None
+    # The model's probability for every state. None from the rule fallback,
+    # which has no distribution to give.
+    probabilities: Optional[Dict[str, float]] = None

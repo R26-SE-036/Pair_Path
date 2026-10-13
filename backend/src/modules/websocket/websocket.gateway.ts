@@ -18,6 +18,18 @@ import { RedisService } from '../../common/redis.service';
 import { corsOriginCallback } from '../../common/env';
 import { isAccessToken } from '../../common/tokens';
 import { MAX_WINDOW_EVENTS, MIN_WINDOW_EVENTS, ML_WINDOW_SECONDS } from '../../common/ml-window';
+import { randomUUID } from 'crypto';
+import { DEMO_WINDOWS } from '../../content/demo-windows';
+import {
+  NudgeDecision,
+  PRESENTER_COOLDOWN_MS,
+  PRESENTER_ID_PREFIX,
+  PRESENTER_PREDICT_MS,
+  PredictionReport,
+  cooling,
+  presenterModeAllowed,
+  replayRequest,
+} from './presenter';
 
 /** Runs per student per window. Matches what the removed HTTP route declared. */
 const RUN_LIMIT = 10;
@@ -122,6 +134,12 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   private runHistory = new Map<string, number[]>(); // userId -> recent run timestamps
   private runsInFlight = new Set<string>(); // sessionIds currently compiling
 
+  // Presenter mode - see presenter.ts. In memory: it lasts as long as somebody
+  // is in the room, and a restart ends it.
+  private presenterSessions = new Set<string>();
+  private presenterCooldowns = new Map<string, number>(); // `${sessionId}:${action}` -> quiet until (ms)
+  private presenterInterval: NodeJS.Timeout;
+
   constructor(
     private readonly codeRunnerService: CodeRunnerService,
     private readonly prisma: PrismaService,
@@ -140,11 +158,24 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         }
       });
     }, 60000);
+
+    // Presenter sessions are asked far more often, so a state shows as it is
+    // acted out rather than up to a minute later.
+    this.presenterInterval = setInterval(() => {
+      this.presenterSessions.forEach((sessionId) => {
+        if ((this.rooms.get(sessionId)?.size ?? 0) > 0) {
+          this.triggerMlPrediction(sessionId);
+        }
+      });
+    }, PRESENTER_PREDICT_MS);
   }
 
   onModuleDestroy() {
     if (this.inactivityInterval) {
       clearInterval(this.inactivityInterval);
+    }
+    if (this.presenterInterval) {
+      clearInterval(this.presenterInterval);
     }
   }
 
@@ -231,6 +262,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         this.sessionRoles.delete(sessionId);
         this.sessionExpected.delete(sessionId);
         this.runsInFlight.delete(sessionId);
+        this.presenterSessions.delete(sessionId);
       }
     });
 
@@ -741,6 +773,91 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     return true;
   }
 
+  /**
+   * Turn presenter mode on or off for a session - see presenter.ts.
+   *
+   * Any member may, for the whole room: both windows of a demonstration need
+   * the engine panel. Answered with the mode's settings, or with the reason
+   * it was refused.
+   */
+  @SubscribeMessage('presenter_mode')
+  async handlePresenterMode(
+    @MessageBody() data: { sessionId: string; on?: boolean },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { sessionId } = data;
+    if (!this.isInRoom(client, sessionId)) return;
+
+    if (!presenterModeAllowed()) {
+      client.emit('presenter_mode', { on: false, message: 'Presenter mode is switched off on this server.' });
+      return;
+    }
+
+    const on = data?.on !== false;
+    if (on) {
+      this.presenterSessions.add(sessionId);
+    } else {
+      this.presenterSessions.delete(sessionId);
+    }
+
+    this.server.to(sessionId).emit('presenter_mode', {
+      on,
+      predictEverySeconds: PRESENTER_PREDICT_MS / 1000,
+      cooldownSeconds: PRESENTER_COOLDOWN_MS / 1000,
+      windowSeconds: ML_WINDOW_SECONDS,
+      replays: DEMO_WINDOWS.windows.map((w) => ({ state: w.state, sourceSession: w.sourceSession })),
+    });
+
+    // Something on the panel straight away, rather than after the first tick.
+    if (on) this.triggerMlPrediction(sessionId);
+  }
+
+  /**
+   * Replay one held-out window through the live engine - see presenter.ts.
+   *
+   * The same ML service call, intervention engine and delivery as a live
+   * prediction; only the events come from content/demo-windows.ts instead of
+   * this session's record. Nothing is stored.
+   */
+  @SubscribeMessage('replay_window')
+  async handleReplayWindow(
+    @MessageBody() data: { sessionId: string; state?: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { sessionId } = data;
+    if (!this.isInRoom(client, sessionId)) return;
+    if (!this.presenterSessions.has(sessionId)) return;
+
+    const window = DEMO_WINDOWS.windows.find((w) => w.state === data?.state);
+    if (!window) return;
+
+    try {
+      const prediction = await this.mlService.predictPairState(replayRequest(window, sessionId, Date.now()));
+      if (!prediction || prediction.unavailable) {
+        this.report(sessionId, {
+          source: 'replay',
+          decision: 'unavailable',
+          eventCount: window.events.length,
+          replay: { sourceSession: window.sourceSession, label: window.state },
+        });
+        return;
+      }
+
+      const roles = await this.rolesFor(sessionId);
+      const outcome = await this.deliverNudge(sessionId, prediction, roles, { presenter: true, replay: true });
+
+      this.report(sessionId, {
+        source: 'replay',
+        eventCount: window.events.length,
+        ...this.predictionFields(prediction),
+        ...outcome,
+        replay: { sourceSession: window.sourceSession, label: window.state },
+      });
+    } catch (error) {
+      console.error('Replay failed:', error);
+    }
+  }
+
   @SubscribeMessage('intervention_response')
   async handleInterventionResponse(
     @MessageBody() data: { sessionId: string; interventionId: string; accepted: boolean },
@@ -748,6 +865,10 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   ) {
     const { sessionId, interventionId } = data;
     if (!this.isInRoom(client, sessionId)) return;
+
+    // A presenter-mode nudge was never stored, and the answer to one is not
+    // part of the record either.
+    if (typeof interventionId === 'string' && interventionId.startsWith(PRESENTER_ID_PREFIX)) return;
 
     /*
      * `accepted` is the only evidence anyone has about whether these
@@ -810,6 +931,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
    * before anyone is told that it is.
    */
   notifySessionEnded(sessionId: string) {
+    this.presenterSessions.delete(sessionId);
     this.lastError.delete(sessionId);
     this.lastCode.delete(sessionId);
     this.activeWorkCounters.delete(sessionId);
@@ -867,6 +989,8 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   private async triggerMlPrediction(sessionId: string) {
+    // Read once: the presenter can switch the mode off mid-prediction.
+    const presenter = this.presenterSessions.has(sessionId);
     try {
       /*
        * ============ THE WINDOW THE MODEL WAS TRAINED ON ============
@@ -902,6 +1026,9 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       });
 
       if (windowEvents.length < MIN_WINDOW_EVENTS) {
+        if (presenter) {
+          this.report(sessionId, { source: 'live', decision: 'too_few_events', eventCount: windowEvents.length });
+        }
         return;
       }
       if (windowEvents.length === MAX_WINDOW_EVENTS) {
@@ -960,7 +1087,12 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
        * Nothing is recorded and no intervention fires. Silence during an
        * outage is correct; a fabricated observation is not.
        */
-      if (prediction?.unavailable) return;
+      if (!prediction || prediction.unavailable) {
+        if (presenter) {
+          this.report(sessionId, { source: 'live', decision: 'unavailable', eventCount: windowEvents.length });
+        }
+        return;
+      }
 
       // Log the prediction and the exact features it was made on (echoed back
       // by ml-service) for later human labeling — never as training labels
@@ -977,7 +1109,9 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       // Written in one transaction because the pair is the unit of value. A
       // feature window whose prediction is missing, or a prediction whose
       // features are missing, cannot be labeled and is not worth keeping.
-      if (prediction) {
+      //
+      // Not in presenter mode - see presenter.ts.
+      if (!presenter) {
         // The window the model actually read, from above. It stored the
         // earliest and latest of the fifty events it sent, which described
         // neither end of it - see nudge-effect.ts for what that cost.
@@ -1014,38 +1148,84 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         }
       }
 
-      // PRODUCTIVE is included: it earns a brief encouragement toast rather
-      // than silence. The engine returns NO_ACTION for anything it should
-      // stay quiet about, and the cooldown below rate-limits the rest.
-      if (prediction) {
-        // Get intervention recommendation
-        const intervention = await this.mlService.recommendIntervention(
-          sessionId,
-          prediction.predictedState,
-          prediction.confidence,
-        );
+      const outcome = await this.deliverNudge(sessionId, prediction, roles, { presenter, replay: false });
 
-        if (intervention && intervention.action !== 'NO_ACTION') {
-          // Some interventions are addressed to one student rather than the
-          // pair. Resolve the recipients before anything else: if the intended
-          // student isn't connected there is nobody to nudge, and firing would
-          // burn the cooldown on a message no one sees.
-          const audience = intervention.delivery?.audience || 'pair';
-          const targets =
-            audience === 'pair' ? null : this.socketsWithRole(sessionId, roles, audience);
-          if (targets && targets.length === 0) return;
+      if (presenter) {
+        this.report(sessionId, {
+          source: 'live',
+          eventCount: windowEvents.length,
+          ...this.predictionFields(prediction),
+          ...outcome,
+        });
+      }
+    } catch (error) {
+      console.error('ML prediction failed:', error);
+    }
+  }
 
-          // L8/L11: per-session cooldown — don't fire the same intervention
-          // type back-to-back; students disengage from nagging nudges.
-          const canShow = await this.redis.canShowIntervention(
-            sessionId,
-            intervention.action,
-          );
-          if (!canShow) return;
-          await this.redis.setInterventionCooldown(sessionId, intervention.action);
+  /**
+   * Turn a prediction into a nudge, or say why not.
+   *
+   * PRODUCTIVE is included: it earns a brief encouragement toast rather than
+   * silence. The engine returns NO_ACTION for anything it should stay quiet
+   * about - including a prediction under the confidence gate - and the
+   * cooldown rate-limits the rest.
+   *
+   * A replay ignores the cooldown, because the presenter asked for that
+   * nudge, and goes to the whole room when its audience is not connected: the
+   * presenter is often one person in two windows, and a nudge with nowhere to
+   * go shows nothing. The decision still says who it was addressed to.
+   */
+  private async deliverNudge(
+    sessionId: string,
+    prediction: { predictedState: string; confidence: number },
+    roles: Record<string, string>,
+    options: { presenter: boolean; replay: boolean },
+  ): Promise<{ decision: NudgeDecision; action?: string; audience?: string }> {
+    const intervention = await this.mlService.recommendIntervention(
+      sessionId,
+      prediction.predictedState,
+      prediction.confidence,
+    );
 
-          // Save intervention to DB
-          const saved = await this.prisma.intervention.create({
+    if (!intervention || intervention.action === 'NO_ACTION') {
+      const belowGate = intervention?.delivery?.message === 'Low confidence prediction';
+      return { decision: belowGate ? 'below_gate' : 'no_action' };
+    }
+
+    // Some interventions are addressed to one student rather than the pair.
+    // Resolve the recipients before anything else: if the intended student
+    // isn't connected there is nobody to nudge, and firing would burn the
+    // cooldown on a message no one sees.
+    const audience: string = intervention.delivery?.audience || 'pair';
+    let targets = audience === 'pair' ? null : this.socketsWithRole(sessionId, roles, audience);
+    if (targets && targets.length === 0) {
+      if (!options.replay) return { decision: 'target_offline', action: intervention.action, audience };
+      targets = null;
+    }
+
+    // L8/L11: per-session cooldown — don't fire the same intervention type
+    // back-to-back; students disengage from nagging nudges. Presenter mode
+    // keeps its own, much shorter one, in this process.
+    if (options.presenter) {
+      const key = `${sessionId}:${intervention.action}`;
+      const now = Date.now();
+      if (!options.replay && cooling(this.presenterCooldowns, key, now)) {
+        return { decision: 'cooldown', action: intervention.action, audience };
+      }
+      this.presenterCooldowns.set(key, now + PRESENTER_COOLDOWN_MS);
+    } else {
+      const canShow = await this.redis.canShowIntervention(sessionId, intervention.action);
+      if (!canShow) return { decision: 'cooldown', action: intervention.action, audience };
+      await this.redis.setInterventionCooldown(sessionId, intervention.action);
+    }
+
+    // Saved, outside presenter mode: the row is what intervention_response
+    // records the student's answer against.
+    const id = options.presenter
+      ? `${PRESENTER_ID_PREFIX}${randomUUID()}`
+      : (
+          await this.prisma.intervention.create({
             data: {
               sessionId,
               state: prediction.predictedState,
@@ -1054,55 +1234,73 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
               uiEffect: intervention.delivery?.uiEffect || 'none',
               message: intervention.delivery?.message || '',
             },
-          });
+          })
+        ).id;
 
-          const payload = {
-            id: saved.id,
-            state: prediction.predictedState,
-            action: intervention.action,
-            delivery: intervention.delivery,
-          };
-          if (targets) {
-            for (const socketId of targets) {
-              this.server.to(socketId).emit('intervention', payload);
-            }
-          } else {
-            this.server.to(sessionId).emit('intervention', payload);
-          }
+    const payload = {
+      id,
+      state: prediction.predictedState,
+      confidence: prediction.confidence,
+      action: intervention.action,
+      delivery: intervention.delivery,
+      ...(options.replay ? { replay: true } : {}),
+    };
+    if (targets) {
+      for (const socketId of targets) {
+        this.server.to(socketId).emit('intervention', payload);
+      }
+    } else {
+      this.server.to(sessionId).emit('intervention', payload);
+    }
 
-          // If LOGIC_STRUGGLE, also retrieve RAG hint
-          if (prediction.predictedState === 'LOGIC_STRUGGLE') {
-            // Only the tags. This one is server-side - the hint is built here
-            // and only the hint is emitted - but selecting the whole row would
-            // pull referenceSolution into a code path that emits to clients,
-            // which is one refactor away from being a leak.
-            const session = await this.prisma.pairSession.findUnique({
-              where: { id: sessionId },
-              select: { mode: true, question: { select: { conceptTags: true } } },
-            });
+    // If LOGIC_STRUGGLE, also retrieve RAG hint
+    if (prediction.predictedState === 'LOGIC_STRUGGLE') {
+      // Only the tags. This one is server-side - the hint is built here
+      // and only the hint is emitted - but selecting the whole row would
+      // pull referenceSolution into a code path that emits to clients,
+      // which is one refactor away from being a leak.
+      const session = await this.prisma.pairSession.findUnique({
+        where: { id: sessionId },
+        select: { mode: true, question: { select: { conceptTags: true } } },
+      });
 
-            if (session) {
-              const { tags, interventionType } = await this.hintTopicsFor(sessionId, session);
-              const hint = await this.mlService.retrieveHint({
-                sessionId,
-                pairId: '',
-                predictedState: 'LOGIC_STRUGGLE',
-                interventionType,
-                questionConceptTags: tags,
-                recentErrorContext: this.lastError.get(sessionId) || '',
-                recentCodeSnippet: this.lastCode.get(sessionId) || '',
-              });
+      if (session) {
+        const { tags, interventionType } = await this.hintTopicsFor(sessionId, session);
+        const hint = await this.mlService.retrieveHint({
+          sessionId,
+          pairId: '',
+          predictedState: 'LOGIC_STRUGGLE',
+          interventionType,
+          questionConceptTags: tags,
+          recentErrorContext: this.lastError.get(sessionId) || '',
+          recentCodeSnippet: this.lastCode.get(sessionId) || '',
+        });
 
-              if (hint) {
-                this.server.to(sessionId).emit('rag_hint', hint);
-              }
-            }
-          }
+        if (hint) {
+          this.server.to(sessionId).emit('rag_hint', hint);
         }
       }
-    } catch (error) {
-      console.error('ML prediction failed:', error);
     }
+
+    return { decision: 'sent', action: intervention.action, audience };
+  }
+
+  /** The parts of a prediction the presenter view draws. */
+  private predictionFields(prediction: Record<string, any>) {
+    return {
+      state: prediction.predictedState,
+      confidence: prediction.confidence,
+      probabilities: prediction.probabilities ?? null,
+      modelVersion: prediction.modelVersion,
+      features: prediction.features ?? {},
+    };
+  }
+
+  /** Show one prediction to a presenter session's room. */
+  private report(sessionId: string, report: Omit<PredictionReport, 'at'>) {
+    if (!this.presenterSessions.has(sessionId)) return;
+    const full: PredictionReport = { at: new Date().toISOString(), ...report };
+    this.server?.to(sessionId).emit('ml_prediction', full);
   }
 
   /**

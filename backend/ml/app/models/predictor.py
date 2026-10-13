@@ -66,9 +66,15 @@ class PairStatePredictor:
             confidence = float(prediction_proba[predicted_class_idx])
             predicted_state = self.label_encoder.inverse_transform([predicted_class_idx])[0]
 
+            # Every class, not only the winner: the presenter view draws all
+            # five, which is how a reader sees how close the call was.
+            classes = self.label_encoder.inverse_transform(np.arange(len(prediction_proba)))
+            probabilities = {str(c): float(p) for c, p in zip(classes, prediction_proba)}
+
             return {
                 "state": predicted_state,
-                "confidence": confidence
+                "confidence": confidence,
+                "probabilities": probabilities,
             }
         except Exception as e:
             print(f"[WARNING] Prediction error: {e}")
