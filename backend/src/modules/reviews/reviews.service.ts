@@ -51,9 +51,12 @@ export { promptsOf } from './session-review';
  * and everything downstream (results page, Code Coach, the research export)
  * reads it unchanged.
  *
- * The expected answers, the explanations and the model solution stay on the
- * server until the student has answered: an explanation arrives with its
- * marked answer, and the solution with the submission.
+ * The order is feedback first, then the quiz. The comparison with the model
+ * solution, what went well and the path to a working program open the
+ * review; the questions after it check that the student understood that
+ * feedback. The expected answers and explanations still stay on the server
+ * until each question is answered: an explanation arrives with its marked
+ * answer.
  * ======================================================================
  */
 
@@ -112,9 +115,10 @@ export function rankSuggestions(
 }
 
 /**
- * What a review shows after the quiz. Never sent before the student has
- * submitted. `outcome` is how the page frames it: solved is "two ways to the
- * same answer", unsolved is "you were N changes away".
+ * What a review shows before the quiz: the comparison with the model solution,
+ * strengths and the path to a working program. `outcome` is how the page
+ * frames it: solved is "two ways to the same answer", unsolved is "you were N
+ * changes away".
  */
 function feedbackOf(content: ReviewContent, outcome: ReviewOutcome) {
   return {
@@ -451,15 +455,13 @@ export class ReviewsService {
       })),
       reflection: content.reflection,
       answers: given.map((a) => markedAnswer(content, a)),
-      solution:
-        alreadySubmitted && session.question
-          ? { code: session.question.referenceSolution, note: content.solutionNote }
-          : null,
-      // After the quiz only: for an unsolved exercise the improvements spell
-      // out the fix, so they are held back exactly as the solution is.
-      feedback: alreadySubmitted
-        ? feedbackOf(content, await this.outcomeFor(sessionId, session.question))
+      // Before the quiz: the comparison is what the page shows first, and the
+      // questions then check what the student took from it. The session is
+      // over by now, so there is nothing left for the solution to give away.
+      solution: session.question
+        ? { code: session.question.referenceSolution, note: content.solutionNote }
         : null,
+      feedback: feedbackOf(content, await this.outcomeFor(sessionId, session.question)),
     };
   }
 

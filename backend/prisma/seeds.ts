@@ -53,7 +53,7 @@ export async function seedDatabase(client: PrismaClient = prisma) {
         // Listed here as well as in `create`, which spreads the whole row. The
         // update branch names every column, so a field added to the bank and
         // not added here reaches new databases and silently never reaches the
-        // one that already has these sixteen questions.
+        // one that already has the earlier questions.
         expectedOutput: row.expectedOutput,
         conceptTags: row.conceptTags,
         // Prisma types a Json column as InputJsonValue, which an interface

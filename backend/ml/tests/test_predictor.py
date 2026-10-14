@@ -43,6 +43,15 @@ class TestMissingFeatures(unittest.TestCase):
         # list; a real prediction almost never lands exactly on one.
         self.assertNotIn(result["confidence"], {0.6, 0.65, 0.7})
 
+    def test_a_prediction_carries_every_state_probability(self):
+        # The presenter view draws all five bars, so all five must come back,
+        # and the winner's bar must be the confidence the gate was applied to.
+        result = run(self.predictor.predict(self.full))
+        probabilities = result["probabilities"]
+        self.assertEqual(set(probabilities), set(PAIR_STATES))
+        self.assertAlmostEqual(sum(probabilities.values()), 1.0, places=4)
+        self.assertAlmostEqual(probabilities[result["state"]], result["confidence"], places=6)
+
     def test_a_missing_column_falls_back_instead_of_substituting_zero(self):
         partial = dict(self.full)
         partial.pop("idle_ratio")

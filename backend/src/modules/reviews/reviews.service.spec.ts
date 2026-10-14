@@ -300,22 +300,27 @@ describe('reading the review', () => {
     expect(second.steps).toHaveLength(2);
   });
 
-  it('never sends an answer, an explanation or the solution before they are earned', async () => {
+  it('never sends an answer or an explanation before the question is answered', async () => {
     const result: any = await reviews([written()]).service.getReview('s1', 'me');
     const sent = JSON.stringify(result);
 
     expect(sent).not.toContain('10 is bigger.');
-    expect(sent).not.toContain('i >= 1; i--');
-    // The improvements spell out the fix, so they wait with the solution.
-    expect(sent).not.toContain('all ten numbers');
-    expect(result.feedback).toBeNull();
     expect(result.steps[0]).toEqual({
       teach: 'The loop checks `i <= 0` first.',
       lines: [3, 3],
       prompt: 'Is `10 <= 0` true?',
       options: ['true', 'false', 'error'],
     });
-    expect(result.solution).toBeNull();
+  });
+
+  it('sends the comparison with the model solution before the quiz', async () => {
+    const result: any = await reviews([written()]).service.getReview('s1', 'me');
+
+    // Feedback first, quiz second: the page opens on these.
+    expect(result.alreadySubmitted).toBe(false);
+    expect(result.solution).toEqual({ code: 'for (int i = 10; i >= 1; i--)', note: 'It counts down with `i--`.' });
+    expect(result.feedback.improvements[0].achieves).toMatch(/all ten numbers/);
+    expect(result.feedback.strengths).toEqual(WRITTEN.strengths);
   });
 
   it('is not offered for a session still running', async () => {
@@ -392,7 +397,7 @@ describe('submitting', () => {
     await expect(service.submitReview('s1', 'me')).rejects.toThrow('1 of 2 still to go');
   });
 
-  it('scores the locked answers and then reveals the solution', async () => {
+  it('scores the locked answers and returns the feedback with the score', async () => {
     const s = written();
     const { service, ws } = reviews([s]);
     await service.answer('s1', 'me', 0, 1); // right
