@@ -19,7 +19,7 @@ import {
   type BankQuestion,
 } from '../../content/question-bank';
 
-/** Code Coach's nineteen error types, from knowledge_base/code_coach_errors.json. */
+/** Code Coach's thirty error types, from knowledge_base/code_coach_errors.json. */
 const CODE_COACH_ERROR_TYPES = [
   'OFF_BY_ONE_LOOP_BOUNDARY',
   'INCORRECT_CONDITIONAL_OPERATOR',
@@ -40,6 +40,17 @@ const CODE_COACH_ERROR_TYPES = [
   'DECIMAL_EQUALITY_COMPARISON',
   'POSTFIX_INCREMENT_ASSIGNED_BACK',
   'ALWAYS_FALSE_AND_CONDITION',
+  'LOOP_SKIPS_LAST_ELEMENT',
+  'INDEX_PLUS_ONE_OUT_OF_BOUNDS',
+  'WRONG_LOOP_VARIABLE_IN_INDEX',
+  'NESTED_LOOP_WRONG_COUNTER',
+  'LOOP_COUNTER_CHANGED_IN_BODY',
+  'ACCUMULATOR_RESET_INSIDE_LOOP',
+  'WRONG_EXTREME_INITIAL_VALUE',
+  'EARLY_RETURN_IN_LOOP',
+  'UNREACHABLE_ELSE_IF_ORDER',
+  'MISLEADING_INDENTATION_NO_BRACES',
+  'NON_SHORT_CIRCUIT_OPERATOR',
 ];
 
 const tagsUsed = new Set(QUESTIONS.flatMap((q) => q.conceptTags));
