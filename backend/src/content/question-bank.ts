@@ -2,7 +2,7 @@
  * The exercise bank.
  *
  * ======================== WHAT THIS HAS TO COVER ========================
- * Code Coach detects nineteen error types across fourteen concept tags, listed
+ * Code Coach detects thirty error types across fourteen concept tags, listed
  * in code-coach/knowledge_base/code_coach_errors.json. Those tags are the
  * platform's shared vocabulary: Code Coach reports a finding under one, Study
  * Guider teaches a lesson for one, the gamification engine drills one. PairPath
@@ -404,6 +404,86 @@ export const QUESTIONS: BankQuestion[] = [
       { prompt: 'Did we count the starting number itself as a step?', expected: false },
     ],
   },
+  {
+    id: 'q-loop-boundaries-count-passes',
+    topicId: 'loops-topic',
+    title: 'Count the Passes',
+    description:
+      'Count how many marks are 50 or more. The last mark in the array is a pass, so a loop ' +
+      'that stops one element early gives the wrong count - check the last index it reads.',
+    difficulty: 'BEGINNER',
+    conceptTags: ['loop_boundaries'],
+    invitesErrors: ['LOOP_SKIPS_LAST_ELEMENT', 'OFF_BY_ONE_LOOP_BOUNDARY'],
+    starterCode: `public class CountPasses {
+    public static void main(String[] args) {
+        int[] marks = {72, 45, 88, 39, 50};
+        int passes = 0;
+
+        // TODO: count every mark of 50 or more, the last one included
+
+        System.out.println("Passes: " + passes + " of " + marks.length);
+    }
+}`,
+    referenceSolution: `public class CountPasses {
+    public static void main(String[] args) {
+        int[] marks = {72, 45, 88, 39, 50};
+        int passes = 0;
+
+        for (int i = 0; i < marks.length; i++) {
+            if (marks[i] >= 50) {
+                passes++;
+            }
+        }
+
+        System.out.println("Passes: " + passes + " of " + marks.length);
+    }
+}`,
+    expectedOutput: "Passes: 3 of 5\n",
+    reviewQuestions: [
+      { prompt: 'Did the loop read the mark at index marks.length - 1?', expected: true },
+      { prompt: 'Did we write marks.length - 1 in the loop condition?', expected: false },
+      { prompt: 'Did we check the count against the marks by hand together?', expected: true },
+      { prompt: 'Is a mark of exactly 50 counted as a pass?', expected: true },
+      { prompt: 'Did we get 2 passes on our first run?', expected: false },
+    ],
+  },
+  {
+    id: 'q-loop-initialization-running-total',
+    topicId: 'loops-topic',
+    title: 'Running Total',
+    description:
+      'After each day, print the sales so far. Decide together where the total is created and ' +
+      'set to zero - once, or every time round the loop.',
+    difficulty: 'BEGINNER',
+    conceptTags: ['loop_initialization'],
+    invitesErrors: ['ACCUMULATOR_RESET_INSIDE_LOOP'],
+    starterCode: `public class RunningTotal {
+    public static void main(String[] args) {
+        int[] sales = {120, 80, 150, 60};
+
+        // TODO: after each day, print "After day N: " and the total so far
+
+    }
+}`,
+    referenceSolution: `public class RunningTotal {
+    public static void main(String[] args) {
+        int[] sales = {120, 80, 150, 60};
+        int total = 0;
+
+        for (int i = 0; i < sales.length; i++) {
+            total += sales[i];
+            System.out.println("After day " + (i + 1) + ": " + total);
+        }
+    }
+}`,
+    expectedOutput: "After day 1: 120\nAfter day 2: 200\nAfter day 3: 350\nAfter day 4: 410\n",
+    reviewQuestions: [
+      { prompt: 'Is the total set to zero once, before the loop starts?', expected: true },
+      { prompt: 'Did each line show one day of sales rather than the total so far?', expected: false },
+      { prompt: 'Did we predict the last total together before running it?', expected: true },
+      { prompt: 'Does the last line match the sum of all four days?', expected: true },
+    ],
+  },
 
   // ── Arrays and Indexing ────────────────────────────────────────────────
   {
@@ -631,6 +711,50 @@ export const QUESTIONS: BankQuestion[] = [
       { prompt: 'Does the loop run from the end of the array towards the front?', expected: true },
       { prompt: 'Did the navigator check the first and last index the loop touches?', expected: true },
       { prompt: 'Did we read values[values.length] at any point?', expected: false },
+    ],
+  },
+  {
+    id: 'q-array-indexing-rising-days',
+    topicId: 'arrays-topic',
+    title: 'Rising Days',
+    description:
+      'Print every day on which the temperature went up the next day, and count them. Each ' +
+      'comparison reads the NEXT element too, so decide together where the loop has to stop.',
+    difficulty: 'INTERMEDIATE',
+    conceptTags: ['array_indexing', 'loop_boundaries'],
+    invitesErrors: ['INDEX_PLUS_ONE_OUT_OF_BOUNDS', 'LOOP_SKIPS_LAST_ELEMENT'],
+    starterCode: `public class RisingDays {
+    public static void main(String[] args) {
+        int[] temps = {21, 23, 22, 25, 27, 26};
+        int rises = 0;
+
+        // TODO: compare each day with the next one; print "Day A to day B: up"
+        // for every rise and count them. The last day has no next day.
+
+        System.out.println("Rises: " + rises);
+    }
+}`,
+    referenceSolution: `public class RisingDays {
+    public static void main(String[] args) {
+        int[] temps = {21, 23, 22, 25, 27, 26};
+        int rises = 0;
+
+        for (int i = 0; i < temps.length - 1; i++) {
+            if (temps[i + 1] > temps[i]) {
+                System.out.println("Day " + (i + 1) + " to day " + (i + 2) + ": up");
+                rises++;
+            }
+        }
+
+        System.out.println("Rises: " + rises);
+    }
+}`,
+    expectedOutput: "Day 1 to day 2: up\nDay 3 to day 4: up\nDay 4 to day 5: up\nRises: 3\n",
+    reviewQuestions: [
+      { prompt: 'Does the loop stop before the last day, because it reads temps[i + 1]?', expected: true },
+      { prompt: 'Did we see an ArrayIndexOutOfBoundsException on the last day?', expected: false },
+      { prompt: 'Did the navigator name the last pair of days compared before we ran it?', expected: true },
+      { prompt: 'Did we count the fall from 27 to 26 as a rise?', expected: false },
     ],
   },
 
@@ -962,6 +1086,64 @@ export const QUESTIONS: BankQuestion[] = [
       { prompt: 'Did two of our conditions test exactly the same thing?', expected: false },
     ],
   },
+  {
+    id: 'q-conditional-logic-speeding-fine',
+    topicId: 'conditions-topic',
+    title: 'Speeding Fine',
+    description:
+      'Work out the penalty for each speed in a 60 zone. The bands overlap - 35 over is also ' +
+      'more than 15 over - so the order you test them in decides which branch can ever run.',
+    difficulty: 'INTERMEDIATE',
+    conceptTags: ['conditional_logic'],
+    invitesErrors: ['UNREACHABLE_ELSE_IF_ORDER', 'DUPLICATE_IF_ELSE_CONDITION'],
+    starterCode: `public class SpeedingFine {
+    static String penalty(int speed, int limit) {
+        int over = speed - limit;
+
+        // TODO: more than 30 over: "licence suspended"; more than 15 over: "fine 200";
+        // any amount over: "fine 50"; otherwise "no fine"
+        return "";
+    }
+
+    public static void main(String[] args) {
+        int[] speeds = {55, 72, 80, 95};
+        for (int i = 0; i < speeds.length; i++) {
+            System.out.println(speeds[i] + " in a 60 zone: " + penalty(speeds[i], 60));
+        }
+    }
+}`,
+    referenceSolution: `public class SpeedingFine {
+    static String penalty(int speed, int limit) {
+        int over = speed - limit;
+
+        if (over > 30) {
+            return "licence suspended";
+        } else if (over > 15) {
+            return "fine 200";
+        } else if (over > 0) {
+            return "fine 50";
+        } else {
+            return "no fine";
+        }
+    }
+
+    public static void main(String[] args) {
+        int[] speeds = {55, 72, 80, 95};
+        for (int i = 0; i < speeds.length; i++) {
+            System.out.println(speeds[i] + " in a 60 zone: " + penalty(speeds[i], 60));
+        }
+    }
+}`,
+    expectedOutput:
+      "55 in a 60 zone: no fine\n72 in a 60 zone: fine 50\n80 in a 60 zone: fine 200\n95 in a 60 zone: licence suspended\n",
+    reviewQuestions: [
+      { prompt: 'Is the largest band tested first?', expected: true },
+      { prompt: 'Did 95 come out as "fine 50" at any point?', expected: false },
+      { prompt: 'Did we pick one speed per band and agree its answer before running it?', expected: true },
+      { prompt: 'Can every branch of our if-else chain actually be reached?', expected: true },
+      { prompt: 'Did we test the bands from smallest to largest?', expected: false },
+    ],
+  },
 
   // ── Strings ────────────────────────────────────────────────────────────
   {
@@ -1146,6 +1328,109 @@ export const QUESTIONS: BankQuestion[] = [
       { prompt: 'Did we explain to each other why the loop only needs to reach the middle?', expected: true },
       { prompt: 'Did we compare two strings with == anywhere?', expected: false },
       { prompt: 'Is each word lower-cased before its characters are compared?', expected: true },
+    ],
+  },
+  {
+    id: 'q-boolean-logic-long-names',
+    topicId: 'strings-topic',
+    title: 'Long Names',
+    description:
+      'Print and count the names longer than four letters. Some entries are missing (null), and ' +
+      'asking a missing name for its length crashes - so the null check has to cut the test short.',
+    difficulty: 'INTERMEDIATE',
+    conceptTags: ['boolean_logic'],
+    invitesErrors: ['NON_SHORT_CIRCUIT_OPERATOR'],
+    starterCode: `public class LongNames {
+    public static void main(String[] args) {
+        String[] names = {"Ada", null, "Grace", "Katherine", null, "Alan"};
+        int count = 0;
+
+        // TODO: print each name longer than 4 letters and count them.
+        // Some entries are null.
+
+        System.out.println("Long names: " + count);
+    }
+}`,
+    referenceSolution: `public class LongNames {
+    public static void main(String[] args) {
+        String[] names = {"Ada", null, "Grace", "Katherine", null, "Alan"};
+        int count = 0;
+
+        for (int i = 0; i < names.length; i++) {
+            if (names[i] != null && names[i].length() > 4) {
+                System.out.println(names[i]);
+                count++;
+            }
+        }
+
+        System.out.println("Long names: " + count);
+    }
+}`,
+    expectedOutput: "Grace\nKatherine\nLong names: 2\n",
+    reviewQuestions: [
+      { prompt: 'Is the null check written before the length check?', expected: true },
+      { prompt: 'Did we use a single & between the two checks?', expected: false },
+      { prompt: 'Did we get a NullPointerException on one of our runs?', expected: false },
+      { prompt: 'Did we explain to each other why && skips the second check?', expected: true },
+    ],
+  },
+  {
+    id: 'q-loop-control-run-length',
+    topicId: 'strings-topic',
+    title: 'Run-Length Code',
+    description:
+      'Shorten each word by writing every letter once, followed by how many times it repeats in a ' +
+      'row: aaab becomes a3b1. Let the for loop move the index - changing i inside the body as ' +
+      'well makes the loop skip letters.',
+    difficulty: 'ADVANCED',
+    conceptTags: ['loop_control'],
+    invitesErrors: ['LOOP_COUNTER_CHANGED_IN_BODY', 'INDEX_PLUS_ONE_OUT_OF_BOUNDS'],
+    starterCode: `public class RunLength {
+    static String encode(String text) {
+        String result = "";
+
+        // TODO: for each run of the same letter, add the letter and the run's length
+
+        return result;
+    }
+
+    public static void main(String[] args) {
+        String[] words = {"aaabccdd", "abc", "zzzz"};
+        for (int i = 0; i < words.length; i++) {
+            System.out.println(words[i] + " -> " + encode(words[i]));
+        }
+    }
+}`,
+    referenceSolution: `public class RunLength {
+    static String encode(String text) {
+        String result = "";
+        int count = 0;
+
+        for (int i = 0; i < text.length(); i++) {
+            count++;
+            if (i == text.length() - 1 || text.charAt(i) != text.charAt(i + 1)) {
+                result = result + text.charAt(i) + count;
+                count = 0;
+            }
+        }
+
+        return result;
+    }
+
+    public static void main(String[] args) {
+        String[] words = {"aaabccdd", "abc", "zzzz"};
+        for (int i = 0; i < words.length; i++) {
+            System.out.println(words[i] + " -> " + encode(words[i]));
+        }
+    }
+}`,
+    expectedOutput: "aaabccdd -> a3b1c2d2\nabc -> a1b1c1\nzzzz -> z4\n",
+    reviewQuestions: [
+      { prompt: 'Is i changed only in the for loop header?', expected: true },
+      { prompt: 'Did our first version skip letters or repeat them?', expected: false },
+      { prompt: 'Is the run count started again after each run is written?', expected: true },
+      { prompt: 'Did we trace "aaab" on paper together before coding the loop?', expected: true },
+      { prompt: 'Did reading the next letter crash on the last character?', expected: false },
     ],
   },
 
@@ -1417,6 +1702,53 @@ export const QUESTIONS: BankQuestion[] = [
       { prompt: 'Did we round the total before comparing to make == come out true?', expected: false },
     ],
   },
+  {
+    id: 'q-statement-structure-discount-note',
+    topicId: 'expressions-topic',
+    title: 'Discount Note',
+    description:
+      'Orders over 100 get 15 off and a note saying so; every order then prints what is to pay. ' +
+      'Two statements belong to the if - and indenting a line does not put it inside one.',
+    difficulty: 'BEGINNER',
+    conceptTags: ['statement_structure'],
+    invitesErrors: ['MISLEADING_INDENTATION_NO_BRACES', 'EMPTY_CONDITIONAL_BODY'],
+    starterCode: `public class DiscountNote {
+    public static void main(String[] args) {
+        int[] totals = {80, 150, 120};
+
+        for (int i = 0; i < totals.length; i++) {
+            int toPay = totals[i];
+
+            // TODO: over 100, take 15 off and print "Order N: discount applied".
+            // Then, for every order, print "Order N: pay " and the amount.
+
+        }
+    }
+}`,
+    referenceSolution: `public class DiscountNote {
+    public static void main(String[] args) {
+        int[] totals = {80, 150, 120};
+
+        for (int i = 0; i < totals.length; i++) {
+            int toPay = totals[i];
+
+            if (totals[i] > 100) {
+                toPay = totals[i] - 15;
+                System.out.println("Order " + (i + 1) + ": discount applied");
+            }
+            System.out.println("Order " + (i + 1) + ": pay " + toPay);
+        }
+    }
+}`,
+    expectedOutput:
+      "Order 1: pay 80\nOrder 2: discount applied\nOrder 2: pay 135\nOrder 3: discount applied\nOrder 3: pay 105\n",
+    reviewQuestions: [
+      { prompt: 'Did we put braces around both statements that belong to the if?', expected: true },
+      { prompt: 'Did order 1 print "discount applied"?', expected: false },
+      { prompt: 'Did the driver read out which lines run for an order of 80 before we ran it?', expected: true },
+      { prompt: 'Did we rely on indentation alone to show what the if controls?', expected: false },
+    ],
+  },
 
   // ── Methods and Return Values ──────────────────────────────────────────
   {
@@ -1581,6 +1913,54 @@ export const QUESTIONS: BankQuestion[] = [
       { prompt: 'Did we write a = a anywhere?', expected: false },
     ],
   },
+  {
+    id: 'q-control-flow-all-even',
+    topicId: 'methods-topic',
+    title: 'All Even?',
+    description:
+      'Write allEven, which answers whether every number in the array is even. One odd number ' +
+      'settles it as false straight away - but true has to wait until every number has been checked.',
+    difficulty: 'INTERMEDIATE',
+    conceptTags: ['control_flow', 'boolean_logic'],
+    invitesErrors: ['EARLY_RETURN_IN_LOOP', 'UNREACHABLE_CODE_AFTER_RETURN'],
+    starterCode: `public class AllEven {
+    static boolean allEven(int[] values) {
+        // TODO: false as soon as an odd number turns up; true only after checking them all
+        return false;
+    }
+
+    public static void main(String[] args) {
+        System.out.println("2 4 6 -> " + allEven(new int[] {2, 4, 6}));
+        System.out.println("2 4 7 -> " + allEven(new int[] {2, 4, 7}));
+        System.out.println("3 4 6 -> " + allEven(new int[] {3, 4, 6}));
+        System.out.println("empty -> " + allEven(new int[] {}));
+    }
+}`,
+    referenceSolution: `public class AllEven {
+    static boolean allEven(int[] values) {
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] % 2 != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static void main(String[] args) {
+        System.out.println("2 4 6 -> " + allEven(new int[] {2, 4, 6}));
+        System.out.println("2 4 7 -> " + allEven(new int[] {2, 4, 7}));
+        System.out.println("3 4 6 -> " + allEven(new int[] {3, 4, 6}));
+        System.out.println("empty -> " + allEven(new int[] {}));
+    }
+}`,
+    expectedOutput: "2 4 6 -> true\n2 4 7 -> false\n3 4 6 -> false\nempty -> true\n",
+    reviewQuestions: [
+      { prompt: 'Does the method return true only after the loop has finished?', expected: true },
+      { prompt: 'Did our method decide after looking at the first number only?', expected: false },
+      { prompt: 'Did we agree together what an empty array should give?', expected: true },
+      { prompt: 'Is there an else branch inside the loop that returns true?', expected: false },
+    ],
+  },
 
   // ── Nested Loops and 2D Arrays ─────────────────────────────────────────
   {
@@ -1725,6 +2105,91 @@ export const QUESTIONS: BankQuestion[] = [
       { prompt: 'Is each total reset to 0 before its row or column is added up?', expected: true },
       { prompt: 'Did the navigator check that the row totals and column totals add up to the same grand total?', expected: true },
       { prompt: 'Did we write 3 or 4 as a loop limit instead of using a length?', expected: false },
+    ],
+  },
+  {
+    id: 'q-array-indexing-pair-sums',
+    topicId: 'nested-topic',
+    title: 'Pairs That Add Up',
+    description:
+      'Print every pair of values at two different positions that adds up to the target. The outer ' +
+      'loop picks the first value and the inner loop the second - so each one indexes with its own counter.',
+    difficulty: 'INTERMEDIATE',
+    conceptTags: ['array_indexing', 'loop_control'],
+    invitesErrors: ['WRONG_LOOP_VARIABLE_IN_INDEX', 'NESTED_LOOP_WRONG_COUNTER'],
+    starterCode: `public class PairSums {
+    public static void main(String[] args) {
+        int[] values = {3, 8, 5, 2, 6};
+        int target = 8;
+
+        // TODO: print "a + b" for every pair of different positions adding up to target
+
+    }
+}`,
+    referenceSolution: `public class PairSums {
+    public static void main(String[] args) {
+        int[] values = {3, 8, 5, 2, 6};
+        int target = 8;
+
+        for (int i = 0; i < values.length; i++) {
+            for (int j = i + 1; j < values.length; j++) {
+                if (values[i] + values[j] == target) {
+                    System.out.println(values[i] + " + " + values[j]);
+                }
+            }
+        }
+    }
+}`,
+    expectedOutput: "3 + 5\n2 + 6\n",
+    reviewQuestions: [
+      { prompt: 'Does the inner loop index the array with j rather than i?', expected: true },
+      { prompt: 'Did we print any pair twice, once in each order?', expected: false },
+      { prompt: 'Did we list the pairs by hand together first?', expected: true },
+      { prompt: 'Did a value get paired with itself?', expected: false },
+    ],
+  },
+  {
+    id: 'q-loop-control-seat-labels',
+    topicId: 'nested-topic',
+    title: 'Seat Labels',
+    description:
+      'Print the seat labels for rows A to C with four seats each, one row per line. The inner ' +
+      'loop has its own counter - its condition and its update must both use it.',
+    difficulty: 'BEGINNER',
+    conceptTags: ['loop_control'],
+    invitesErrors: ['NESTED_LOOP_WRONG_COUNTER', 'OFF_BY_ONE_LOOP_BOUNDARY'],
+    starterCode: `public class SeatLabels {
+    public static void main(String[] args) {
+        String rows = "ABC";
+        int seatsPerRow = 4;
+
+        // TODO: one line per row; the first line is A1 A2 A3 A4
+
+    }
+}`,
+    referenceSolution: `public class SeatLabels {
+    public static void main(String[] args) {
+        String rows = "ABC";
+        int seatsPerRow = 4;
+
+        for (int r = 0; r < rows.length(); r++) {
+            String line = "";
+            for (int s = 1; s <= seatsPerRow; s++) {
+                line = line + rows.charAt(r) + s;
+                if (s < seatsPerRow) {
+                    line = line + " ";
+                }
+            }
+            System.out.println(line);
+        }
+    }
+}`,
+    expectedOutput: "A1 A2 A3 A4\nB1 B2 B3 B4\nC1 C2 C3 C4\n",
+    reviewQuestions: [
+      { prompt: 'Does the inner loop test and step its own counter?', expected: true },
+      { prompt: 'Did the program hang because a loop never reached its end?', expected: false },
+      { prompt: 'Did we decide together which loop handles rows and which handles seats?', expected: true },
+      { prompt: 'Did a line end with a trailing space?', expected: false },
     ],
   },
 
@@ -1913,6 +2378,57 @@ export const QUESTIONS: BankQuestion[] = [
       { prompt: 'Is the loop condition low <= high rather than low < high?', expected: true },
       { prompt: 'Did we predict together how many passes it takes to find 23?', expected: true },
       { prompt: 'Did we check every element from the start instead of halving the range?', expected: false },
+    ],
+  },
+  {
+    id: 'q-loop-initialization-extremes',
+    topicId: 'algorithms-topic',
+    title: 'Coldest and Warmest',
+    description:
+      'Report the coldest and the warmest reading for winter and for summer. Winter is all below ' +
+      'zero and summer all above it, so whatever the search starts from has to be a real reading.',
+    difficulty: 'INTERMEDIATE',
+    conceptTags: ['loop_initialization'],
+    invitesErrors: ['WRONG_EXTREME_INITIAL_VALUE'],
+    starterCode: `public class Extremes {
+    static void report(String label, int[] readings) {
+        // TODO: find the coldest and the warmest reading, then print
+        // label + ": coldest " + ... + ", warmest " + ...
+    }
+
+    public static void main(String[] args) {
+        report("Winter", new int[] {-4, -11, -2, -7});
+        report("Summer", new int[] {24, 31, 27, 29});
+    }
+}`,
+    referenceSolution: `public class Extremes {
+    static void report(String label, int[] readings) {
+        int coldest = readings[0];
+        int warmest = readings[0];
+
+        for (int i = 1; i < readings.length; i++) {
+            if (readings[i] < coldest) {
+                coldest = readings[i];
+            }
+            if (readings[i] > warmest) {
+                warmest = readings[i];
+            }
+        }
+
+        System.out.println(label + ": coldest " + coldest + ", warmest " + warmest);
+    }
+
+    public static void main(String[] args) {
+        report("Winter", new int[] {-4, -11, -2, -7});
+        report("Summer", new int[] {24, 31, 27, 29});
+    }
+}`,
+    expectedOutput: "Winter: coldest -11, warmest -2\nSummer: coldest 24, warmest 31\n",
+    reviewQuestions: [
+      { prompt: 'Do coldest and warmest start from a reading in the array?', expected: true },
+      { prompt: 'Did our program report 0 as the warmest winter reading?', expected: false },
+      { prompt: 'Did we explain to each other why starting from 0 fails for winter?', expected: true },
+      { prompt: 'Did the summer line say coldest 0?', expected: false },
     ],
   },
 ];
