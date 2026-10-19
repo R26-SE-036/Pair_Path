@@ -27,4 +27,10 @@ export class RetrieveHintDto {
   @IsOptional()
   @IsString()
   recentCodeSnippet?: string;
+
+  /** What Code Coach found in the pair's code, most confident first. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  detectedErrorTypes?: string[];
 }

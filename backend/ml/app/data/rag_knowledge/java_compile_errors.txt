@@ -69,3 +69,9 @@ Keywords: bad, operand, types, binary, operator, boolean, comparison
 Content: Bad operand types means an operator was given values it cannot work with. Comparison and arithmetic operators each accept only certain kinds of value, and text, whole numbers, and true-or-false values cannot always be combined with the same symbols.
 Example: Name the type of the value on each side of the operator, then check whether that operator accepts that combination.
 Question: What kind of value sits on each side of that operator?
+---
+Tags: compile error, unreachable, return, control flow
+Keywords: unreachable statement, unreachable
+Content: Unreachable statement means the compiler can prove a line will never run, usually because a return, break or continue just above it always leaves the block first. Java refuses to compile a line that can never execute, because it nearly always means statements are in the wrong order.
+Example: Find the line the error points at and look at the statement just above it, then ask whether execution can ever get past that statement.
+Question: Was this line meant to run before the return or break above it?

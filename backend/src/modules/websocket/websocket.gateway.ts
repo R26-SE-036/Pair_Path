@@ -96,6 +96,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   // only; they are transient working state, not part of the research record.
   private lastError = new Map<string, string>(); // sessionId -> stderr of the last failed run
   private lastCode = new Map<string, string>(); // sessionId -> most recent editor contents
+  private compileFailed = new Set<string>(); // sessions whose last run did not compile
 
   // Who currently holds which role, by session.
   //
@@ -705,6 +706,11 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       } else {
         this.lastError.set(sessionId, result.compileError || result.stderr || '');
       }
+      if (result.compileError) {
+        this.compileFailed.add(sessionId);
+      } else {
+        this.compileFailed.delete(sessionId);
+      }
 
       /*
        * `correct` is recorded alongside `success`, not instead of it.
@@ -934,6 +940,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     this.presenterSessions.delete(sessionId);
     this.lastError.delete(sessionId);
     this.lastCode.delete(sessionId);
+    this.compileFailed.delete(sessionId);
     this.activeWorkCounters.delete(sessionId);
     this.sessionRoles.delete(sessionId);
     this.sessionExpected.delete(sessionId);
@@ -1265,7 +1272,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       });
 
       if (session) {
-        const { tags, interventionType } = await this.hintTopicsFor(sessionId, session);
+        const { tags, interventionType, errorTypes } = await this.hintTopicsFor(sessionId, session);
         const hint = await this.mlService.retrieveHint({
           sessionId,
           pairId: '',
@@ -1274,6 +1281,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
           questionConceptTags: tags,
           recentErrorContext: this.lastError.get(sessionId) || '',
           recentCodeSnippet: this.lastCode.get(sessionId) || '',
+          detectedErrorTypes: errorTypes,
         });
 
         if (hint) {
@@ -1306,30 +1314,48 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   /**
    * What a struggling pair's hint should be about.
    *
-   * An exercise session uses the exercise's concept tags. A free session has
-   * none, so Code Coach reads the pair's current code and says which concepts
-   * it touches. When it finds nothing - code that is fine as far as the
-   * detector can tell, or Code Coach unreachable - the hint is about working
-   * together instead of about Java: corpus tags the retriever matches on
-   * directly, under the collaboration intervention type.
+   * Code Coach reads the pair's current code first, in either kind of session.
+   * The mistakes it names come first: each has a hint written for it, and a
+   * program that runs and prints the wrong answer gives retrieval no error
+   * text to work with, which left the hint to the exercise's topic - the same
+   * advice for every mistake on it.
+   *
+   * Not after a run that failed to compile, though. The pair is stuck on the
+   * compiler's message, and the hint is retrieved for that text; a mistake
+   * the detector finds elsewhere in the code is not what is stopping them.
+   *
+   * The tags are what retrieval falls back on: the exercise's own, or in a
+   * free session the concepts Code Coach found. When it finds nothing - code
+   * that is fine as far as the detector can tell, or Code Coach unreachable -
+   * a free session's hint is about working together instead of about Java:
+   * corpus tags the retriever matches on directly, under the collaboration
+   * intervention type.
    */
   private async hintTopicsFor(
     sessionId: string,
     session: { mode: string; question: { conceptTags: unknown } | null },
-  ): Promise<{ tags: string[]; interventionType: string }> {
+  ): Promise<{ tags: string[]; interventionType: string; errorTypes: string[] }> {
+    const found = (await this.codeConcepts?.findingsIn(this.lastCode.get(sessionId) || '')) ?? {
+      conceptTags: [],
+      errorTypes: [],
+    };
+    const errorTypes = this.compileFailed.has(sessionId) ? [] : found.errorTypes;
+
     if (session.question) {
       const tags = Array.isArray(session.question.conceptTags)
         ? session.question.conceptTags.filter((t): t is string => typeof t === 'string')
         : [];
-      return { tags, interventionType: 'LOGIC_HINT' };
+      return { tags, interventionType: 'LOGIC_HINT', errorTypes };
     }
 
-    const found = (await this.codeConcepts?.conceptsIn(this.lastCode.get(sessionId) || '')) ?? [];
-    if (found.length) return { tags: found, interventionType: 'LOGIC_HINT' };
+    if (found.conceptTags.length) {
+      return { tags: found.conceptTags, interventionType: 'LOGIC_HINT', errorTypes };
+    }
 
     return {
       tags: ['pair programming', 'collaboration', 'debugging'],
       interventionType: 'COLLABORATION_PROMPT',
+      errorTypes: [],
     };
   }
 }

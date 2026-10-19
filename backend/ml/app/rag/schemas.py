@@ -9,6 +9,8 @@ class RAGHintRequest(BaseModel):
     questionConceptTags: List[str] = Field(default_factory=list)
     recentErrorContext: str = Field(default="")
     recentCodeSnippet: str = Field(default="")
+    # What Code Coach's detector found in the pair's code, most confident first.
+    detectedErrorTypes: List[str] = Field(default_factory=list)
 
 class RAGHintResponse(BaseModel):
     interventionType: str

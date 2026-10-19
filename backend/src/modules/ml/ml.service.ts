@@ -140,6 +140,7 @@ export class MlService {
           questionConceptTags: dto.questionConceptTags || [],
           recentErrorContext: dto.recentErrorContext || '',
           recentCodeSnippet: dto.recentCodeSnippet || '',
+          detectedErrorTypes: dto.detectedErrorTypes || [],
         }, { headers: this.headers })
         .toPromise();
 

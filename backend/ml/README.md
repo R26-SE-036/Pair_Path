@@ -29,10 +29,13 @@ UI interventions. Part of the PairPath component of Code Guru (R26-SE-036).
   RQ1 baseline the trained model is compared against.
 
 - **Retrieval is RAG-lite, not embeddings** (L14): keyword and tag scoring over
-  a hand-written corpus of **57 entries** in `app/data/rag_knowledge/`, ranked
+  a hand-written corpus of **59 entries** in `app/data/rag_knowledge/`, ranked
   by concept tag, primary-topic match, error keyword and code keyword.
   Measured at 100% top-1 retrieval accuracy over the labelled cases in
-  `dev_tools/evaluate_rag.py`. This is an architectural guarantee, not a
+  `dev_tools/evaluate_rag.py`. When Code Coach has named the mistake in the
+  pair's code, ranking is skipped: each of its 30 error types has a hint
+  written for it in `app/data/error_type_hints/`, looked up by name (`detectedErrorTypes`
+  on the request). This is an architectural guarantee, not a
   placeholder: no corpus document contains the solution to any exercise, so the
   hint system cannot give one away. An embedding-based retriever is Phase 3
   future work, to be evaluated as a scored comparison against this baseline
