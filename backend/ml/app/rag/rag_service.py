@@ -17,6 +17,47 @@ STATE_TO_INTERVENTION = {
 # States about the collaboration rather than the code.
 COLLABORATION_STATES = frozenset({"PASSIVE_NAVIGATOR", "DRIVER_DOMINANCE"})
 
+# The exceptions a detected mistake raises when its line runs. Code Coach ranks
+# its findings by confidence, which knows nothing about the run the pair is
+# looking at: in `average = total / count` it finds both a divisor that could
+# be zero and a whole-number division, and puts the divisor first. A run that
+# crashed with one of these points at the mistake that raises it.
+RAISES = {
+    "DIVISION_BY_ZERO_LITERAL": ("arithmeticexception",),
+    "ARRAY_LENGTH_INDEX_MISUSE": ("arrayindexoutofboundsexception",),
+    "INDEX_PLUS_ONE_OUT_OF_BOUNDS": ("arrayindexoutofboundsexception",),
+    "OFF_BY_ONE_LOOP_BOUNDARY": ("arrayindexoutofboundsexception",),
+    "NON_SHORT_CIRCUIT_OPERATOR": ("nullpointerexception", "stringindexoutofboundsexception"),
+}
+
+# Mistakes that show only as a crash. A run that finished without error was not
+# stopped by one, so it cannot explain the wrong answer the pair is stuck on;
+# any other finding goes before it.
+ONLY_SEEN_AS_A_CRASH = frozenset({
+    "DIVISION_BY_ZERO_LITERAL",
+    "ARRAY_LENGTH_INDEX_MISUSE",
+    "INDEX_PLUS_ONE_OUT_OF_BOUNDS",
+    "NON_SHORT_CIRCUIT_OPERATOR",
+})
+
+
+def order_for_the_run(detected: List[str], error_context: str) -> List[str]:
+    """Code Coach's findings, the ones that explain this run first.
+
+    Stable: findings the run says nothing about keep the detector's order.
+    """
+    error = (error_context or "").lower()
+
+    def rank(item):
+        position, error_type = item
+        if any(name in error for name in RAISES.get(error_type, ())):
+            return (0, position)
+        if not error and error_type in ONLY_SEEN_AS_A_CRASH:
+            return (2, position)
+        return (1, position)
+
+    return [error_type for _, error_type in sorted(enumerate(detected), key=rank)]
+
 
 class RAGService:
     def __init__(self):
@@ -27,6 +68,41 @@ class RAGService:
         self.loader = KnowledgeLoader(data_dir)
         self.retriever = KeywordRetriever(self.loader)
         self.generator = HintGenerator()
+
+        # A separate directory, so these entries never enter keyword ranking:
+        # they are reached by name or not at all.
+        error_type_dir = os.path.join(current_dir, "..", "data", "error_type_hints")
+        self.error_type_hints = {
+            c["error_type"]: c for c in KnowledgeLoader(error_type_dir).chunks if c["error_type"]
+        }
+
+    def _hint_for_detected_error(self, request: RAGHintRequest, intervention_type: str):
+        """The written hint for the mistake Code Coach found, if there is one.
+
+        Retrieval ranks corpus entries by the exercise's concept tags and by
+        whatever error text the run produced. A program that runs and prints
+        the wrong answer produces no error text, so the hint came down to the
+        exercise's tags - the same advice for every mistake on that topic, and
+        sometimes the wrong one: an integer-division bug on an arithmetic
+        exercise was handed the entry about the remainder operator. When the
+        detector has named the mistake there is nothing left to rank.
+        """
+        if intervention_type != "LOGIC_HINT":
+            return None
+        detected = order_for_the_run(request.detectedErrorTypes or [], request.recentErrorContext)
+        for error_type in detected:
+            entry = self.error_type_hints.get(error_type)
+            if entry:
+                return RAGHintResponse(
+                    interventionType=intervention_type,
+                    retrievedConcepts=list(entry["tags"]),
+                    conceptReminder=entry["content"],
+                    exampleIdea=entry["example"],
+                    reflectiveQuestion=entry["question"],
+                    sourceChunks=[entry["id"]],
+                    fallbackUsed=False,
+                )
+        return None
 
     def process_request(self, request: RAGHintRequest) -> RAGHintResponse:
         # 1. Map predicted state to intervention type if not explicitly provided
@@ -41,6 +117,10 @@ class RAGService:
         # the one the model was fitted on.
         if not intervention_type or intervention_type == "UNKNOWN":
             intervention_type = STATE_TO_INTERVENTION.get(state, "CONCEPT_HINT")
+
+        named = self._hint_for_detected_error(request, intervention_type)
+        if named:
+            return named
 
         # Platform concept tags are expanded into the corpus vocabulary. A
         # question tagged `loop_boundaries` matches no corpus entry on its own -

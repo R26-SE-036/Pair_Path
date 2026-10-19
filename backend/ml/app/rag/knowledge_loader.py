@@ -12,6 +12,9 @@ FIELDS = {
     "Content:": "content",
     "Example:": "example",
     "Question:": "question",
+    # Only on the entries in data/error_type_hints, which are looked up by the
+    # Code Coach error type they explain rather than ranked by keywords.
+    "ErrorType:": "error_type",
 }
 LIST_FIELDS = {"tags", "keywords"}
 
@@ -69,6 +72,7 @@ class KnowledgeLoader:
             "content": "",
             "example": "",
             "question": "",
+            "error_type": "",
         }
 
         field = None
@@ -84,6 +88,10 @@ class KnowledgeLoader:
             elif field and field not in LIST_FIELDS and line.strip():
                 # Continuation of the previous field.
                 entry[field] = (entry[field] + " " + line.strip()).strip()
+
+        # Cited by the error it explains, which says more than its position.
+        if entry["error_type"]:
+            entry["id"] = f"{os.path.splitext(filename)[0]}#{entry['error_type']}"
 
         # An entry without content cannot help anyone; drop it rather than
         # letting a malformed block reach retrieval.

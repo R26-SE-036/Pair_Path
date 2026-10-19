@@ -1,0 +1,183 @@
+# One hint for each error type Code Coach can name, in the same three parts as
+# the rest of the corpus. Looked up by ErrorType, never ranked by keywords: when
+# Code Coach has found the mistake in the pair's code there is nothing to guess.
+# The thirty names are code-coach/knowledge_base/code_coach_errors.json.
+ErrorType: OFF_BY_ONE_LOOP_BOUNDARY
+Tags: loop_boundaries, loops, off-by-one, arrays
+Content: An array of length N has positions 0 to N - 1, so a loop that is allowed to reach the length itself runs one pass too many. That extra pass asks for a position that does not exist.
+Example: Take a three-element array and write down the counter on every pass until the condition turns false. Circle any value that is not a real position.
+Question: On the loop's final pass, what is the counter, and is that a valid index?
+---
+ErrorType: INCORRECT_CONDITIONAL_OPERATOR
+Tags: conditional_logic, conditions, assignment, comparison
+Content: A single equals sign stores a value, while a double one compares two values. Inside a condition, a single equals changes the variable first, so the branch taken no longer depends on the data at all.
+Example: Read the condition aloud. If it sounds like "make this equal to" rather than "is this equal to", look again at the operator in the middle.
+Question: Is this condition asking a question about the variable, or changing the variable?
+---
+ErrorType: ARRAY_LENGTH_INDEX_MISUSE
+Tags: array_indexing, arrays, index, length
+Content: An array's length counts its elements, but positions start at 0, so the last element sits at length minus one. Using the length itself as a position always points one step past the end.
+Example: For an array holding three values, list its valid positions, then compare that list with the position this line asks for.
+Question: If the array has N elements, which position does the last one occupy?
+---
+ErrorType: STRING_EQUALITY_WITH_OPERATOR
+Tags: string_comparison, strings, comparison, equality
+Content: Strings are objects. The equality operator asks whether two variables refer to the very same object, not whether they hold the same characters, so two strings that print identically can still compare as different.
+Example: Find every place this code compares text, and for each one say whether it should check "the same object" or "the same characters".
+Question: Should this comparison ask whether the two strings are the same object, or whether they contain the same text?
+---
+ErrorType: LOOP_UPDATE_WRONG_DIRECTION
+Tags: loop_control, loops, infinite loop, update
+Content: A loop ends only when its counter moves toward the value that makes the condition false. If the update pushes the counter the other way, the condition stays true and the loop runs far longer than intended, or never stops.
+Example: Write down the counter for the first three passes and mark whether each value is closer to or further from the stopping value.
+Question: Is the counter moving toward the value that ends this loop, or away from it?
+---
+ErrorType: UNREACHABLE_CODE_AFTER_RETURN
+Tags: control_flow, return, unreachable
+Content: A return ends the method immediately. A statement after it in the same block can never run, so the work placed there is never done, and the compiler may refuse the method altogether.
+Example: Trace the method line by line and draw a line where execution leaves it. Check whether anything below that line was meant to happen.
+Question: Which of these statements were meant to run before the method gives back its answer?
+---
+ErrorType: MISSING_BREAK_IN_SWITCH
+Tags: switch_statements, switch, break, fall-through
+Content: In a switch, once a case matches, execution carries on into every case below it until something stops it. A case without a break therefore also runs the next case's statements, overwriting or adding to what it just did.
+Example: Pick one value, find the case it matches, and follow execution downwards, listing every statement that runs until it meets a break or the end of the switch.
+Question: When this case has finished, what stops execution from carrying on into the next case?
+---
+ErrorType: EMPTY_CONDITIONAL_BODY
+Tags: statement_structure, semicolon, if, loops
+Content: A semicolon on its own is a complete statement that does nothing. Placed straight after a condition, it becomes the whole body, and the block underneath runs every time whatever the condition says.
+Example: Choose an input that should make the condition false, then check whether the block underneath still runs.
+Question: What exactly does this condition control: the block below it, or something that ends sooner?
+---
+ErrorType: SELF_ASSIGNMENT
+Tags: assignment_logic, assignment, variables, fields
+Content: An assignment copies the value on the right into the variable on the left. When both sides name the same variable nothing changes - often because a parameter has the same name as a field, so the field is never set.
+Example: Say which variable is on each side of this assignment, and what each one holds before and after the line runs.
+Question: After this line runs, which variable holds a different value from before?
+---
+ErrorType: ALWAYS_TRUE_OR_CONDITION
+Tags: boolean_logic, boolean, or, conditions
+Content: An or condition is true when at least one side is true. Two "not equal to" checks joined by or are always true, because no value can be equal to both numbers at once, so the condition can never fail.
+Example: Make a small table with three values - one matching each number and one matching neither - and work out each side and the whole condition.
+Question: Is there any value at all that makes this whole condition false?
+---
+ErrorType: IGNORED_STRING_METHOD_RESULT
+Tags: immutable_strings, strings, return value, immutable
+Content: A string never changes once it exists. Methods such as trim or toUpperCase build a new string and hand it back; if nothing keeps that result, the variable still holds its original text.
+Example: Print the variable straight after this call and compare it with what you expected the call to do to it.
+Question: Where does the new string returned by this call end up?
+---
+ErrorType: DIVISION_BY_ZERO_LITERAL
+Tags: arithmetic_operations, division, division by zero, remainder
+Content: Whole-number division or remainder by zero has no answer, so Java stops the program with an ArithmeticException the moment that line runs. A divisor that is zero on any path will crash the program on that path.
+Example: Find the right-hand side of this division or remainder and write down the value it has when the line runs.
+Question: What value is the divisor when this line runs, and what did you actually mean to divide by?
+---
+ErrorType: CONSTANT_FALSE_LOOP_CONDITION
+Tags: loop_initialization, loops, condition, start value
+Content: A loop checks its condition before the first pass. If the starting value already makes the condition false, the body never runs at all and the program carries on as if the loop were not there.
+Example: Put the counter's starting value into the condition and work out the answer by hand.
+Question: Is the condition true on the very first check, before the loop has done anything?
+---
+ErrorType: DUPLICATE_IF_ELSE_CONDITION
+Tags: conditional_logic, conditions, else if, chain
+Content: In an if / else-if chain only the first true branch runs. If a later branch repeats a test already made above it, that branch can never be reached, and the case it was written for is handled by the earlier branch instead.
+Example: Write down which inputs each branch is meant to handle, then compare the conditions as they are written, side by side.
+Question: Which situation was the repeated condition meant to catch, and how should its test differ from the one above it?
+---
+ErrorType: WHILE_VARIABLE_NOT_UPDATED
+Tags: loop_termination, loops, while, infinite loop
+Content: A while loop stops only when its condition becomes false. If nothing inside the body changes the variables the condition uses, it stays true for ever and the program hangs.
+Example: List each variable in the loop condition, then look through the body for a line that changes it.
+Question: Which line inside the loop moves the condition closer to becoming false?
+---
+ErrorType: INTEGER_DIVISION_IN_DECIMAL_CONTEXT
+Tags: arithmetic_operations, division, integer, decimal
+Content: When both values in a division are whole numbers, Java divides them as whole numbers and throws the fraction away before the result is stored. Saving the answer in a decimal variable afterwards cannot bring the lost fraction back.
+Example: Work out the division by hand for one input, then compare that with the value the program stores.
+Question: What type are the two values being divided, and does the answer need a fractional part?
+---
+ErrorType: DECIMAL_EQUALITY_COMPARISON
+Tags: arithmetic_operations, decimal, double, equality
+Content: Most decimal fractions cannot be stored exactly in a double, so two calculations that should give the same number can differ in the last few digits. Testing them for exact equality then fails, or passes, unpredictably.
+Example: Print both sides of this comparison with all of their digits and look closely at the end of each number.
+Question: How close do these two values need to be for your program to treat them as the same?
+---
+ErrorType: POSTFIX_INCREMENT_ASSIGNED_BACK
+Tags: assignment_logic, increment, assignment, variables
+Content: The postfix increment raises a variable but hands back the value it had before. Assigning that result to the same variable stores the old value again, so the increase is lost and the variable never changes.
+Example: Trace the line in three steps - the old value is read, the variable goes up by one, the value that was read is stored - and write down the variable after each step.
+Question: After this line runs, has the variable really gone up by one?
+---
+ErrorType: ALWAYS_FALSE_AND_CONDITION
+Tags: boolean_logic, boolean, and, conditions
+Content: An and condition is true only when both sides are true at the same time. If no single value can pass both checks, the condition is always false and its branch never runs.
+Example: Write down the range of values that makes each side true, then look for a value that appears in both ranges.
+Question: Can you name one value that makes both sides true together?
+---
+ErrorType: LOOP_SKIPS_LAST_ELEMENT
+Tags: loop_boundaries, loops, off-by-one, arrays
+Content: A loop over an array usually has to visit every position, from 0 to the last index. Stopping one step early leaves the final element out, which is easy to miss because every other value is handled correctly.
+Example: Test with a small array whose last element is easy to spot, and check whether that value changes the result at all.
+Question: On the loop's final pass, which index does the counter reach, and is that the last element?
+---
+ErrorType: INDEX_PLUS_ONE_OUT_OF_BOUNDS
+Tags: array_indexing, arrays, index, neighbour
+Content: Looking at a neighbour - one position ahead or behind - reaches one step further than the counter itself. The loop has to stop early enough for the neighbour to exist, or its last pass reads beyond the end of the array.
+Example: On the final pass, write down the counter and the neighbour position it reads, then check both against the array's last valid index.
+Question: When the counter is on its last value, does the neighbouring position still exist?
+---
+ErrorType: WRONG_LOOP_VARIABLE_IN_INDEX
+Tags: array_indexing, nested, loops, index
+Content: In nested loops each counter has its own job: the outer one picks a row or a first element, the inner one moves along. Using the outer counter where the inner one belongs makes the code read the same position on every inner pass.
+Example: Trace two passes of the inner loop and write down the exact position read on each pass.
+Question: Does this position change as the inner loop moves on, the way you meant it to?
+---
+ErrorType: NESTED_LOOP_WRONG_COUNTER
+Tags: loop_control, nested, loops, counter
+Content: The three parts of a loop header - start, condition and update - should all work on the same counter. If an inner loop tests or changes the outer loop's counter, it may never finish or may cut the outer loop short.
+Example: Read each loop header aloud and name the variable in each of its three parts.
+Question: Which counter does this loop start, which does it test, and which does it change?
+---
+ErrorType: LOOP_COUNTER_CHANGED_IN_BODY
+Tags: loop_control, loops, counter, skipping
+Content: A for loop already moves its counter once on every pass. Changing the counter again inside the body makes the loop jump, so some elements are skipped or the loop overshoots its end.
+Example: Trace the counter through three passes, noting every place it changes, and list the elements that actually get visited.
+Question: How many times does the counter change on each pass, and is that what you intended?
+---
+ErrorType: ACCUMULATOR_RESET_INSIDE_LOOP
+Tags: loop_initialization, accumulator, total, loops
+Content: A running total has to be given its starting value once, before the loop that builds it up. Resetting it inside the loop throws away everything gathered so far, so only the last pass counts.
+Example: Trace the total through two passes of the loop and write down its value at the start of the second pass.
+Question: Where is the total given its starting value, and how many times does that happen?
+---
+ErrorType: WRONG_EXTREME_INITIAL_VALUE
+Tags: loop_initialization, maximum, minimum, start value
+Content: A search for the largest or smallest value needs a starting value that real data can always beat. Starting at zero gives the wrong answer when every value is negative for a maximum, or every value is above zero for a minimum.
+Example: Run the search by hand on a short list where every value is negative (for a maximum) or every value is large (for a minimum).
+Question: Can your starting value win the comparison before any real value has been checked?
+---
+ErrorType: EARLY_RETURN_IN_LOOP
+Tags: control_flow, return, loops, search
+Content: A return inside a loop ends the whole method on the spot. If both outcomes of a check return, the loop only ever looks at the first element, and the answer is decided before the rest of the data has been seen.
+Example: Trace the method on a list where the item you are looking for is the second element, not the first.
+Question: When can this method be certain of its answer: after one element, or only after checking them all?
+---
+ErrorType: UNREACHABLE_ELSE_IF_ORDER
+Tags: conditional_logic, conditions, else if, order
+Content: An if / else-if chain stops at the first test that is true. When a broad test sits above a narrower one, every value the narrow test is meant for is caught first, so the later branch can never run.
+Example: Pick a value that should reach the later branch and walk it down the chain from the top, marking the first test it passes.
+Question: Does any value ever reach this branch, or does an earlier test always catch it first?
+---
+ErrorType: MISLEADING_INDENTATION_NO_BRACES
+Tags: statement_structure, braces, indentation, if
+Content: Without braces, an if or a loop controls exactly one statement. Indenting the next line makes it look controlled, but it runs every time, whatever the condition says.
+Example: Choose an input that makes the condition false and list which of the indented lines still run.
+Question: Where does the part controlled by this if or loop really end?
+---
+ErrorType: NON_SHORT_CIRCUIT_OPERATOR
+Tags: boolean_logic, boolean, short-circuit, null
+Content: The double operators stop as soon as the left side decides the answer, but a single ampersand or bar always evaluates both sides. When the right side is only safe once the left side has passed - such as after a null check - evaluating it anyway can crash the program.
+Example: Pick a value that makes the left side decide the result on its own, then check whether the right side is still safe to evaluate for that value.
+Question: Should the right side of this condition run at all once the left side has already decided the answer?
