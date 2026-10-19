@@ -22,7 +22,7 @@ UI interventions. Part of the PairPath component of Code Guru (R26-SE-036).
   A model trained on human-annotated real sessions replaces this one. The
   trainer refuses to mix human and simulated rows, and simulated training
   requires an explicit `--demo-simulated` flag — see
-  [`docs/ml-pipeline.md`](../../docs/ml-pipeline.md).
+  [`dev_tools/train_xgboost.py`](dev_tools/train_xgboost.py).
 
 - **With no model file present** the service answers with a transparent
   rule-based fallback (`modelVersion: "rule_fallback_v1"`), which is also the
@@ -43,8 +43,7 @@ UI interventions. Part of the PairPath component of Code Guru (R26-SE-036).
 
 - **Why the previous model was withdrawn** — circular labels, train/test
   leakage, duplicate rows and a train/serve feature mismatch. All four are
-  described in
-  [`docs/ml-pipeline.md`](../../docs/ml-pipeline.md#why-the-archived-data-was-retired).
+  described in [`archive/README.md`](archive/README.md#the-retired-model-and-dataset).
 
 ## The five states (L7)
 
